@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Card, Switch, Input, Button, Typography, Space, Divider, Tag, message, Segmented, Select } from 'antd'
+import { Card, Switch, Input, Button, Typography, Space, Divider, Tag, message, Segmented, Select, Modal } from 'antd'
 import {
   ArrowLeftOutlined,
   SaveOutlined,
@@ -8,7 +8,8 @@ import {
   LinkOutlined,
   SunOutlined,
   MoonOutlined,
-  LaptopOutlined
+  LaptopOutlined,
+  FolderOpenOutlined
 } from '@ant-design/icons'
 import { AppSettings } from '../types'
 import { getThemeVars } from '../theme'
@@ -52,6 +53,28 @@ function SettingsView({ onBack, darkMode, onThemeModeChange }: SettingsViewProps
   const [isEditingApiKey, setIsEditingApiKey] = useState(false)
 
   const themeVars = getThemeVars(darkMode)
+
+  // 查看配置文件位置
+  const handleShowConfigPath = async () => {
+    try {
+      const path = await window.electronAPI.getConfigPath()
+      Modal.info({
+        title: '配置文件位置',
+        content: (
+          <div>
+            <Text copyable={{ text: path }}>{path}</Text>
+            <p style={{ marginTop: 16, fontSize: 12, color: '#999' }}>
+              你的 API Key 等设置都加密存储在这个文件中
+            </p>
+          </div>
+        ),
+        okText: '我知道了',
+        width: 600
+      })
+    } catch (error) {
+      message.error('获取配置路径失败')
+    }
+  }
 
   // AI 提供商配置
   const providerConfigs = {
@@ -305,6 +328,23 @@ function SettingsView({ onBack, darkMode, onThemeModeChange }: SettingsViewProps
                     saveSettingsImmediately(newSettings)
                   }}
                 />
+              </div>
+
+              <Divider style={{ margin: 0 }} />
+
+              <div>
+                <Text style={{ color: themeVars.text, fontWeight: 500 }}>数据存储</Text>
+                <br />
+                <Text type="secondary" style={{ fontSize: '12px', color: themeVars.textSecondary, marginBottom: '12px', display: 'block' }}>
+                  你的 API Key 和设置存储在本地加密文件中（非 localStorage）
+                </Text>
+                <Button
+                  icon={<FolderOpenOutlined />}
+                  onClick={handleShowConfigPath}
+                  block
+                >
+                  查看配置文件位置
+                </Button>
               </div>
             </Space>
           </Card>

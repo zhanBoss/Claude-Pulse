@@ -59,6 +59,15 @@ export interface ElectronAPI {
   exportRecords: (options: ExportOptions) => Promise<{ success: boolean; filePath?: string; error?: string }>
   // 新增 AI 相关方法
   summarizeRecords: (request: SummaryRequest) => Promise<SummaryResponse>
+  // 流式总结，返回监听器清理函数
+  summarizeRecordsStream: (
+    request: SummaryRequest,
+    onChunk: (chunk: string) => void,
+    onComplete: () => void,
+    onError: (error: string) => void
+  ) => Promise<void>
+  // 获取配置文件路径
+  getConfigPath: () => Promise<string>
 }
 
 // AI 总结请求参数

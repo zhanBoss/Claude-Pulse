@@ -42,5 +42,35 @@ contextBridge.exposeInMainWorld('electronAPI', {
   exportRecords: (options: any) => ipcRenderer.invoke('export-records', options),
 
   // 新增 AI 总结方法
-  summarizeRecords: (request: any) => ipcRenderer.invoke('summarize-records', request)
+  summarizeRecords: (request: any) => ipcRenderer.invoke('summarize-records', request),
+
+  // 流式 AI 总结
+  summarizeRecordsStream: (
+    request: any,
+    onChunk: (chunk: string) => void,
+    onComplete: () => void,
+    onError: (error: string) => void
+  ) => {
+    // 注册流式响应监听器
+    const chunkListener = (_: any, chunk: string) => onChunk(chunk)
+    const completeListener = () => onComplete()
+    const errorListener = (_: any, error: string) => onError(error)
+
+    ipcRenderer.on('summary-stream-chunk', chunkListener)
+    ipcRenderer.once('summary-stream-complete', completeListener)
+    ipcRenderer.once('summary-stream-error', errorListener)
+
+    // 发起请求
+    return ipcRenderer.invoke('summarize-records-stream', request).then(() => {
+      // 清理监听器
+      return () => {
+        ipcRenderer.removeListener('summary-stream-chunk', chunkListener)
+        ipcRenderer.removeListener('summary-stream-complete', completeListener)
+        ipcRenderer.removeListener('summary-stream-error', errorListener)
+      }
+    })
+  },
+
+  // 获取配置文件路径
+  getConfigPath: () => ipcRenderer.invoke('get-config-path')
 })

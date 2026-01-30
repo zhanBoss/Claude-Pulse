@@ -228,74 +228,93 @@ function LogViewer({ records, onClear, onToggleView, onOpenDrawer, onOpenSetting
             onOpenSettings?.()
           }
         })
+        setSummarizing(false)
         return
       }
 
-      if (!settings.ai.apiKey) {
+      const currentProvider = settings.ai.providers[settings.ai.provider]
+      if (!currentProvider || !currentProvider.apiKey) {
         Modal.confirm({
           title: '配置 API Key',
-          content: '尚未配置 DeepSeek API Key，是否前往设置？',
+          content: `尚未配置 API Key，是否前往设置？`,
           okText: '去设置',
           cancelText: '取消',
           onOk: () => {
             onOpenSettings?.()
           }
         })
+        setSummarizing(false)
         return
       }
 
-      // 调用总结接口
-      const result = await window.electronAPI.summarizeRecords({
-        records: records,
-        type: 'detailed'
-      })
+      // 先打开弹窗，显示"正在生成总结..."
+      setSummaryContent('正在生成总结...')
+      setSummaryModalVisible(true)
 
-      if (result.success && result.summary) {
-        setSummaryContent(result.summary)
-        setSummaryModalVisible(true)
-      } else {
-        // 显示详细的错误信息
-        const errorMsg = result.error || '未知错误'
+      let fullSummary = ''
 
-        // 如果是余额不足错误，显示更友好的提示
-        if (errorMsg.includes('余额不足') || errorMsg.includes('402')) {
-          Modal.error({
-            title: 'AI 总结失败',
-            content: (
-              <div>
-                <p>{errorMsg}</p>
-                <p style={{ marginTop: 8, fontSize: 12, color: '#999' }}>
-                  提示：你可以前往 DeepSeek 平台充值后继续使用
-                </p>
-              </div>
-            ),
-            okText: '我知道了'
-          })
-        } else if (errorMsg.includes('API Key')) {
-          Modal.error({
-            title: 'AI 总结失败',
-            content: (
-              <div>
-                <p>{errorMsg}</p>
-                <p style={{ marginTop: 8, fontSize: 12, color: '#999' }}>
-                  提示：请前往设置页面重新配置 API Key
-                </p>
-              </div>
-            ),
-            okText: '前往设置',
-            onOk: () => {
-              onOpenSettings?.()
-            }
-          })
-        } else {
-          message.error(`总结失败: ${errorMsg}`, 5)
+      // 调用流式总结接口
+      await window.electronAPI.summarizeRecordsStream(
+        {
+          records: records,
+          type: 'detailed'
+        },
+        // onChunk: 接收到新内容时追加
+        (chunk: string) => {
+          fullSummary += chunk
+          setSummaryContent(fullSummary)
+        },
+        // onComplete: 总结完成
+        () => {
+          setSummarizing(false)
+        },
+        // onError: 出错时处理
+        (error: string) => {
+          setSummarizing(false)
+          setSummaryModalVisible(false)
+
+          // 显示详细的错误信息
+          if (error.includes('余额不足') || error.includes('402')) {
+            Modal.error({
+              title: 'AI 总结失败',
+              content: (
+                <div>
+                  <p>{error}</p>
+                  <p style={{ marginTop: 8, fontSize: 12, color: '#999' }}>
+                    提示：你可以前往相应平台充值后继续使用
+                  </p>
+                </div>
+              ),
+              okText: '我知道了'
+            })
+          } else if (error.includes('API Key')) {
+            Modal.error({
+              title: 'AI 总结失败',
+              content: (
+                <div>
+                  <p>{error}</p>
+                  <p style={{ marginTop: 8, fontSize: 12, color: '#999' }}>
+                    提示：请前往设置页面重新配置 API Key
+                  </p>
+                </div>
+              ),
+              okText: '前往设置',
+              onOk: () => {
+                onOpenSettings?.()
+              }
+            })
+          } else {
+            message.error(`总结失败: ${error}`, 5)
+          }
         }
-      }
+      )
+
+      // 不需要处理 result，因为流式输出在回调中处理
+      return
 
     } catch (error: any) {
-      message.error(`总结失败: ${error.message || '未知错误'}`, 5)
-    } finally {
       setSummarizing(false)
+      message.error(`总结失败: ${error.message || '未知错误'}`, 5)
     }
   }
 
