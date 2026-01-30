@@ -5,7 +5,6 @@ import {
   CopyOutlined,
   ClockCircleOutlined,
   FileTextOutlined,
-  CloseOutlined,
   ReloadOutlined,
   ExportOutlined,
   SearchOutlined
@@ -660,10 +659,6 @@ function HistoryViewer({ onToggleView, darkMode }: HistoryViewerProps) {
         open={sessionModalVisible}
         onCancel={handleCloseSessionModal}
         closable={true}
-        closeIcon={<CloseOutlined onClick={(e) => {
-          e.stopPropagation()
-          handleCloseSessionModal()
-        }} />}
         maskClosable={true}
         keyboard={true}
         destroyOnClose={false}
@@ -769,10 +764,6 @@ function HistoryViewer({ onToggleView, darkMode }: HistoryViewerProps) {
         open={recordModalVisible}
         onCancel={handleCloseRecordModal}
         closable={true}
-        closeIcon={<CloseOutlined onClick={(e) => {
-          e.stopPropagation()
-          handleCloseRecordModal()
-        }} />}
         maskClosable={true}
         keyboard={true}
         destroyOnClose={false}

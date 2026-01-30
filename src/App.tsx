@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Layout, Result, Button, ConfigProvider, Drawer } from 'antd'
 import { WarningOutlined } from '@ant-design/icons'
+import zhCN from 'antd/locale/zh_CN'
 import StatusBar from './components/StatusBar'
 import ConfigEditor from './components/ConfigEditor'
 import RecordControl from './components/RecordControl'
@@ -123,7 +124,7 @@ function App() {
   const themeVars = getThemeVars(darkMode)
 
   return (
-    <ConfigProvider theme={darkMode ? darkTheme : lightTheme}>
+    <ConfigProvider theme={darkMode ? darkTheme : lightTheme} locale={zhCN}>
       <Layout style={{ height: '100vh', minHeight: 600 }}>
         <StatusBar
           claudeDir={claudeDir}
@@ -203,6 +204,11 @@ function App() {
           open={drawerVisible}
           width={400}
           closable={false}
+          styles={{
+            header: {
+              paddingLeft: 80  // 为 macOS 全屏模式的窗口控制按钮预留空间
+            }
+          }}
         >
           <div style={{
             display: 'flex',

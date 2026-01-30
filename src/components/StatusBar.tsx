@@ -16,6 +16,7 @@ function StatusBar({ claudeDir, darkMode, onThemeToggle, onOpenSettings }: Statu
         background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
         WebkitAppRegion: 'drag',
         padding: '12px 16px',
+        paddingLeft: 80,  // 为 macOS 全屏模式的窗口控制按钮预留空间
         minHeight: 64,
         flexShrink: 0
       } as CSSProperties}
