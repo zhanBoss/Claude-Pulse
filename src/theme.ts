@@ -1,6 +1,6 @@
-import { ThemeConfig } from 'antd'
+import { ThemeConfig, theme as antdTheme } from 'antd'
 
-export const theme: ThemeConfig = {
+export const lightTheme: ThemeConfig = {
   token: {
     colorPrimary: '#667eea',
     colorSuccess: '#52c41a',
@@ -33,3 +33,16 @@ export const theme: ThemeConfig = {
     },
   },
 }
+
+export const darkTheme: ThemeConfig = {
+  algorithm: antdTheme.darkAlgorithm,
+  token: {
+    ...lightTheme.token,
+  },
+  components: {
+    ...lightTheme.components,
+  },
+}
+
+// 向后兼容
+export const theme = lightTheme

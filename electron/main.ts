@@ -146,6 +146,31 @@ ipcMain.handle('save-record-config', async (_, config: { enabled: boolean; saveP
   }
 })
 
+// 获取应用设置
+ipcMain.handle('get-app-settings', async () => {
+  const darkMode = store.get('darkMode', false) as boolean
+  const autoStart = store.get('autoStart', false) as boolean
+  return { darkMode, autoStart }
+})
+
+// 保存应用设置
+ipcMain.handle('save-app-settings', async (_, settings: { darkMode: boolean; autoStart: boolean }) => {
+  try {
+    store.set('darkMode', settings.darkMode)
+    store.set('autoStart', settings.autoStart)
+
+    // 设置开机自启
+    app.setLoginItemSettings({
+      openAtLogin: settings.autoStart,
+      openAsHidden: false
+    })
+
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: (error as Error).message }
+  }
+})
+
 // 复制到剪贴板
 ipcMain.handle('copy-to-clipboard', async (_, text: string) => {
   try {
@@ -335,6 +360,181 @@ ipcMain.handle('read-history', async () => {
     return { success: true, records }
   } catch (error) {
     console.error('读取历史记录时发生错误:', error)
+    return { success: false, error: (error as Error).message }
+  }
+})
+
+// 导出记录为 Markdown
+ipcMain.handle('export-records', async (_, options: any) => {
+  try {
+    const savePath = store.get('savePath', '') as string
+    if (!savePath) {
+      return { success: false, error: '未配置保存路径' }
+    }
+
+    if (!fs.existsSync(savePath)) {
+      return { success: false, error: '保存路径不存在' }
+    }
+
+    // 读取所有 .jsonl 文件
+    const files = fs.readdirSync(savePath).filter(f => f.endsWith('.jsonl'))
+    if (files.length === 0) {
+      return { success: false, error: '没有找到记录文件' }
+    }
+
+    // 解析所有记录
+    const allRecords: any[] = []
+    for (const file of files) {
+      try {
+        const filePath = path.join(savePath, file)
+        const content = fs.readFileSync(filePath, 'utf-8')
+        const lines = content.split('\n').filter(line => line.trim())
+
+        for (const line of lines) {
+          try {
+            const record = JSON.parse(line)
+            const timestamp = new Date(record.timestamp).getTime()
+
+            if (isNaN(timestamp) || !record.project) {
+              continue
+            }
+
+            allRecords.push({
+              timestamp,
+              project: record.project,
+              sessionId: record.sessionId || '',
+              display: record.prompt || '',
+              pastedContents: record.pastedContents || {}
+            })
+          } catch (e) {
+            // 跳过无效记录
+          }
+        }
+      } catch (fileError) {
+        console.error(`读取文件 ${file} 失败:`, fileError)
+      }
+    }
+
+    if (allRecords.length === 0) {
+      return { success: false, error: '没有有效的记录' }
+    }
+
+    // 过滤记录
+    let filteredRecords = allRecords
+
+    // 按 sessionIds 过滤
+    if (options.sessionIds && options.sessionIds.length > 0) {
+      filteredRecords = filteredRecords.filter(r =>
+        options.sessionIds.includes(r.sessionId)
+      )
+    }
+
+    // 按日期范围过滤
+    if (options.startDate) {
+      filteredRecords = filteredRecords.filter(r => r.timestamp >= options.startDate)
+    }
+    if (options.endDate) {
+      filteredRecords = filteredRecords.filter(r => r.timestamp <= options.endDate)
+    }
+
+    if (filteredRecords.length === 0) {
+      return { success: false, error: '筛选后没有记录' }
+    }
+
+    // 按时间排序
+    filteredRecords.sort((a, b) => a.timestamp - b.timestamp)
+
+    // 按会话分组
+    const sessions = new Map<string, any[]>()
+    for (const record of filteredRecords) {
+      const sessionId = record.sessionId || `single-${record.timestamp}`
+      if (!sessions.has(sessionId)) {
+        sessions.set(sessionId, [])
+      }
+      sessions.get(sessionId)!.push(record)
+    }
+
+    // 生成 Markdown 内容
+    const now = new Date()
+    const dateStr = now.toISOString().split('T')[0]
+    const timeStr = now.toTimeString().split(' ')[0].replace(/:/g, '-')
+
+    let markdown = '# Claude Code 对话记录导出\n\n'
+    markdown += `**导出时间**: ${now.toLocaleString('zh-CN')}\n\n`
+    markdown += `**记录总数**: ${filteredRecords.length} 条对话\n\n`
+    markdown += `**会话总数**: ${sessions.size} 个会话\n\n`
+    markdown += '---\n\n'
+
+    // 遍历每个会话
+    let sessionIndex = 1
+    for (const [sessionId, records] of sessions) {
+      const firstRecord = records[0]
+      const projectName = path.basename(firstRecord.project)
+
+      markdown += `## 会话 ${sessionIndex}: ${projectName}\n\n`
+
+      if (sessionId && !sessionId.startsWith('single-')) {
+        markdown += `**Session ID**: \`${sessionId}\`\n\n`
+      }
+
+      markdown += `**项目路径**: \`${firstRecord.project}\`\n\n`
+      markdown += `**对话数量**: ${records.length} 条\n\n`
+      markdown += `**时间范围**: ${new Date(records[0].timestamp).toLocaleString('zh-CN')} ~ ${new Date(records[records.length - 1].timestamp).toLocaleString('zh-CN')}\n\n`
+      markdown += '---\n\n'
+
+      // 遍历每条对话
+      for (let i = 0; i < records.length; i++) {
+        const record = records[i]
+        markdown += `### 对话 #${i + 1}\n\n`
+        markdown += `**时间**: ${new Date(record.timestamp).toLocaleString('zh-CN')}\n\n`
+        markdown += '**内容**:\n\n'
+        markdown += '```\n'
+        markdown += record.display
+        markdown += '\n```\n\n'
+
+        // 如果有附加内容
+        if (record.pastedContents && Object.keys(record.pastedContents).length > 0) {
+          markdown += '**附加内容**:\n\n'
+          for (const [key, value] of Object.entries(record.pastedContents)) {
+            markdown += `- 附件 ${key}:\n`
+            if (typeof value === 'string') {
+              markdown += '```\n'
+              markdown += value
+              markdown += '\n```\n\n'
+            } else {
+              markdown += '```json\n'
+              markdown += JSON.stringify(value, null, 2)
+              markdown += '\n```\n\n'
+            }
+          }
+        }
+
+        markdown += '---\n\n'
+      }
+
+      sessionIndex++
+    }
+
+    // 让用户选择保存位置
+    const result = await dialog.showSaveDialog({
+      title: '保存 Markdown 文件',
+      defaultPath: `claude-code-export-${dateStr}-${timeStr}.md`,
+      filters: [
+        { name: 'Markdown Files', extensions: ['md'] },
+        { name: 'All Files', extensions: ['*'] }
+      ]
+    })
+
+    if (result.canceled || !result.filePath) {
+      return { success: false, error: '用户取消了保存' }
+    }
+
+    // 写入文件
+    fs.writeFileSync(result.filePath, markdown, 'utf-8')
+
+    return { success: true, filePath: result.filePath }
+  } catch (error) {
+    console.error('导出记录失败:', error)
     return { success: false, error: (error as Error).message }
   }
 })

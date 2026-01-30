@@ -6,8 +6,9 @@ import ConfigEditor from './components/ConfigEditor'
 import RecordControl from './components/RecordControl'
 import LogViewer from './components/LogViewer'
 import HistoryViewer from './components/HistoryViewer'
+import SettingsModal from './components/SettingsModal'
 import { ClaudeRecord } from './types'
-import { theme } from './theme'
+import { lightTheme, darkTheme } from './theme'
 import 'antd/dist/reset.css'
 
 const { Content, Sider } = Layout
@@ -21,6 +22,8 @@ function App() {
   const [viewMode, setViewMode] = useState<ViewMode>('realtime')
   const [drawerVisible, setDrawerVisible] = useState<boolean>(false)
   const [siderCollapsed, setSiderCollapsed] = useState<boolean>(false)
+  const [darkMode, setDarkMode] = useState<boolean>(false)
+  const [settingsVisible, setSettingsVisible] = useState<boolean>(false)
 
   useEffect(() => {
     // 检查 Claude Code 是否安装
@@ -29,6 +32,11 @@ function App() {
       if (result.claudeDir) {
         setClaudeDir(result.claudeDir)
       }
+    })
+
+    // 加载应用设置
+    window.electronAPI.getAppSettings().then(settings => {
+      setDarkMode(settings.darkMode)
     })
 
     // 监听新记录
@@ -93,10 +101,34 @@ function App() {
     setViewMode(prev => prev === 'realtime' ? 'history' : 'realtime')
   }
 
+  const handleThemeToggle = async () => {
+    const newDarkMode = !darkMode
+    setDarkMode(newDarkMode)
+
+    // 保存到设置
+    const settings = await window.electronAPI.getAppSettings()
+    await window.electronAPI.saveAppSettings({
+      ...settings,
+      darkMode: newDarkMode
+    })
+  }
+
+  const handleSettingsClose = async () => {
+    setSettingsVisible(false)
+    // 重新加载设置以更新暗色模式状态
+    const settings = await window.electronAPI.getAppSettings()
+    setDarkMode(settings.darkMode)
+  }
+
   return (
-    <ConfigProvider theme={theme}>
+    <ConfigProvider theme={darkMode ? darkTheme : lightTheme}>
       <Layout style={{ height: '100vh', minHeight: 600 }}>
-        <StatusBar claudeDir={claudeDir} />
+        <StatusBar
+          claudeDir={claudeDir}
+          darkMode={darkMode}
+          onThemeToggle={handleThemeToggle}
+          onOpenSettings={() => setSettingsVisible(true)}
+        />
 
         <Layout style={{ minHeight: 0 }}>
           {/* 左侧：配置和控制 */}
@@ -184,6 +216,12 @@ function App() {
             </div>
           </div>
         </Drawer>
+
+        {/* 设置弹窗 */}
+        <SettingsModal
+          visible={settingsVisible}
+          onClose={handleSettingsClose}
+        />
 
       </Layout>
     </ConfigProvider>

@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { Card, Switch, Button, Typography, Space, Spin, Tag } from 'antd'
-import { PlayCircleOutlined, PauseCircleOutlined, FolderOpenOutlined, EditOutlined } from '@ant-design/icons'
+import { PlayCircleOutlined, PauseCircleOutlined, EditOutlined } from '@ant-design/icons'
 import { RecordConfig } from '../types'
 
-const { Title, Paragraph, Text } = Typography
+const { Title, Text } = Typography
 
 function RecordControl() {
   const [config, setConfig] = useState<RecordConfig>({

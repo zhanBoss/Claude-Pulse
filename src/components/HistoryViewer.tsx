@@ -1,13 +1,16 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Button, Card, Tag, Space, Typography, Empty, Spin, DatePicker, message, List, Modal, Pagination } from 'antd'
+import { Button, Card, Tag, Space, Typography, Empty, Spin, DatePicker, message, List, Modal, Pagination, Input } from 'antd'
 import {
   FolderOpenOutlined,
   CopyOutlined,
   ClockCircleOutlined,
   FileTextOutlined,
   CloseOutlined,
-  ReloadOutlined
+  ReloadOutlined,
+  ExportOutlined,
+  SearchOutlined
 } from '@ant-design/icons'
+import Highlighter from 'react-highlight-words'
 import ReactMarkdown from 'react-markdown'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
@@ -35,6 +38,7 @@ function HistoryViewer({ onToggleView }: HistoryViewerProps) {
   const [loading, setLoading] = useState(true)
   const [dateRange, setDateRange] = useState<DateRange>('7d')
   const [customDateRange, setCustomDateRange] = useState<[Dayjs, Dayjs] | null>(null)
+  const [searchKeyword, setSearchKeyword] = useState('')
 
   // 分页状态
   const [currentPage, setCurrentPage] = useState(1)
@@ -128,11 +132,24 @@ function HistoryViewer({ onToggleView }: HistoryViewerProps) {
     return records.filter(r => r.timestamp >= startTime)
   }, [records, dateRange, customDateRange])
 
+  // 搜索过滤
+  const searchedRecords = useMemo(() => {
+    if (!searchKeyword.trim()) {
+      return filteredRecords
+    }
+
+    const keyword = searchKeyword.toLowerCase()
+    return filteredRecords.filter(record => {
+      return record.display.toLowerCase().includes(keyword) ||
+             record.project.toLowerCase().includes(keyword)
+    })
+  }, [filteredRecords, searchKeyword])
+
   // 按 sessionId 分组
   const groupedRecords = useMemo(() => {
     const groups = new Map<string, GroupedRecord>()
 
-    filteredRecords.forEach(record => {
+    searchedRecords.forEach(record => {
       const key = record.sessionId || `single-${record.timestamp}`
 
       if (!groups.has(key)) {
@@ -150,7 +167,7 @@ function HistoryViewer({ onToggleView }: HistoryViewerProps) {
     })
 
     return Array.from(groups.values()).sort((a, b) => b.latestTimestamp - a.latestTimestamp)
-  }, [filteredRecords])
+  }, [searchedRecords])
 
   // 分页数据
   const paginatedRecords = useMemo(() => {
@@ -162,7 +179,7 @@ function HistoryViewer({ onToggleView }: HistoryViewerProps) {
   // 当筛选条件变化时，重置到第一页
   useEffect(() => {
     setCurrentPage(1)
-  }, [dateRange, customDateRange])
+  }, [dateRange, customDateRange, searchKeyword])
 
   // 分页变化处理
   const handlePageChange = (page: number, newPageSize?: number) => {
@@ -197,6 +214,22 @@ function HistoryViewer({ onToggleView }: HistoryViewerProps) {
       await window.electronAPI.openInFinder(folderPath)
     } catch (error) {
       message.error('打开文件夹失败')
+    }
+  }
+
+  const handleExport = async () => {
+    try {
+      const result = await window.electronAPI.exportRecords({
+        format: 'markdown'
+      })
+
+      if (result.success) {
+        message.success(`导出成功: ${result.filePath}`)
+      } else {
+        message.error(`导出失败: ${result.error}`)
+      }
+    } catch (error: any) {
+      message.error(`导出失败: ${error?.message || '未知错误'}`)
     }
   }
 
@@ -442,7 +475,9 @@ function HistoryViewer({ onToggleView }: HistoryViewerProps) {
           <div>
             <Title level={4} style={{ margin: 0, marginBottom: 4, fontSize: 16 }}>历史对话日志</Title>
             <Text type="secondary" style={{ fontSize: 12 }}>
-              共 {groupedRecords.length} 个会话，{filteredRecords.length} 条记录 | 第 {currentPage}/{Math.ceil(groupedRecords.length / pageSize)} 页
+              共 {groupedRecords.length} 个会话，{searchedRecords.length} 条记录
+              {searchKeyword && ` (搜索"${searchKeyword}")`}
+              {groupedRecords.length > 0 && ` | 第 ${currentPage}/${Math.ceil(groupedRecords.length / pageSize)} 页`}
             </Text>
           </div>
           <Space wrap>
@@ -453,6 +488,14 @@ function HistoryViewer({ onToggleView }: HistoryViewerProps) {
               loading={loading}
             >
               刷新
+            </Button>
+            <Button
+              icon={<ExportOutlined />}
+              onClick={handleExport}
+              size="small"
+              disabled={groupedRecords.length === 0}
+            >
+              导出
             </Button>
             <Button
               icon={<ClockCircleOutlined />}
@@ -509,6 +552,17 @@ function HistoryViewer({ onToggleView }: HistoryViewerProps) {
                 }}
               />
             </Space>
+          </Card>
+
+          {/* 搜索框 */}
+          <Card size="small" bodyStyle={{ padding: 12 }}>
+            <Input
+              placeholder="搜索对话内容、项目名称..."
+              prefix={<SearchOutlined />}
+              value={searchKeyword}
+              onChange={(e) => setSearchKeyword(e.target.value)}
+              allowClear
+            />
           </Card>
 
           {/* Session 列表 */}
@@ -678,7 +732,19 @@ function HistoryViewer({ onToggleView }: HistoryViewerProps) {
                       ellipsis={{ rows: 2 }}
                       style={{ margin: 0, fontSize: 13, color: '#666' }}
                     >
-                      {record.display}
+                      {searchKeyword ? (
+                        <Highlighter
+                          searchWords={[searchKeyword]}
+                          autoEscape
+                          textToHighlight={record.display}
+                          highlightStyle={{
+                            backgroundColor: '#ffc069',
+                            padding: 0,
+                          }}
+                        />
+                      ) : (
+                        record.display
+                      )}
                     </Paragraph>
                   </Card>
                 </List.Item>
@@ -742,7 +808,20 @@ function HistoryViewer({ onToggleView }: HistoryViewerProps) {
             {/* Record 内容 */}
             <Card size="small" title="对话内容">
               <div style={{ fontSize: 13, color: '#333' }}>
-                {renderContent(selectedRecord.display)}
+                {searchKeyword ? (
+                  <Highlighter
+                    searchWords={[searchKeyword]}
+                    autoEscape
+                    textToHighlight={selectedRecord.display}
+                    highlightStyle={{
+                      backgroundColor: '#ffc069',
+                      padding: '2px 4px',
+                      borderRadius: 2,
+                    }}
+                  />
+                ) : (
+                  renderContent(selectedRecord.display)
+                )}
               </div>
             </Card>
 
