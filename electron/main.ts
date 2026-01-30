@@ -146,6 +146,31 @@ ipcMain.handle('save-record-config', async (_, config: { enabled: boolean; saveP
   }
 })
 
+// 获取应用设置
+ipcMain.handle('get-app-settings', async () => {
+  const darkMode = store.get('darkMode', false) as boolean
+  const autoStart = store.get('autoStart', false) as boolean
+  return { darkMode, autoStart }
+})
+
+// 保存应用设置
+ipcMain.handle('save-app-settings', async (_, settings: { darkMode: boolean; autoStart: boolean }) => {
+  try {
+    store.set('darkMode', settings.darkMode)
+    store.set('autoStart', settings.autoStart)
+
+    // 设置开机自启
+    app.setLoginItemSettings({
+      openAtLogin: settings.autoStart,
+      openAsHidden: false
+    })
+
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: (error as Error).message }
+  }
+})
+
 // 复制到剪贴板
 ipcMain.handle('copy-to-clipboard', async (_, text: string) => {
   try {

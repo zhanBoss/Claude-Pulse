@@ -11,6 +11,11 @@ export interface RecordConfig {
   savePath: string
 }
 
+export interface AppSettings {
+  darkMode: boolean
+  autoStart: boolean
+}
+
 export interface ElectronAPI {
   checkClaudeInstalled: () => Promise<{ installed: boolean; claudeDir?: string; error?: string }>
   getClaudeConfig: () => Promise<{ success: boolean; config?: string; error?: string }>
@@ -22,6 +27,8 @@ export interface ElectronAPI {
   copyToClipboard: (text: string) => Promise<{ success: boolean; error?: string }>
   openInFinder: (path: string) => Promise<{ success: boolean; error?: string }>
   readHistory: () => Promise<{ success: boolean; records?: ClaudeRecord[]; error?: string }>
+  getAppSettings: () => Promise<AppSettings>
+  saveAppSettings: (settings: AppSettings) => Promise<{ success: boolean; error?: string }>
 }
 
 declare global {

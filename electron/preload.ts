@@ -31,5 +31,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openInFinder: (path: string) => ipcRenderer.invoke('open-in-finder', path),
 
   // 读取历史记录
-  readHistory: () => ipcRenderer.invoke('read-history')
+  readHistory: () => ipcRenderer.invoke('read-history'),
+
+  // 应用设置
+  getAppSettings: () => ipcRenderer.invoke('get-app-settings'),
+  saveAppSettings: (settings: { darkMode: boolean; autoStart: boolean }) =>
+    ipcRenderer.invoke('save-app-settings', settings)
 })

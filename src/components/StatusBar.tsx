@@ -1,11 +1,13 @@
-import { PageHeader, Tag, Space } from 'antd'
-import { FolderOutlined, MessageOutlined } from '@ant-design/icons'
+import { PageHeader, Tag, Space, Button, Tooltip } from 'antd'
+import { FolderOutlined, MessageOutlined, BulbOutlined } from '@ant-design/icons'
 
 interface StatusBarProps {
   claudeDir: string
+  darkMode: boolean
+  onThemeToggle: () => void
 }
 
-function StatusBar({ claudeDir }: StatusBarProps) {
+function StatusBar({ claudeDir, darkMode, onThemeToggle }: StatusBarProps) {
   return (
     <div
       style={{
@@ -57,25 +59,42 @@ function StatusBar({ claudeDir }: StatusBarProps) {
           </div>
         </Space>
 
-        <Tag
-          icon={<FolderOutlined />}
-          color="blue"
-          style={{
-            background: 'rgba(255,255,255,0.15)',
-            borderColor: 'rgba(255,255,255,0.3)',
-            color: 'white',
-            padding: '6px 12px',
-            fontSize: 12,
-            fontFamily: 'monospace',
-            backdropFilter: 'blur(10px)',
-            maxWidth: 300,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap'
-          }}
-        >
-          {claudeDir}
-        </Tag>
+        <Space size="middle">
+          <Tooltip title={darkMode ? '切换到亮色模式' : '切换到暗色模式'}>
+            <Button
+              type="text"
+              icon={<BulbOutlined />}
+              onClick={onThemeToggle}
+              style={{
+                WebkitAppRegion: 'no-drag' as any,
+                color: 'white',
+                background: 'rgba(255,255,255,0.15)',
+                borderColor: 'rgba(255,255,255,0.3)',
+                backdropFilter: 'blur(10px)'
+              }}
+            />
+          </Tooltip>
+
+          <Tag
+            icon={<FolderOutlined />}
+            color="blue"
+            style={{
+              background: 'rgba(255,255,255,0.15)',
+              borderColor: 'rgba(255,255,255,0.3)',
+              color: 'white',
+              padding: '6px 12px',
+              fontSize: 12,
+              fontFamily: 'monospace',
+              backdropFilter: 'blur(10px)',
+              maxWidth: 300,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            {claudeDir}
+          </Tag>
+        </Space>
       </div>
     </div>
   )
