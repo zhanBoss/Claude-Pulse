@@ -155,9 +155,23 @@ ipcMain.handle('get-app-settings', async () => {
     ai: {
       enabled: false,
       provider: 'groq' as 'groq' | 'deepseek' | 'gemini',
-      apiKey: '',
-      apiBaseUrl: 'https://api.groq.com/openai/v1',
-      model: 'llama-3.3-70b-versatile'
+      providers: {
+        groq: {
+          apiKey: '',
+          apiBaseUrl: 'https://api.groq.com/openai/v1',
+          model: 'llama-3.3-70b-versatile'
+        },
+        deepseek: {
+          apiKey: '',
+          apiBaseUrl: 'https://api.deepseek.com/v1',
+          model: 'deepseek-chat'
+        },
+        gemini: {
+          apiKey: '',
+          apiBaseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+          model: 'gemini-2.0-flash-exp'
+        }
+      }
     }
   }
 
@@ -170,7 +184,29 @@ ipcMain.handle('get-app-settings', async () => {
 
   const themeMode = store.get('themeMode', defaultSettings.themeMode) as 'light' | 'dark' | 'system'
   const autoStart = store.get('autoStart', defaultSettings.autoStart) as boolean
-  const ai = store.get('ai', defaultSettings.ai) as any
+  let ai = store.get('ai', defaultSettings.ai) as any
+
+  // 兼容旧的单一配置结构，迁移到新的多提供商结构
+  if (ai && !ai.providers) {
+    const oldProvider = ai.provider || 'groq'
+    const oldApiKey = ai.apiKey || ''
+    const oldApiBaseUrl = ai.apiBaseUrl || defaultSettings.ai.providers[oldProvider].apiBaseUrl
+    const oldModel = ai.model || defaultSettings.ai.providers[oldProvider].model
+
+    ai = {
+      enabled: ai.enabled || false,
+      provider: oldProvider,
+      providers: {
+        ...defaultSettings.ai.providers,
+        [oldProvider]: {
+          apiKey: oldApiKey,
+          apiBaseUrl: oldApiBaseUrl,
+          model: oldModel
+        }
+      }
+    }
+    store.set('ai', ai)
+  }
 
   return { themeMode, autoStart, ai }
 })
@@ -568,24 +604,19 @@ ipcMain.handle('export-records', async (_, options: any) => {
 ipcMain.handle('summarize-records', async (_, request: { records: any[], type: 'brief' | 'detailed' }) => {
   try {
     // 获取 AI 设置
-    const defaultAiSettings = {
-      enabled: false,
-      provider: 'groq' as 'groq' | 'deepseek' | 'gemini',
-      apiKey: '',
-      apiBaseUrl: 'https://api.groq.com/openai/v1',
-      model: 'llama-3.3-70b-versatile'
-    }
+    const aiSettings = store.get('ai') as any
 
-    const aiSettings = store.get('ai', defaultAiSettings) as any
-
-    if (!aiSettings.enabled) {
+    if (!aiSettings || !aiSettings.enabled) {
       return {
         success: false,
         error: 'AI 总结功能未启用，请先在设置中启用'
       }
     }
 
-    if (!aiSettings.apiKey) {
+    const provider = aiSettings.provider || 'groq'
+    const currentConfig = aiSettings.providers?.[provider]
+
+    if (!currentConfig || !currentConfig.apiKey) {
       const providerNames = {
         groq: 'Groq',
         deepseek: 'DeepSeek',
@@ -593,19 +624,19 @@ ipcMain.handle('summarize-records', async (_, request: { records: any[], type: '
       }
       return {
         success: false,
-        error: `未配置 ${providerNames[aiSettings.provider] || 'AI'} API Key，请前往设置页面配置`
+        error: `未配置 ${providerNames[provider] || 'AI'} API Key，请前往设置页面配置`
       }
     }
 
     // 验证 API Key 格式（只对特定提供商验证）
-    if (aiSettings.provider === 'deepseek' && !aiSettings.apiKey.startsWith('sk-')) {
+    if (provider === 'deepseek' && !currentConfig.apiKey.startsWith('sk-')) {
       return {
         success: false,
         error: 'API Key 格式不正确，DeepSeek API Key 应以 "sk-" 开头'
       }
     }
 
-    if (aiSettings.provider === 'groq' && !aiSettings.apiKey.startsWith('gsk_')) {
+    if (provider === 'groq' && !currentConfig.apiKey.startsWith('gsk_')) {
       return {
         success: false,
         error: 'API Key 格式不正确，Groq API Key 应以 "gsk_" 开头'
@@ -653,9 +684,9 @@ ${conversations}`
 
     try {
       // Gemini 使用不同的 API 格式
-      if (aiSettings.provider === 'gemini') {
+      if (provider === 'gemini') {
         const response = await fetch(
-          `${aiSettings.apiBaseUrl}/models/${aiSettings.model}:generateContent?key=${aiSettings.apiKey}`,
+          `${currentConfig.apiBaseUrl}/models/${currentConfig.model}:generateContent?key=${currentConfig.apiKey}`,
           {
             method: 'POST',
             headers: {
@@ -704,14 +735,14 @@ ${conversations}`
       }
 
       // OpenAI 兼容格式 (Groq, DeepSeek)
-      const response = await fetch(`${aiSettings.apiBaseUrl}/chat/completions`, {
+      const response = await fetch(`${currentConfig.apiBaseUrl}/chat/completions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${aiSettings.apiKey}`
+          'Authorization': `Bearer ${currentConfig.apiKey}`
         },
         body: JSON.stringify({
-          model: aiSettings.model,
+          model: currentConfig.model,
           messages: [
             {
               role: 'system',

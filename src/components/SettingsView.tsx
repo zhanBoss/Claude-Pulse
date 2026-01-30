@@ -28,9 +28,23 @@ function SettingsView({ onBack, darkMode, onThemeModeChange }: SettingsViewProps
     ai: {
       enabled: false,
       provider: 'groq',
-      apiKey: '',
-      apiBaseUrl: 'https://api.groq.com/openai/v1',
-      model: 'llama-3.3-70b-versatile'
+      providers: {
+        groq: {
+          apiKey: '',
+          apiBaseUrl: 'https://api.groq.com/openai/v1',
+          model: 'llama-3.3-70b-versatile'
+        },
+        deepseek: {
+          apiKey: '',
+          apiBaseUrl: 'https://api.deepseek.com/v1',
+          model: 'deepseek-chat'
+        },
+        gemini: {
+          apiKey: '',
+          apiBaseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+          model: 'gemini-2.0-flash-exp'
+        }
+      }
     }
   })
   const [apiKeySaving, setApiKeySaving] = useState(false)
@@ -43,25 +57,24 @@ function SettingsView({ onBack, darkMode, onThemeModeChange }: SettingsViewProps
   const providerConfigs = {
     groq: {
       name: 'Groq (免费)',
-      apiBaseUrl: 'https://api.groq.com/openai/v1',
-      model: 'llama-3.3-70b-versatile',
       getKeyUrl: 'https://console.groq.com/keys',
       description: '完全免费，速度超快'
     },
     deepseek: {
       name: 'DeepSeek',
-      apiBaseUrl: 'https://api.deepseek.com/v1',
-      model: 'deepseek-chat',
       getKeyUrl: 'https://platform.deepseek.com/api_keys',
       description: '有限免费额度'
     },
     gemini: {
       name: 'Google Gemini (免费)',
-      apiBaseUrl: 'https://generativelanguage.googleapis.com/v1beta',
-      model: 'gemini-2.0-flash-exp',
       getKeyUrl: 'https://aistudio.google.com/app/apikey',
       description: '慷慨的免费额度'
     }
+  }
+
+  // 获取当前提供商的配置
+  const getCurrentProviderConfig = () => {
+    return settings.ai.providers[settings.ai.provider]
   }
 
   // 遮罩 API Key（显示前4位和后4位）
@@ -72,16 +85,11 @@ function SettingsView({ onBack, darkMode, onThemeModeChange }: SettingsViewProps
 
   // 切换 AI 提供商
   const handleProviderChange = (provider: 'deepseek' | 'groq' | 'gemini') => {
-    const config = providerConfigs[provider]
     const newSettings = {
       ...settings,
       ai: {
         ...settings.ai,
-        provider,
-        apiBaseUrl: config.apiBaseUrl,
-        model: config.model,
-        // 切换提供商时清空 API Key
-        apiKey: ''
+        provider
       }
     }
     setSettings(newSettings)
@@ -131,15 +139,19 @@ function SettingsView({ onBack, darkMode, onThemeModeChange }: SettingsViewProps
     }
   }
 
-  const updateAISetting = <K extends keyof AppSettings['ai']>(
-    key: K,
-    value: AppSettings['ai'][K]
-  ) => {
+  // 更新当前提供商的配置
+  const updateCurrentProviderConfig = (key: 'apiKey' | 'apiBaseUrl' | 'model', value: string) => {
     const newSettings = {
       ...settings,
       ai: {
         ...settings.ai,
-        [key]: value
+        providers: {
+          ...settings.ai.providers,
+          [settings.ai.provider]: {
+            ...settings.ai.providers[settings.ai.provider],
+            [key]: value
+          }
+        }
       }
     }
     setSettings(newSettings)
@@ -148,6 +160,18 @@ function SettingsView({ onBack, darkMode, onThemeModeChange }: SettingsViewProps
     if (key !== 'apiKey') {
       saveSettingsImmediately(newSettings)
     }
+  }
+
+  const updateAISetting = (key: 'enabled', value: boolean) => {
+    const newSettings = {
+      ...settings,
+      ai: {
+        ...settings.ai,
+        [key]: value
+      }
+    }
+    setSettings(newSettings)
+    saveSettingsImmediately(newSettings)
   }
 
   return (
@@ -376,9 +400,9 @@ function SettingsView({ onBack, darkMode, onThemeModeChange }: SettingsViewProps
                   </Link>
                 </div>
                 <Input.Password
-                  value={settings.ai.apiKey}
+                  value={getCurrentProviderConfig().apiKey}
                   onChange={(e) => {
-                    updateAISetting('apiKey', e.target.value)
+                    updateCurrentProviderConfig('apiKey', e.target.value)
                     setIsEditingApiKey(true)
                   }}
                   placeholder={`请输入 ${providerConfigs[settings.ai.provider].name} API Key`}
@@ -392,7 +416,9 @@ function SettingsView({ onBack, darkMode, onThemeModeChange }: SettingsViewProps
                 />
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <Text type="secondary" style={{ fontSize: '12px', color: themeVars.textSecondary }}>
-                    {settings.ai.apiKey && !isEditingApiKey ? `已设置: ${maskApiKey(settings.ai.apiKey)}` : '你的 API Key 将加密存储在本地'}
+                    {getCurrentProviderConfig().apiKey && !isEditingApiKey
+                      ? `已设置: ${maskApiKey(getCurrentProviderConfig().apiKey)}`
+                      : '你的 API Key 将加密存储在本地'}
                   </Text>
                   <Button
                     type="primary"
@@ -403,7 +429,7 @@ function SettingsView({ onBack, darkMode, onThemeModeChange }: SettingsViewProps
                     }}
                     loading={apiKeySaving}
                     size="small"
-                    disabled={!isEditingApiKey && !!settings.ai.apiKey}
+                    disabled={!isEditingApiKey && !!getCurrentProviderConfig().apiKey}
                   >
                     保存 API Key
                   </Button>
@@ -417,9 +443,9 @@ function SettingsView({ onBack, darkMode, onThemeModeChange }: SettingsViewProps
                   默认已选择最优模型，通常无需修改
                 </Text>
                 <Input
-                  value={settings.ai.model}
-                  onChange={(e) => updateAISetting('model', e.target.value)}
-                  placeholder={providerConfigs[settings.ai.provider].model}
+                  value={getCurrentProviderConfig().model}
+                  onChange={(e) => updateCurrentProviderConfig('model', e.target.value)}
+                  placeholder={getCurrentProviderConfig().model}
                 />
               </div>
 
@@ -430,9 +456,9 @@ function SettingsView({ onBack, darkMode, onThemeModeChange }: SettingsViewProps
                   高级选项，通常无需修改
                 </Text>
                 <Input
-                  value={settings.ai.apiBaseUrl}
-                  onChange={(e) => updateAISetting('apiBaseUrl', e.target.value)}
-                  placeholder={providerConfigs[settings.ai.provider].apiBaseUrl}
+                  value={getCurrentProviderConfig().apiBaseUrl}
+                  onChange={(e) => updateCurrentProviderConfig('apiBaseUrl', e.target.value)}
+                  placeholder={getCurrentProviderConfig().apiBaseUrl}
                 />
               </div>
             </Space>

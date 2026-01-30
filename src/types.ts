@@ -11,13 +11,23 @@ export interface RecordConfig {
   savePath: string
 }
 
+// AI 提供商配置
+export interface ProviderConfig {
+  apiKey: string
+  apiBaseUrl: string
+  model: string
+}
+
 // AI 设置接口
 export interface AISettings {
   enabled: boolean
   provider: 'deepseek' | 'groq' | 'gemini'
-  apiKey: string
-  apiBaseUrl: string
-  model: string
+  // 每个提供商的独立配置
+  providers: {
+    deepseek: ProviderConfig
+    groq: ProviderConfig
+    gemini: ProviderConfig
+  }
 }
 
 export interface AppSettings {
