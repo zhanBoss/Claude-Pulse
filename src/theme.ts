@@ -1,5 +1,6 @@
 import { ThemeConfig, theme as antdTheme } from 'antd'
 
+// 亮色模式主题
 export const lightTheme: ThemeConfig = {
   token: {
     colorPrimary: '#667eea',
@@ -10,6 +11,14 @@ export const lightTheme: ThemeConfig = {
     borderRadius: 6,
     fontSize: 14,
     fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif',
+    colorBgContainer: '#ffffff',
+    colorBgElevated: '#ffffff',
+    colorBgLayout: '#f5f7fa',
+    colorBorder: '#d9d9d9',
+    colorBorderSecondary: '#f0f0f0',
+    colorText: '#333333',
+    colorTextSecondary: '#666666',
+    colorTextTertiary: '#999999',
   },
   components: {
     Button: {
@@ -31,18 +40,64 @@ export const lightTheme: ThemeConfig = {
     Tag: {
       borderRadiusSM: 4,
     },
+    Layout: {
+      bodyBg: '#f5f7fa',
+      headerBg: '#ffffff',
+      siderBg: '#ffffff',
+      triggerBg: '#f0f0f0',
+    },
   },
 }
 
+// 暗色模式主题
 export const darkTheme: ThemeConfig = {
   algorithm: antdTheme.darkAlgorithm,
   token: {
     ...lightTheme.token,
+    // 暗色模式特定配置
+    colorBgContainer: '#1f1f1f',
+    colorBgElevated: '#262626',
+    colorBgLayout: '#141414',
+    colorBorder: '#434343',
+    colorBorderSecondary: '#303030',
+    colorText: '#e8e8e8',
+    colorTextSecondary: '#a6a6a6',
+    colorTextTertiary: '#737373',
   },
   components: {
     ...lightTheme.components,
+    Layout: {
+      bodyBg: '#141414',
+      headerBg: '#1f1f1f',
+      siderBg: '#1f1f1f',
+      triggerBg: '#262626',
+    },
+    Card: {
+      ...lightTheme.components?.Card,
+      colorBgContainer: '#1f1f1f',
+    },
+    Modal: {
+      ...lightTheme.components?.Modal,
+      contentBg: '#1f1f1f',
+      headerBg: '#262626',
+    },
   },
 }
 
 // 向后兼容
 export const theme = lightTheme
+
+// 导出 CSS 变量用于内联样式
+export const getThemeVars = (isDark: boolean) => ({
+  bgContainer: isDark ? '#1f1f1f' : '#ffffff',
+  bgElevated: isDark ? '#262626' : '#ffffff',
+  bgLayout: isDark ? '#141414' : '#f5f7fa',
+  bgSection: isDark ? '#1a1a1a' : '#fafafa',
+  border: isDark ? '#434343' : '#d9d9d9',
+  borderSecondary: isDark ? '#303030' : '#f0f0f0',
+  text: isDark ? '#e8e8e8' : '#333333',
+  textSecondary: isDark ? '#a6a6a6' : '#666666',
+  textTertiary: isDark ? '#737373' : '#999999',
+  codeBg: isDark ? '#2a2a2a' : '#f5f5f5',
+  hoverBg: isDark ? '#2a2a2a' : '#f5f5f5',
+})

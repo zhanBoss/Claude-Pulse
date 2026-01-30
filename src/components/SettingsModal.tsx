@@ -6,9 +6,10 @@ const { Text } = Typography
 interface SettingsModalProps {
   visible: boolean
   onClose: () => void
+  darkMode: boolean
 }
 
-function SettingsModal({ visible, onClose }: SettingsModalProps) {
+function SettingsModal({ visible, onClose, darkMode: propDarkMode }: SettingsModalProps) {
   const [darkMode, setDarkMode] = useState(false)
   const [autoStart, setAutoStart] = useState(false)
 
@@ -20,6 +21,13 @@ function SettingsModal({ visible, onClose }: SettingsModalProps) {
       })
     }
   }, [visible])
+
+  // 同步外部的 darkMode 状态
+  useEffect(() => {
+    if (visible) {
+      setDarkMode(propDarkMode)
+    }
+  }, [visible, propDarkMode])
 
   const handleSave = async () => {
     await window.electronAPI.saveAppSettings({ darkMode, autoStart })

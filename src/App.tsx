@@ -8,7 +8,7 @@ import LogViewer from './components/LogViewer'
 import HistoryViewer from './components/HistoryViewer'
 import SettingsModal from './components/SettingsModal'
 import { ClaudeRecord } from './types'
-import { lightTheme, darkTheme } from './theme'
+import { lightTheme, darkTheme, getThemeVars } from './theme'
 import 'antd/dist/reset.css'
 
 const { Content, Sider } = Layout
@@ -120,6 +120,8 @@ function App() {
     setDarkMode(settings.darkMode)
   }
 
+  const themeVars = getThemeVars(darkMode)
+
   return (
     <ConfigProvider theme={darkMode ? darkTheme : lightTheme}>
       <Layout style={{ height: '100vh', minHeight: 600 }}>
@@ -134,7 +136,7 @@ function App() {
           {/* 左侧：配置和控制 */}
           <Sider
             width="50%"
-            theme="light"
+            theme={darkMode ? 'dark' : 'light'}
             breakpoint="lg"
             collapsedWidth={0}
             onBreakpoint={(broken) => {
@@ -144,12 +146,13 @@ function App() {
               setSiderCollapsed(collapsed)
             }}
             style={{
-              borderRight: '1px solid #f0f0f0',
+              borderRight: `1px solid ${themeVars.borderSecondary}`,
               overflow: 'hidden',
               display: 'flex',
               flexDirection: 'column',
               minWidth: 400,
-              maxWidth: '50%'
+              maxWidth: '50%',
+              background: themeVars.bgContainer
             }}
           >
             <div style={{
@@ -158,15 +161,15 @@ function App() {
               padding: 24,
               minHeight: 0
             }}>
-              <ConfigEditor />
+              <ConfigEditor darkMode={darkMode} />
             </div>
             <div style={{
-              borderTop: '1px solid #f0f0f0',
+              borderTop: `1px solid ${themeVars.borderSecondary}`,
               padding: 24,
-              background: '#fafafa',
+              background: themeVars.bgSection,
               flexShrink: 0
             }}>
-              <RecordControl />
+              <RecordControl darkMode={darkMode} />
             </div>
           </Sider>
 
@@ -184,9 +187,10 @@ function App() {
                 onToggleView={handleToggleView}
                 onOpenDrawer={() => setDrawerVisible(true)}
                 showDrawerButton={siderCollapsed && !drawerVisible}
+                darkMode={darkMode}
               />
             ) : (
-              <HistoryViewer onToggleView={handleToggleView} />
+              <HistoryViewer onToggleView={handleToggleView} darkMode={darkMode} />
             )}
           </Content>
         </Layout>
@@ -206,13 +210,13 @@ function App() {
             height: '100%'
           }}>
             <div style={{ flex: 1, overflow: 'auto', marginBottom: 24 }}>
-              <ConfigEditor />
+              <ConfigEditor darkMode={darkMode} />
             </div>
             <div style={{
-              borderTop: '1px solid #f0f0f0',
+              borderTop: `1px solid ${themeVars.borderSecondary}`,
               paddingTop: 24
             }}>
-              <RecordControl />
+              <RecordControl darkMode={darkMode} />
             </div>
           </div>
         </Drawer>
@@ -221,6 +225,7 @@ function App() {
         <SettingsModal
           visible={settingsVisible}
           onClose={handleSettingsClose}
+          darkMode={darkMode}
         />
 
       </Layout>

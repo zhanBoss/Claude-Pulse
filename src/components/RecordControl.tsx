@@ -2,10 +2,16 @@ import { useEffect, useState } from 'react'
 import { Card, Switch, Button, Typography, Space, Spin, Tag } from 'antd'
 import { PlayCircleOutlined, PauseCircleOutlined, EditOutlined } from '@ant-design/icons'
 import { RecordConfig } from '../types'
+import { getThemeVars } from '../theme'
 
 const { Title, Text } = Typography
 
-function RecordControl() {
+interface RecordControlProps {
+  darkMode: boolean
+}
+
+function RecordControl({ darkMode }: RecordControlProps) {
+  const themeVars = getThemeVars(darkMode)
   const [config, setConfig] = useState<RecordConfig>({
     enabled: false,
     savePath: ''
@@ -139,7 +145,7 @@ function RecordControl() {
         </Card>
       )}
 
-      <Card bodyStyle={{ padding: 12, background: '#f6f8fa' }}>
+      <Card bodyStyle={{ padding: 12, background: themeVars.bgSection }}>
         <Space direction="vertical" size={4}>
           <Text type="secondary" style={{ fontSize: 12 }}>
             💡 开启后将自动记录所有 Claude Code 对话

@@ -5,6 +5,7 @@ import ReactMarkdown from 'react-markdown'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { ClaudeRecord } from '../types'
+import { getThemeVars } from '../theme'
 
 const { Title, Text } = Typography
 
@@ -14,6 +15,7 @@ interface LogViewerProps {
   onToggleView: () => void
   onOpenDrawer: () => void
   showDrawerButton?: boolean
+  darkMode: boolean
 }
 
 interface GroupedRecord {
@@ -23,9 +25,10 @@ interface GroupedRecord {
   latestTimestamp: number
 }
 
-function LogViewer({ records, onClear, onToggleView, onOpenDrawer, showDrawerButton = true }: LogViewerProps) {
+function LogViewer({ records, onClear, onToggleView, onOpenDrawer, showDrawerButton = true, darkMode }: LogViewerProps) {
   // 每个 session 的展开/折叠状态
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set())
+  const themeVars = getThemeVars(darkMode)
 
   const toggleSession = (sessionId: string) => {
     const newExpanded = new Set(expandedSessions)
@@ -112,7 +115,7 @@ function LogViewer({ records, onClear, onToggleView, onOpenDrawer, showDrawerBut
             ) : (
               <code
                 style={{
-                  background: '#f5f5f5',
+                  background: themeVars.codeBg,
                   padding: '2px 6px',
                   borderRadius: 3,
                   fontSize: 12,
@@ -223,7 +226,7 @@ function LogViewer({ records, onClear, onToggleView, onOpenDrawer, showDrawerBut
           style={{
             marginTop: 8,
             padding: 8,
-            background: '#f5f5f5',
+            background: themeVars.codeBg,
             borderRadius: 4,
             fontSize: 12,
             fontFamily: 'monospace'
@@ -242,13 +245,13 @@ function LogViewer({ records, onClear, onToggleView, onOpenDrawer, showDrawerBut
       display: 'flex',
       flexDirection: 'column',
       height: '100%',
-      background: '#fff',
+      background: themeVars.bgContainer,
       minHeight: 0
     }}>
       <div style={{
         padding: '16px',
-        borderBottom: '1px solid #f0f0f0',
-        background: '#fafafa',
+        borderBottom: `1px solid ${themeVars.borderSecondary}`,
+        background: themeVars.bgSection,
         flexShrink: 0
       }}>
         <div style={{

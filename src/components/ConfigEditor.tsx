@@ -2,10 +2,16 @@ import { useEffect, useState } from 'react'
 import { Card, Button, Alert, Spin, Space, Typography, Modal, message } from 'antd'
 import { EditOutlined, SaveOutlined, ReloadOutlined, FormatPainterOutlined, CodeOutlined, CloseOutlined } from '@ant-design/icons'
 import Editor from '@monaco-editor/react'
+import { getThemeVars } from '../theme'
 
 const { Title, Text } = Typography
 
-function ConfigEditor() {
+interface ConfigEditorProps {
+  darkMode: boolean
+}
+
+function ConfigEditor({ darkMode }: ConfigEditorProps) {
+  const themeVars = getThemeVars(darkMode)
   const [config, setConfig] = useState<string>('')
   const [loading, setLoading] = useState(true)
   const [modalVisible, setModalVisible] = useState(false)
@@ -139,12 +145,12 @@ function ConfigEditor() {
             </div>
             <div
               style={{
-                background: '#f5f5f5',
+                background: themeVars.codeBg,
                 borderRadius: 4,
                 padding: '8px 12px',
                 fontFamily: 'monospace',
                 fontSize: 12,
-                color: '#666',
+                color: themeVars.textSecondary,
                 maxHeight: 60,
                 overflow: 'hidden',
                 textOverflow: 'ellipsis'
@@ -206,13 +212,13 @@ function ConfigEditor() {
         style={{ top: 40 }}
         bodyStyle={{ padding: 0 }}
       >
-        <div style={{ height: 500, border: '1px solid #d9d9d9' }}>
+        <div style={{ height: 500, border: `1px solid ${themeVars.border}` }}>
           <Editor
             height="100%"
             defaultLanguage="json"
             value={editedConfig}
             onChange={(value) => setEditedConfig(value || '')}
-            theme="vs-dark"
+            theme={darkMode ? 'vs-dark' : 'light'}
             options={{
               minimap: { enabled: false },
               fontSize: 13,

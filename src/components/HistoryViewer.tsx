@@ -16,12 +16,14 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { ClaudeRecord } from '../types'
 import dayjs, { Dayjs } from 'dayjs'
+import { getThemeVars } from '../theme'
 
 const { Title, Text, Paragraph } = Typography
 const { RangePicker } = DatePicker
 
 interface HistoryViewerProps {
   onToggleView: () => void
+  darkMode: boolean
 }
 
 interface GroupedRecord {
@@ -33,12 +35,13 @@ interface GroupedRecord {
 
 type DateRange = '1d' | '7d' | '30d' | 'custom'
 
-function HistoryViewer({ onToggleView }: HistoryViewerProps) {
+function HistoryViewer({ onToggleView, darkMode }: HistoryViewerProps) {
   const [records, setRecords] = useState<ClaudeRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [dateRange, setDateRange] = useState<DateRange>('7d')
   const [customDateRange, setCustomDateRange] = useState<[Dayjs, Dayjs] | null>(null)
   const [searchKeyword, setSearchKeyword] = useState('')
+  const themeVars = getThemeVars(darkMode)
 
   // 分页状态
   const [currentPage, setCurrentPage] = useState(1)
@@ -276,7 +279,7 @@ function HistoryViewer({ onToggleView }: HistoryViewerProps) {
           style={{
             marginTop: 8,
             padding: 8,
-            background: '#f5f5f5',
+            background: themeVars.codeBg,
             borderRadius: 4,
             fontSize: 12,
             fontFamily: 'monospace'
@@ -426,7 +429,7 @@ function HistoryViewer({ onToggleView }: HistoryViewerProps) {
           ) : (
             <code
               style={{
-                background: '#f5f5f5',
+                background: themeVars.codeBg,
                 padding: '2px 6px',
                 borderRadius: 3,
                 fontSize: 12,
@@ -455,14 +458,14 @@ function HistoryViewer({ onToggleView }: HistoryViewerProps) {
       display: 'flex',
       flexDirection: 'column',
       height: '100%',
-      background: '#fff',
+      background: themeVars.bgContainer,
       minHeight: 0
     }}>
       {/* 顶部标题栏 */}
       <div style={{
         padding: '16px',
-        borderBottom: '1px solid #f0f0f0',
-        background: '#fafafa',
+        borderBottom: `1px solid ${themeVars.borderSecondary}`,
+        background: themeVars.bgSection,
         flexShrink: 0
       }}>
         <div style={{
