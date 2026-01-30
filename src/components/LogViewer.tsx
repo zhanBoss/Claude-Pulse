@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
 import { Button, Empty, Space, Typography, Tag, Card, message, Modal } from 'antd'
-import { HistoryOutlined, DeleteOutlined, CopyOutlined, FolderOpenOutlined, MenuOutlined, DownOutlined, UpOutlined, SparklesOutlined } from '@ant-design/icons'
+import { HistoryOutlined, DeleteOutlined, CopyOutlined, FolderOpenOutlined, MenuOutlined, DownOutlined, UpOutlined, StarOutlined } from '@ant-design/icons'
 import ReactMarkdown from 'react-markdown'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
@@ -355,7 +355,7 @@ function LogViewer({ records, onClear, onToggleView, onOpenDrawer, showDrawerBut
           </div>
           <Space wrap>
             <Button
-              icon={<SparklesOutlined />}
+              icon={<StarOutlined />}
               onClick={handleSummarizeCurrentLogs}
               size="small"
               loading={summarizing}
@@ -496,7 +496,7 @@ function LogViewer({ records, onClear, onToggleView, onOpenDrawer, showDrawerBut
       <Modal
         title={
           <Space>
-            <SparklesOutlined style={{ color: '#667eea' }} />
+            <StarOutlined style={{ color: '#667eea' }} />
             <Text>当前对话 AI 总结</Text>
           </Space>
         }

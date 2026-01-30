@@ -8,7 +8,7 @@ import {
   ReloadOutlined,
   ExportOutlined,
   SearchOutlined,
-  SparklesOutlined
+  StarOutlined
 } from '@ant-design/icons'
 import Highlighter from 'react-highlight-words'
 import ReactMarkdown from 'react-markdown'
@@ -263,9 +263,9 @@ function HistoryViewer({ onToggleView, darkMode }: HistoryViewerProps) {
   const handleSummarize = async (session: GroupedRecord) => {
     try {
       // 检查 AI 配置
-      const config = await window.electronAPI.getConfig()
+      const settings = await window.electronAPI.getAppSettings()
 
-      if (!config.ai?.enabled || !config.ai?.apiKey) {
+      if (!settings.ai.enabled) {
         Modal.confirm({
           title: 'AI 总结功能需要配置',
           content: '使用 AI 总结功能需要先配置 API Key，是否前往设置？',
@@ -659,7 +659,7 @@ function HistoryViewer({ onToggleView, darkMode }: HistoryViewerProps) {
                           key="summarize"
                           type="text"
                           size="small"
-                          icon={<SparklesOutlined />}
+                          icon={<StarOutlined />}
                           loading={summarizing}
                           onClick={(e) => {
                             e.stopPropagation()
@@ -913,7 +913,7 @@ function HistoryViewer({ onToggleView, darkMode }: HistoryViewerProps) {
       <Modal
         title={
           <Space>
-            <SparklesOutlined style={{ color: '#667eea' }} />
+            <StarOutlined style={{ color: '#667eea' }} />
             <Text>AI 总结</Text>
           </Space>
         }

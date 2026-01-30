@@ -1,4 +1,4 @@
-import type { ClaudeRecord, AISettings, SummaryRequest } from '../types'
+import type { ClaudeRecord, AISettings } from '../types'
 
 export class AISummaryService {
   private settings: AISettings

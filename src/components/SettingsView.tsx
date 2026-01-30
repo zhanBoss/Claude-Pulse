@@ -6,7 +6,7 @@ import {
   BulbOutlined,
   RobotOutlined,
   ClockCircleOutlined,
-  ExternalLinkOutlined
+  LinkOutlined
 } from '@ant-design/icons'
 import { AppSettings } from '../types'
 import { getThemeVars } from '../theme'
@@ -236,7 +236,7 @@ function SettingsView({ onBack, darkMode }: SettingsViewProps) {
                     target="_blank"
                     style={{ fontSize: '12px' }}
                   >
-                    获取 API Key <ExternalLinkOutlined />
+                    获取 API Key <LinkOutlined />
                   </Link>
                 </div>
                 <Input.Password
