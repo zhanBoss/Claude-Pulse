@@ -47,6 +47,7 @@
     "@types/react-highlight-words": "^0.20.1",
     "antd": "^6.2.2",
     "dayjs": "^1.11.19",
+    "electron-fetch": "^1.9.1",
     "electron-store": "^8.1.0",
     "monaco-editor": "^0.55.1",
     "react": "^18.2.0",

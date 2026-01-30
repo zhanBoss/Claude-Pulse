@@ -39,5 +39,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('save-app-settings', settings),
 
   // 导出记录
-  exportRecords: (options: any) => ipcRenderer.invoke('export-records', options)
+  exportRecords: (options: any) => ipcRenderer.invoke('export-records', options),
+
+  // 新增 AI 总结方法
+  summarizeRecords: (request: any) => ipcRenderer.invoke('summarize-records', request)
 })

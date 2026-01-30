@@ -3,6 +3,7 @@ import path from 'path'
 import fs from 'fs'
 import os from 'os'
 import Store from 'electron-store'
+import fetch from 'electron-fetch'
 
 const store = new Store()
 
@@ -148,9 +149,23 @@ ipcMain.handle('save-record-config', async (_, config: { enabled: boolean; saveP
 
 // 获取应用设置
 ipcMain.handle('get-app-settings', async () => {
-  const darkMode = store.get('darkMode', false) as boolean
-  const autoStart = store.get('autoStart', false) as boolean
-  return { darkMode, autoStart }
+  const defaultSettings = {
+    darkMode: false,
+    autoStart: false,
+    ai: {
+      enabled: false,
+      provider: 'deepseek' as const,
+      apiKey: '',
+      apiBaseUrl: 'https://api.deepseek.com/v1',
+      model: 'deepseek-chat'
+    }
+  }
+
+  const darkMode = store.get('darkMode', defaultSettings.darkMode) as boolean
+  const autoStart = store.get('autoStart', defaultSettings.autoStart) as boolean
+  const ai = store.get('ai', defaultSettings.ai) as any
+
+  return { darkMode, autoStart, ai }
 })
 
 // 保存应用设置
@@ -536,6 +551,144 @@ ipcMain.handle('export-records', async (_, options: any) => {
   } catch (error) {
     console.error('导出记录失败:', error)
     return { success: false, error: (error as Error).message }
+  }
+})
+
+// AI 总结功能
+ipcMain.handle('summarize-records', async (_, request: { records: any[], type: 'brief' | 'detailed' }) => {
+  try {
+    // 获取 AI 设置
+    const defaultSettings = {
+      darkMode: false,
+      autoStart: false,
+      ai: {
+        enabled: false,
+        provider: 'deepseek' as const,
+        apiKey: '',
+        apiBaseUrl: 'https://api.deepseek.com/v1',
+        model: 'deepseek-chat'
+      }
+    }
+
+    const aiSettings = store.get('ai', defaultSettings.ai) as any
+
+    if (!aiSettings.enabled || !aiSettings.apiKey) {
+      return {
+        success: false,
+        error: 'AI 总结功能未启用或未配置 API Key'
+      }
+    }
+
+    if (!request.records || request.records.length === 0) {
+      return {
+        success: false,
+        error: '没有可总结的记录'
+      }
+    }
+
+    // 构建提示词
+    const conversations = request.records.map((record: any, index: number) => {
+      return `[对话 ${index + 1}]\n时间: ${new Date(record.timestamp).toLocaleString('zh-CN')}\n内容: ${record.display}`
+    }).join('\n\n---\n\n')
+
+    const templates = {
+      brief: `请用 1-2 句话简短总结以下 Claude Code 对话的核心内容：\n\n${conversations}`,
+      detailed: `请详细总结以下 Claude Code 对话记录，使用 Markdown 格式，包含以下结构：
+
+## 📋 会话摘要
+（用一段话概括整个对话的主题和目的）
+
+## 🎯 主要讨论点
+（列出 3-5 个要点）
+
+## 💡 解决方案/结论
+（总结得出的结论或实施的方案）
+
+## 🔧 涉及的技术/工具
+（如果有，列出提到的技术栈、工具或文件）
+
+对话记录：
+
+${conversations}`
+    }
+
+    const prompt = templates[request.type] || templates.detailed
+
+    // 调用 DeepSeek API
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 30000)
+
+    try {
+      const response = await fetch(`${aiSettings.apiBaseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${aiSettings.apiKey}`
+        },
+        body: JSON.stringify({
+          model: aiSettings.model,
+          messages: [
+            {
+              role: 'system',
+              content: '你是一个专业的技术对话总结助手，擅长提取关键信息和技术要点。请使用简洁清晰的中文进行总结。'
+            },
+            {
+              role: 'user',
+              content: prompt
+            }
+          ],
+          temperature: 0.3,
+          max_tokens: 2000
+        }),
+        signal: controller.signal
+      })
+
+      clearTimeout(timeoutId)
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        return {
+          success: false,
+          error: `DeepSeek API 错误: ${response.status} ${(errorData as any).error?.message || response.statusText}`
+        }
+      }
+
+      const data = await response.json()
+
+      if (!data.choices || !data.choices[0] || !data.choices[0].message) {
+        return {
+          success: false,
+          error: 'DeepSeek API 返回格式异常'
+        }
+      }
+
+      return {
+        success: true,
+        summary: data.choices[0].message.content.trim(),
+        tokensUsed: data.usage?.total_tokens || 0
+      }
+
+    } catch (error: any) {
+      clearTimeout(timeoutId)
+
+      if (error.name === 'AbortError') {
+        return {
+          success: false,
+          error: '请求超时，请检查网络连接'
+        }
+      }
+
+      return {
+        success: false,
+        error: error.message || '未知错误'
+      }
+    }
+
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error.message || '总结失败'
+    }
   }
 })
 
