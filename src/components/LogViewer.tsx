@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react'
-import { Button, Empty, Space, Typography, Tag, Card, message } from 'antd'
-import { HistoryOutlined, DeleteOutlined, CopyOutlined, FolderOpenOutlined, MenuOutlined, DownOutlined, UpOutlined } from '@ant-design/icons'
+import { Button, Empty, Space, Typography, Tag, Card, message, Modal } from 'antd'
+import { HistoryOutlined, DeleteOutlined, CopyOutlined, FolderOpenOutlined, MenuOutlined, DownOutlined, UpOutlined, SparklesOutlined } from '@ant-design/icons'
 import ReactMarkdown from 'react-markdown'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
@@ -29,6 +29,11 @@ function LogViewer({ records, onClear, onToggleView, onOpenDrawer, showDrawerBut
   // 每个 session 的展开/折叠状态
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set())
   const themeVars = getThemeVars(darkMode)
+
+  // AI 总结相关状态
+  const [summarizing, setSummarizing] = useState(false)
+  const [summaryContent, setSummaryContent] = useState<string>('')
+  const [summaryModalVisible, setSummaryModalVisible] = useState(false)
 
   const toggleSession = (sessionId: string) => {
     const newExpanded = new Set(expandedSessions)
@@ -199,6 +204,75 @@ function LogViewer({ records, onClear, onToggleView, onOpenDrawer, showDrawerBut
     }
   }
 
+  // 处理当前对话总结
+  const handleSummarizeCurrentLogs = async () => {
+    if (records.length === 0) {
+      message.warning('当前没有对话记录')
+      return
+    }
+
+    setSummarizing(true)
+
+    try {
+      // 检查 AI 配置
+      const settings = await window.electronAPI.getAppSettings()
+
+      if (!settings.ai.enabled) {
+        Modal.confirm({
+          title: '启用 AI 总结功能',
+          content: 'AI 总结功能尚未启用，是否前往设置？',
+          okText: '去设置',
+          cancelText: '取消',
+          onOk: () => {
+            message.info('请点击右上角设置按钮配置 AI 功能')
+          }
+        })
+        return
+      }
+
+      if (!settings.ai.apiKey) {
+        Modal.confirm({
+          title: '配置 API Key',
+          content: '尚未配置 DeepSeek API Key，是否前往设置？',
+          okText: '去设置',
+          cancelText: '取消',
+          onOk: () => {
+            message.info('请点击右上角设置按钮配置 API Key')
+          }
+        })
+        return
+      }
+
+      // 调用总结接口
+      const result = await window.electronAPI.summarizeRecords({
+        records: records,
+        type: 'detailed'
+      })
+
+      if (result.success && result.summary) {
+        setSummaryContent(result.summary)
+        setSummaryModalVisible(true)
+      } else {
+        message.error(`总结失败: ${result.error || '未知错误'}`)
+      }
+
+    } catch (error: any) {
+      message.error(`总结失败: ${error.message || '未知错误'}`)
+    } finally {
+      setSummarizing(false)
+    }
+  }
+
+  // 复制总结内容
+  const handleCopySummary = async () => {
+    try {
+      await window.electronAPI.copyToClipboard(summaryContent)
+      message.success('已复制到剪贴板')
+    } catch (error) {
+      message.error('复制失败')
+    }
+  }
+
   const renderPastedContent = (content: any, contentKey: string) => {
     if (!content) return null
 
@@ -280,6 +354,15 @@ function LogViewer({ records, onClear, onToggleView, onOpenDrawer, showDrawerBut
             </div>
           </div>
           <Space wrap>
+            <Button
+              icon={<SparklesOutlined />}
+              onClick={handleSummarizeCurrentLogs}
+              size="small"
+              loading={summarizing}
+              disabled={records.length === 0}
+            >
+              AI 总结
+            </Button>
             <Button
               icon={<HistoryOutlined />}
               type="primary"
@@ -408,6 +491,83 @@ function LogViewer({ records, onClear, onToggleView, onOpenDrawer, showDrawerBut
           </Space>
         )}
       </div>
+
+      {/* AI 总结结果弹窗 */}
+      <Modal
+        title={
+          <Space>
+            <SparklesOutlined style={{ color: '#667eea' }} />
+            <Text>当前对话 AI 总结</Text>
+          </Space>
+        }
+        open={summaryModalVisible}
+        onCancel={() => setSummaryModalVisible(false)}
+        width="60%"
+        footer={[
+          <Button
+            key="copy"
+            icon={<CopyOutlined />}
+            onClick={handleCopySummary}
+          >
+            复制总结
+          </Button>,
+          <Button
+            key="close"
+            type="primary"
+            onClick={() => setSummaryModalVisible(false)}
+          >
+            关闭
+          </Button>
+        ]}
+        style={{ top: 60 }}
+        bodyStyle={{ maxHeight: 'calc(100vh - 260px)', overflowY: 'auto' }}
+      >
+        <div style={{ fontSize: 14, lineHeight: 1.8 }}>
+          <ReactMarkdown
+            components={{
+              code({ node, inline, className, children, ...props }: any) {
+                const match = /language-(\w+)/.exec(className || '')
+                return !inline && match ? (
+                  <SyntaxHighlighter
+                    style={vscDarkPlus}
+                    language={match[1]}
+                    PreTag="div"
+                    customStyle={{
+                      margin: 0,
+                      borderRadius: 6,
+                      fontSize: 13
+                    }}
+                    {...props}
+                  >
+                    {String(children).replace(/\n$/, '')}
+                  </SyntaxHighlighter>
+                ) : (
+                  <code
+                    style={{
+                      background: themeVars.codeBg,
+                      padding: '2px 6px',
+                      borderRadius: 3,
+                      fontSize: 12,
+                      fontFamily: 'monospace'
+                    }}
+                    {...props}
+                  >
+                    {children}
+                  </code>
+                )
+              },
+              p({ children }) {
+                return <p style={{ marginBottom: 8, lineHeight: 1.6 }}>{children}</p>
+              },
+              pre({ children }) {
+                return <>{children}</>
+              }
+            }}
+          >
+            {summaryContent}
+          </ReactMarkdown>
+        </div>
+      </Modal>
     </div>
   )
 }
