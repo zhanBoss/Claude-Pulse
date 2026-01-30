@@ -36,5 +36,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 应用设置
   getAppSettings: () => ipcRenderer.invoke('get-app-settings'),
   saveAppSettings: (settings: { darkMode: boolean; autoStart: boolean }) =>
-    ipcRenderer.invoke('save-app-settings', settings)
+    ipcRenderer.invoke('save-app-settings', settings),
+
+  // 导出记录
+  exportRecords: (options: any) => ipcRenderer.invoke('export-records', options)
 })

@@ -1,5 +1,6 @@
-import { PageHeader, Tag, Space, Button, Tooltip } from 'antd'
+import { Tag, Space, Button, Tooltip } from 'antd'
 import { FolderOutlined, MessageOutlined, BulbOutlined, SettingOutlined } from '@ant-design/icons'
+import type { CSSProperties } from 'react'
 
 interface StatusBarProps {
   claudeDir: string
@@ -13,11 +14,11 @@ function StatusBar({ claudeDir, darkMode, onThemeToggle, onOpenSettings }: Statu
     <div
       style={{
         background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        WebkitAppRegion: 'drag' as any,
+        WebkitAppRegion: 'drag',
         padding: '12px 16px',
         minHeight: 64,
         flexShrink: 0
-      }}
+      } as CSSProperties}
     >
       <div style={{
         display: 'flex',
@@ -67,12 +68,12 @@ function StatusBar({ claudeDir, darkMode, onThemeToggle, onOpenSettings }: Statu
               icon={<SettingOutlined />}
               onClick={onOpenSettings}
               style={{
-                WebkitAppRegion: 'no-drag' as any,
+                WebkitAppRegion: 'no-drag',
                 color: 'white',
                 background: 'rgba(255,255,255,0.15)',
                 borderColor: 'rgba(255,255,255,0.3)',
                 backdropFilter: 'blur(10px)'
-              }}
+              } as CSSProperties}
             />
           </Tooltip>
 
@@ -82,12 +83,12 @@ function StatusBar({ claudeDir, darkMode, onThemeToggle, onOpenSettings }: Statu
               icon={<BulbOutlined />}
               onClick={onThemeToggle}
               style={{
-                WebkitAppRegion: 'no-drag' as any,
+                WebkitAppRegion: 'no-drag',
                 color: 'white',
                 background: 'rgba(255,255,255,0.15)',
                 borderColor: 'rgba(255,255,255,0.3)',
                 backdropFilter: 'blur(10px)'
-              }}
+              } as CSSProperties}
             />
           </Tooltip>
 

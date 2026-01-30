@@ -6,7 +6,8 @@ import {
   ClockCircleOutlined,
   FileTextOutlined,
   CloseOutlined,
-  ReloadOutlined
+  ReloadOutlined,
+  ExportOutlined
 } from '@ant-design/icons'
 import ReactMarkdown from 'react-markdown'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
@@ -197,6 +198,22 @@ function HistoryViewer({ onToggleView }: HistoryViewerProps) {
       await window.electronAPI.openInFinder(folderPath)
     } catch (error) {
       message.error('打开文件夹失败')
+    }
+  }
+
+  const handleExport = async () => {
+    try {
+      const result = await window.electronAPI.exportRecords({
+        format: 'markdown'
+      })
+
+      if (result.success) {
+        message.success(`导出成功: ${result.filePath}`)
+      } else {
+        message.error(`导出失败: ${result.error}`)
+      }
+    } catch (error: any) {
+      message.error(`导出失败: ${error?.message || '未知错误'}`)
     }
   }
 
@@ -453,6 +470,14 @@ function HistoryViewer({ onToggleView }: HistoryViewerProps) {
               loading={loading}
             >
               刷新
+            </Button>
+            <Button
+              icon={<ExportOutlined />}
+              onClick={handleExport}
+              size="small"
+              disabled={groupedRecords.length === 0}
+            >
+              导出
             </Button>
             <Button
               icon={<ClockCircleOutlined />}
