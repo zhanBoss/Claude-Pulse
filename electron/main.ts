@@ -756,7 +756,8 @@ ${conversations}`
         }
       }
 
-      // OpenAI 兼容格式 (Groq, DeepSeek, Custom)
+      // OpenAI 兼容格式 (Groq, DeepSeek, 自定义)
+      // 注意：自定义提供商默认使用 OpenAI 格式，用户可自行配置兼容的 API
       const response = await fetch(`${currentConfig.apiBaseUrl}/chat/completions`, {
         method: 'POST',
         headers: {
@@ -916,7 +917,8 @@ ${conversations}`
       return
     }
 
-    // OpenAI 兼容格式的流式请求 (Groq, DeepSeek)
+    // OpenAI 兼容格式的流式请求 (Groq, DeepSeek, 自定义)
+    // 自定义提供商需要确保 API 兼容 OpenAI 的流式格式
     const response = await fetch(`${currentConfig.apiBaseUrl}/chat/completions`, {
       method: 'POST',
       headers: {

@@ -101,7 +101,7 @@ function SettingsView({ onBack, darkMode, onThemeModeChange }: SettingsViewProps
     custom: {
       name: '自定义',
       getKeyUrl: '',
-      description: '使用自定义的 OpenAI 兼容 API'
+      description: '完全自定义配置，支持任意 API 服务'
     }
   }
 
@@ -438,7 +438,7 @@ function SettingsView({ onBack, darkMode, onThemeModeChange }: SettingsViewProps
                       label: (
                         <div>
                           <div style={{ fontWeight: 500 }}>自定义</div>
-                          <div style={{ fontSize: 12, color: '#1890ff' }}>⚙️ OpenAI 兼容 API</div>
+                          <div style={{ fontSize: 12, color: '#1890ff' }}>⚙️ 任意 API 服务</div>
                         </div>
                       ),
                       value: 'custom'
@@ -498,32 +498,32 @@ function SettingsView({ onBack, darkMode, onThemeModeChange }: SettingsViewProps
               </div>
 
               <div>
-                <Text style={{ color: themeVars.text }}>模型</Text>
-                <br />
-                <Text type="secondary" style={{ fontSize: '12px', color: themeVars.textSecondary, marginBottom: '8px', display: 'block' }}>
-                  {settings.ai.provider === 'custom'
-                    ? '填写你要使用的模型名称（如 gpt-4, claude-3-opus 等）'
-                    : '默认已选择最优模型，通常无需修改'}
-                </Text>
-                <Input
-                  value={getCurrentProviderConfig().model}
-                  onChange={(e) => updateCurrentProviderConfig('model', e.target.value)}
-                  placeholder={settings.ai.provider === 'custom' ? '例如: gpt-4' : getCurrentProviderConfig().model}
-                />
-              </div>
-
-              <div>
                 <Text style={{ color: themeVars.text }}>API 地址</Text>
                 <br />
                 <Text type="secondary" style={{ fontSize: '12px', color: themeVars.textSecondary, marginBottom: '8px', display: 'block' }}>
                   {settings.ai.provider === 'custom'
-                    ? '填写 OpenAI 兼容的 API 地址（支持代理、中转等）'
+                    ? '填写完整的 API 地址（支持任意服务、代理、中转）'
                     : '高级选项，通常无需修改'}
                 </Text>
                 <Input
                   value={getCurrentProviderConfig().apiBaseUrl}
                   onChange={(e) => updateCurrentProviderConfig('apiBaseUrl', e.target.value)}
-                  placeholder={settings.ai.provider === 'custom' ? '例如: https://api.openai.com/v1' : getCurrentProviderConfig().apiBaseUrl}
+                  placeholder={settings.ai.provider === 'custom' ? '例如: https://your-api.com/v1' : getCurrentProviderConfig().apiBaseUrl}
+                />
+              </div>
+
+              <div>
+                <Text style={{ color: themeVars.text }}>模型名称</Text>
+                <br />
+                <Text type="secondary" style={{ fontSize: '12px', color: themeVars.textSecondary, marginBottom: '8px', display: 'block' }}>
+                  {settings.ai.provider === 'custom'
+                    ? '填写模型 ID（根据你的 API 服务要求）'
+                    : '默认已选择最优模型，通常无需修改'}
+                </Text>
+                <Input
+                  value={getCurrentProviderConfig().model}
+                  onChange={(e) => updateCurrentProviderConfig('model', e.target.value)}
+                  placeholder={settings.ai.provider === 'custom' ? '例如: gpt-4, claude-3, llama-3 等' : getCurrentProviderConfig().model}
                 />
               </div>
             </Space>
