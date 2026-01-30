@@ -290,10 +290,45 @@ function HistoryViewer({ onToggleView, onOpenSettings, darkMode }: HistoryViewer
         setSummaryContent(result.summary)
         setSummaryModalVisible(true)
       } else {
-        message.error(`总结失败: ${result.error || '未知错误'}`)
+        // 显示详细的错误信息
+        const errorMsg = result.error || '未知错误'
+
+        // 如果是余额不足错误，显示更友好的提示
+        if (errorMsg.includes('余额不足') || errorMsg.includes('402')) {
+          Modal.error({
+            title: 'AI 总结失败',
+            content: (
+              <div>
+                <p>{errorMsg}</p>
+                <p style={{ marginTop: 8, fontSize: 12, color: '#999' }}>
+                  提示：你可以前往 DeepSeek 平台充值后继续使用
+                </p>
+              </div>
+            ),
+            okText: '我知道了'
+          })
+        } else if (errorMsg.includes('API Key')) {
+          Modal.error({
+            title: 'AI 总结失败',
+            content: (
+              <div>
+                <p>{errorMsg}</p>
+                <p style={{ marginTop: 8, fontSize: 12, color: '#999' }}>
+                  提示：请前往设置页面重新配置 API Key
+                </p>
+              </div>
+            ),
+            okText: '前往设置',
+            onOk: () => {
+              onOpenSettings?.()
+            }
+          })
+        } else {
+          message.error(`总结失败: ${errorMsg}`, 5)
+        }
       }
     } catch (error: any) {
-      message.error(`总结失败: ${error?.message || '未知错误'}`)
+      message.error(`总结失败: ${error?.message || '未知错误'}`, 5)
     } finally {
       setSummarizing(false)
     }

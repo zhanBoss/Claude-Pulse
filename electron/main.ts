@@ -578,10 +578,25 @@ ipcMain.handle('summarize-records', async (_, request: { records: any[], type: '
 
     const aiSettings = store.get('ai', defaultAiSettings) as any
 
-    if (!aiSettings.enabled || !aiSettings.apiKey) {
+    if (!aiSettings.enabled) {
       return {
         success: false,
-        error: 'AI 总结功能未启用或未配置 API Key'
+        error: 'AI 总结功能未启用，请先在设置中启用'
+      }
+    }
+
+    if (!aiSettings.apiKey) {
+      return {
+        success: false,
+        error: '未配置 DeepSeek API Key，请前往设置页面配置'
+      }
+    }
+
+    // 验证 API Key 格式
+    if (!aiSettings.apiKey.startsWith('sk-')) {
+      return {
+        success: false,
+        error: 'API Key 格式不正确，DeepSeek API Key 应以 "sk-" 开头'
       }
     }
 
@@ -653,9 +668,32 @@ ${conversations}`
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
+        const errorMessage = (errorData as any).error?.message || response.statusText
+
+        // 针对不同错误码提供友好提示
+        let userFriendlyError = ''
+        switch (response.status) {
+          case 401:
+            userFriendlyError = 'API Key 无效或已过期，请检查并重新配置'
+            break
+          case 402:
+            userFriendlyError = 'DeepSeek 账户余额不足，请前往 https://platform.deepseek.com 充值'
+            break
+          case 429:
+            userFriendlyError = 'API 调用频率超限，请稍后再试'
+            break
+          case 500:
+          case 502:
+          case 503:
+            userFriendlyError = 'DeepSeek 服务暂时不可用，请稍后再试'
+            break
+          default:
+            userFriendlyError = `API 错误 (${response.status}): ${errorMessage}`
+        }
+
         return {
           success: false,
-          error: `DeepSeek API 错误: ${response.status} ${(errorData as any).error?.message || response.statusText}`
+          error: userFriendlyError
         }
       }
 
