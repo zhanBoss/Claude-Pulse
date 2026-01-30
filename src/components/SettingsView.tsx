@@ -105,9 +105,19 @@ function SettingsView({ onBack, darkMode, onThemeModeChange }: SettingsViewProps
     }
   }
 
-  // 获取当前提供商的配置
+  // 获取当前提供商的配置（带默认值保护）
   const getCurrentProviderConfig = () => {
-    return settings.ai.providers[settings.ai.provider]
+    const defaultConfig = {
+      apiKey: '',
+      apiBaseUrl: '',
+      model: ''
+    }
+
+    if (!settings.ai.providers) {
+      return defaultConfig
+    }
+
+    return settings.ai.providers[settings.ai.provider] || defaultConfig
   }
 
   // 遮罩 API Key（显示前4位和后4位）
@@ -137,6 +147,63 @@ function SettingsView({ onBack, darkMode, onThemeModeChange }: SettingsViewProps
   const loadSettings = async () => {
     try {
       const loadedSettings = await window.electronAPI.getAppSettings()
+
+      // 确保 providers 结构完整
+      if (!loadedSettings.ai.providers) {
+        loadedSettings.ai.providers = {
+          groq: {
+            apiKey: '',
+            apiBaseUrl: 'https://api.groq.com/openai/v1',
+            model: 'llama-3.3-70b-versatile'
+          },
+          deepseek: {
+            apiKey: '',
+            apiBaseUrl: 'https://api.deepseek.com/v1',
+            model: 'deepseek-chat'
+          },
+          gemini: {
+            apiKey: '',
+            apiBaseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+            model: 'gemini-2.0-flash-exp'
+          },
+          custom: {
+            apiKey: '',
+            apiBaseUrl: '',
+            model: ''
+          }
+        }
+      }
+
+      // 确保每个 provider 都存在
+      const defaultProviders = {
+        groq: {
+          apiKey: '',
+          apiBaseUrl: 'https://api.groq.com/openai/v1',
+          model: 'llama-3.3-70b-versatile'
+        },
+        deepseek: {
+          apiKey: '',
+          apiBaseUrl: 'https://api.deepseek.com/v1',
+          model: 'deepseek-chat'
+        },
+        gemini: {
+          apiKey: '',
+          apiBaseUrl: 'https://generativelanguage.googleapis.com/v1beta',
+          model: 'gemini-2.0-flash-exp'
+        },
+        custom: {
+          apiKey: '',
+          apiBaseUrl: '',
+          model: ''
+        }
+      }
+
+      Object.keys(defaultProviders).forEach(provider => {
+        if (!loadedSettings.ai.providers[provider]) {
+          loadedSettings.ai.providers[provider] = defaultProviders[provider]
+        }
+      })
+
       setSettings(loadedSettings)
     } catch (error) {
       console.error('加载设置失败:', error)
