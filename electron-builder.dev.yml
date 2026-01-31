@@ -1,0 +1,45 @@
+# 开发版本构建配置
+# 用于构建带 DevTools 的调试版本
+
+appId: com.ccmonitor.dev
+productName: CCMonitor-Dev
+
+mac:
+  category: public.app-category.developer-tools
+  target:
+    - dmg
+    - zip
+  icon: build/icon.icns
+
+win:
+  target:
+    - nsis
+  icon: build/icon.ico
+
+linux:
+  target:
+    - AppImage
+    - deb
+  category: Development
+  icon: build/icon.png
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+
+files:
+  - dist/**/*
+  - dist-electron/**/*
+  - "!node_modules/**/*"
+  - node_modules/electron-store/**/*
+
+directories:
+  output: debug
+  buildResources: build
+
+publish:
+  provider: github
+  owner: zhanBoss
+  repo: Claude-Code-Monitor

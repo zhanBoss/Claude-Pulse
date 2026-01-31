@@ -6,9 +6,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build && electron-builder",
-    "build:dev": "cross-env ELECTRON_DEV_BUILD=true vite build && electron-builder",
-    "build:prod": "vite build && electron-builder",
-    "clear:build": "rimraf release dist dist-electron build/icons build/icons-rounded",
+    "build:dev": "cross-env ELECTRON_DEV_BUILD=true vite build && electron-builder --config electron-builder.dev.yml",
+    "build:prod": "vite build && electron-builder --config electron-builder.prod.yml",
+    "clear:build": "rimraf release debug dist dist-electron build/icons build/icons-rounded",
     "preview": "vite preview",
     "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
     "electron:build": "vite build && electron-builder"
