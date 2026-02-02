@@ -1,12 +1,13 @@
 import { useEffect, useState, forwardRef, useImperativeHandle } from 'react'
-import { Button, Alert, Spin, Space, Typography, Modal, message } from 'antd'
+import { Button, Spin, Space, Typography, Modal, message } from 'antd'
 import {
   EditOutlined,
   SaveOutlined,
   ReloadOutlined,
   FormatPainterOutlined,
   CodeOutlined,
-  CloseOutlined
+  CloseOutlined,
+  FolderOpenOutlined
 } from '@ant-design/icons'
 import Editor from '@monaco-editor/react'
 import { getThemeVars } from '../theme'
@@ -183,12 +184,6 @@ const ConfigEditor = forwardRef<ConfigEditorRef, ConfigEditorProps>(({ darkMode 
           </Space>
         </div>
 
-        <Alert
-          message="点击上方卡片查看和编辑完整配置"
-          type="info"
-          showIcon
-          style={{ fontSize: 12 }}
-        />
       </Space>
 
       {/* 编辑 Modal */}
@@ -211,6 +206,16 @@ const ConfigEditor = forwardRef<ConfigEditorRef, ConfigEditorProps>(({ darkMode 
         destroyOnClose={false}
         width="70%"
         footer={[
+          <Button key="folder" icon={<FolderOpenOutlined />} onClick={async () => {
+            try {
+              await window.electronAPI.showClaudeConfigInFolder()
+              message.success('已在文件管理器中显示')
+            } catch (error) {
+              message.error('打开文件夹失败')
+            }
+          }}>
+            打开文件位置
+          </Button>,
           <Button key="format" icon={<FormatPainterOutlined />} onClick={handleFormat}>
             格式化
           </Button>,

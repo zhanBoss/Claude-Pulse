@@ -87,7 +87,7 @@ function AboutView({ darkMode }: AboutViewProps) {
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <Text type="secondary">作者</Text>
-                    <Text strong>mac033</Text>
+                    <Text strong>mrZhan</Text>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <Text type="secondary">开源协议</Text>

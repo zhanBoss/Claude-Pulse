@@ -86,6 +86,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 在文件管理器中显示配置文件
   showConfigInFolder: () => ipcRenderer.invoke('show-config-in-folder'),
 
+  // 在文件管理器中显示 Claude Code 配置文件
+  showClaudeConfigInFolder: () => ipcRenderer.invoke('show-claude-config-in-folder'),
+
   // 读取应用配置文件内容
   readAppConfigFile: () => ipcRenderer.invoke('read-app-config-file'),
 

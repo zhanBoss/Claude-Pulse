@@ -146,25 +146,25 @@ const ChangelogView = ({ darkMode }: ChangelogViewProps) => {
       background: themeVars.bgLayout
     }}>
       <div style={{
-        maxWidth: 1000,
+        maxWidth: 900,
         margin: '0 auto',
-        padding: '32px 24px'
+        padding: '24px 20px'
       }}>
         {/* 页面标题 */}
         <div style={{
-          marginBottom: 32,
+          marginBottom: 24,
           textAlign: 'center'
         }}>
           <h1 style={{
-            fontSize: 32,
+            fontSize: 28,
             fontWeight: 700,
             color: themeVars.text,
-            marginBottom: 8
+            marginBottom: 6
           }}>
             更新日志
           </h1>
           <p style={{
-            fontSize: 14,
+            fontSize: 13,
             color: themeVars.textSecondary
           }}>
             记录 CCMonitor 的版本演进历程
@@ -182,26 +182,26 @@ const ChangelogView = ({ darkMode }: ChangelogViewProps) => {
                 style={{
                   background: themeVars.bgContainer,
                   border: `1px solid ${themeVars.border}`,
-                  borderRadius: 12,
-                  marginBottom: index === changelog.length - 1 ? 0 : 24,
+                  borderRadius: 8,
+                  marginBottom: index === changelog.length - 1 ? 0 : 16,
                   boxShadow: darkMode
                     ? '0 2px 8px rgba(0, 0, 0, 0.3)'
                     : '0 2px 8px rgba(0, 0, 0, 0.06)'
                 }}
-                bodyStyle={{ padding: 24 }}
+                bodyStyle={{ padding: 16 }}
               >
                 {/* 版本头部 */}
                 <div style={{
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  marginBottom: 16,
-                  paddingBottom: 16,
+                  marginBottom: 12,
+                  paddingBottom: 12,
                   borderBottom: `1px solid ${themeVars.borderSecondary}`
                 }}>
-                  <Space size={12}>
+                  <Space size={8}>
                     <span style={{
-                      fontSize: 24,
+                      fontSize: 20,
                       fontWeight: 700,
                       color: themeVars.primary,
                       fontFamily: 'Fira Code, monospace'
@@ -211,7 +211,7 @@ const ChangelogView = ({ darkMode }: ChangelogViewProps) => {
                     {getVersionTypeTag(version.type)}
                   </Space>
                   <span style={{
-                    fontSize: 14,
+                    fontSize: 13,
                     color: themeVars.textTertiary
                   }}>
                     {version.date}
@@ -219,56 +219,37 @@ const ChangelogView = ({ darkMode }: ChangelogViewProps) => {
                 </div>
 
                 {/* 变更列表 */}
-                <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                <Space direction="vertical" size={8} style={{ width: '100%' }}>
                   {version.changes.map((change, idx) => (
                     <div
                       key={idx}
                       style={{
                         display: 'flex',
-                        alignItems: 'flex-start',
-                        gap: 12,
-                        padding: '8px 12px',
-                        background: themeVars.bgSection,
-                        borderRadius: 8,
-                        transition: 'all 0.2s'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background = themeVars.hoverBg
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = themeVars.bgSection
+                        alignItems: 'center',
+                        gap: 8,
+                        fontSize: 14,
+                        color: themeVars.text,
+                        lineHeight: 1.8
                       }}
                     >
-                      <div style={{ marginTop: 2 }}>
+                      <div style={{ flexShrink: 0 }}>
                         {getTypeIcon(change.type)}
                       </div>
-                      <div style={{ flex: 1 }}>
-                        <div style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 8,
-                          marginBottom: 4
-                        }}>
-                          <Tag
-                            color={getTypeColor(change.type)}
-                            style={{
-                              margin: 0,
-                              fontSize: 12,
-                              padding: '0 6px',
-                              lineHeight: '20px'
-                            }}
-                          >
-                            {getTypeLabel(change.type)}
-                          </Tag>
-                        </div>
-                        <div style={{
-                          fontSize: 14,
-                          color: themeVars.text,
-                          lineHeight: 1.6
-                        }}>
-                          {change.description}
-                        </div>
-                      </div>
+                      <Tag
+                        color={getTypeColor(change.type)}
+                        style={{
+                          margin: 0,
+                          fontSize: 11,
+                          padding: '0 4px',
+                          lineHeight: '18px',
+                          flexShrink: 0
+                        }}
+                      >
+                        {getTypeLabel(change.type)}
+                      </Tag>
+                      <span style={{ flex: 1 }}>
+                        {change.description}
+                      </span>
                     </div>
                   ))}
                 </Space>

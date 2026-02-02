@@ -253,6 +253,39 @@ function SettingsView({ darkMode, onThemeModeChange, claudeDir, scrollToSection,
     }
   }
 
+  // 卸载应用
+  const handleUninstall = () => {
+    Modal.confirm({
+      title: '确认卸载应用',
+      icon: <ExclamationCircleOutlined />,
+      content: (
+        <div>
+          <p>卸载应用将执行以下操作：</p>
+          <ul style={{ marginTop: 8, paddingLeft: 20 }}>
+            <li>移除应用配置文件（API Key、设置等）</li>
+            <li>移除所有 Claude Code 配置备份文件</li>
+            <li>保留 Claude Code 原始配置（settings.json 和 history.jsonl）</li>
+            <li>关闭应用</li>
+          </ul>
+          <p style={{ marginTop: 8, color: themeVars.error, fontWeight: 500 }}>
+            此操作不可恢复，请确认是否继续？
+          </p>
+        </div>
+      ),
+      okText: '确认卸载',
+      okType: 'danger',
+      cancelText: '取消',
+      onOk: async () => {
+        try {
+          await window.electronAPI.uninstallApp()
+          message.success('应用已卸�')
+        } catch (error: any) {
+          message.error(`卸载失败: ${error?.message || '未知错误'}`)
+        }
+      }
+    })
+  }
+
   // 保存 API Key
   const handleSaveApiKey = async () => {
     setApiKeySaving(true)
@@ -307,74 +340,6 @@ function SettingsView({ darkMode, onThemeModeChange, claudeDir, scrollToSection,
     saveSettingsImmediately(newSettings)
   }
 
-  // 卸载应用
-  const handleUninstall = () => {
-    Modal.confirm({
-      title: '确认卸载应用',
-      icon: <ExclamationCircleOutlined />,
-      content: (
-        <div>
-          <p>卸载应用将执行以下操作：</p>
-          <ul style={{ marginTop: 8, paddingLeft: 20 }}>
-            <li>移除应用配置文件（API Key、设置等）</li>
-            <li>移除所有 Claude Code 配置备份文件</li>
-            <li>保留 Claude Code 原始配置（settings.json 和 history.jsonl）</li>
-            <li>关闭应用</li>
-          </ul>
-          <p style={{ marginTop: 8, color: themeVars.error, fontWeight: 500 }}>
-            此操作不可恢复，请确认是否继续？
-          </p>
-        </div>
-      ),
-      okText: '确认卸载',
-      okType: 'danger',
-      cancelText: '取消',
-      onOk: async () => {
-        try {
-          await window.electronAPI.uninstallApp()
-          message.success('应用已卸载')
-        } catch (error: any) {
-          message.error(`卸载失败: ${error?.message || '未知错误'}`)
-        }
-      }
-    })
-  }
-
-  // 清除缓存
-  const handleClearCache = () => {
-    Modal.confirm({
-      title: '确认清除缓存',
-      icon: <ExclamationCircleOutlined />,
-      content: (
-        <div>
-          <p>清除缓存将执行以下操作：</p>
-          <ul style={{ marginTop: 8, paddingLeft: 20 }}>
-            <li>删除保存路径下的所有对话记录文件（.jsonl）</li>
-            <li>删除所有图片缓存（images 目录）</li>
-            <li>不影响 Claude Code 原始历史记录</li>
-          </ul>
-          <p style={{ marginTop: 8, color: themeVars.error, fontWeight: 500 }}>
-            此操作不可恢复，请确认是否继续？
-          </p>
-        </div>
-      ),
-      okText: '确认清除',
-      okType: 'danger',
-      cancelText: '取消',
-      onOk: async () => {
-        try {
-          const result = await window.electronAPI.clearCache()
-          if (result.success) {
-            message.success(`缓存已清除，共删除 ${result.deletedCount} 个文件`)
-          } else {
-            message.error(`清除失败: ${result.error}`)
-          }
-        } catch (error: any) {
-          message.error(`清除失败: ${error?.message || '未知错误'}`)
-        }
-      }
-    })
-  }
 
   return (
     <div style={{
@@ -740,61 +705,27 @@ function SettingsView({ darkMode, onThemeModeChange, claudeDir, scrollToSection,
               </div>
             </Space>
           </Card>
+        </div>
 
-          {/* 卡片 6: 危险操作 */}
-          <Card
-            title={
-              <Space>
-                <DeleteOutlined style={{ color: themeVars.error }} />
-                <span style={{ color: themeVars.error }}>危险操作</span>
-              </Space>
-            }
-            style={{
-              backgroundColor: themeVars.bgContainer,
-              borderColor: themeVars.error,
-              gridColumn: '1 / -1'
-            }}
+        {/* 卸载应用 - 放在最底部 */}
+        <div style={{
+          maxWidth: '1400px',
+          margin: '0 auto',
+          width: '100%',
+          textAlign: 'center',
+          paddingTop: '24px',
+          borderTop: `1px solid ${themeVars.borderSecondary}`
+        }}>
+          <Button
+            type="text"
+            danger
+            icon={<DeleteOutlined />}
+            onClick={handleUninstall}
+            size="small"
+            style={{ padding: '4px 8px' }}
           >
-            <Space vertical size="large" style={{ width: '100%' }}>
-              {/* 清除缓存 */}
-              <div>
-                <Text style={{ color: themeVars.text, fontWeight: 500 }}>清除缓存</Text>
-                <br />
-                <Text type="secondary" style={{ fontSize: '12px', color: themeVars.textSecondary, marginBottom: '12px', display: 'block' }}>
-                  删除保存路径下的所有对话记录和图片缓存（不影响 Claude Code 原始数据）
-                </Text>
-                <Button
-                  danger
-                  icon={<DeleteOutlined />}
-                  onClick={handleClearCache}
-                  size="large"
-                  block
-                >
-                  清除缓存
-                </Button>
-              </div>
-
-              <Divider style={{ margin: 0 }} />
-
-              {/* 卸载应用 */}
-              <div>
-                <Text style={{ color: themeVars.text, fontWeight: 500 }}>卸载应用</Text>
-                <br />
-                <Text type="secondary" style={{ fontSize: '12px', color: themeVars.textSecondary, marginBottom: '12px', display: 'block' }}>
-                  移除应用及所有数据（此操作不可恢复）
-                </Text>
-                <Button
-                  danger
-                  icon={<DeleteOutlined />}
-                  onClick={handleUninstall}
-                  size="large"
-                  block
-                >
-                  卸载应用
-                </Button>
-              </div>
-            </Space>
-          </Card>
+            卸载应用
+          </Button>
         </div>
 
         {/* 配置文件编辑器 */}

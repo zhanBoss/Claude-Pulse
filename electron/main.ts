@@ -1324,6 +1324,16 @@ ipcMain.handle('show-config-in-folder', async () => {
   }
 })
 
+// 在文件管理器中显示 Claude Code 配置文件
+ipcMain.handle('show-claude-config-in-folder', async () => {
+  try {
+    shell.showItemInFolder(SETTINGS_FILE)
+  } catch (error) {
+    console.error('显示 Claude Code 配置文件失败:', error)
+    throw error
+  }
+})
+
 // 读取应用配置文件内容
 ipcMain.handle('read-app-config-file', async () => {
   try {

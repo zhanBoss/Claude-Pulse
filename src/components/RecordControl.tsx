@@ -1,6 +1,6 @@
 import { useEffect, useState, forwardRef, useImperativeHandle } from 'react'
-import { Card, Switch, Button, Typography, Space, Spin, Tag, Alert } from 'antd'
-import { PlayCircleOutlined, PauseCircleOutlined, EditOutlined } from '@ant-design/icons'
+import { Card, Switch, Button, Typography, Space, Spin, Tag, Alert, Modal, message } from 'antd'
+import { PlayCircleOutlined, PauseCircleOutlined, EditOutlined, DeleteOutlined, ExclamationCircleOutlined } from '@ant-design/icons'
 import { RecordConfig } from '../types'
 import { getThemeVars } from '../theme'
 
@@ -91,6 +91,29 @@ const RecordControl = forwardRef<RecordControlRef, RecordControlProps>(({ darkMo
     }
   }
 
+  const handleClearCache = () => {
+    Modal.confirm({
+      title: '清除缓存',
+      icon: <ExclamationCircleOutlined />,
+      content: '将删除保存路径下的所有对话记录和图片缓存，不影响 Claude Code 原始数据。',
+      okText: '确认',
+      okType: 'danger',
+      cancelText: '取消',
+      onOk: async () => {
+        try {
+          const result = await window.electronAPI.clearCache()
+          if (result.success) {
+            message.success(`已清除 ${result.deletedCount} 个文件`)
+          } else {
+            message.error(result.error || '清除失败')
+          }
+        } catch (error: any) {
+          message.error(error?.message || '清除失败')
+        }
+      }
+    })
+  }
+
   if (loading) {
     return (
       <div style={{ textAlign: 'center', padding: 40 }}>
@@ -165,19 +188,16 @@ const RecordControl = forwardRef<RecordControlRef, RecordControlProps>(({ darkMo
         </Card>
       )}
 
-      <Card styles={{ body: { padding: 12, background: themeVars.bgSection } }} size="small">
-        <Space vertical size={4}>
-          <Text type="secondary" style={{ fontSize: 12 }}>
-            💡 自动记录所有 Claude Code 对话
-          </Text>
-          <Text type="secondary" style={{ fontSize: 12 }}>
-            📁 按项目和日期分类保存
-          </Text>
-          <Text type="secondary" style={{ fontSize: 12 }}>
-            📝 格式：JSONL
-          </Text>
-        </Space>
-      </Card>
+      {config.savePath && (
+        <Button
+          danger
+          icon={<DeleteOutlined />}
+          onClick={handleClearCache}
+          block
+        >
+          清除缓存
+        </Button>
+      )}
     </Space>
   )
 })
