@@ -1598,6 +1598,46 @@ ipcMain.handle('read-image', async (_, imagePath: string) => {
   }
 })
 
+// 读取任意文件内容（用于代码编辑器查看）
+ipcMain.handle('read-file-content', async (_, filePath: string) => {
+  try {
+    if (!fs.existsSync(filePath)) {
+      return { success: false, error: '文件不存在' }
+    }
+
+    const content = fs.readFileSync(filePath, 'utf-8')
+    return { success: true, content }
+  } catch (error) {
+    console.error('读取文件失败:', error)
+    return { success: false, error: (error as Error).message }
+  }
+})
+
+// 保存文件内容（用于代码编辑器保存）
+ipcMain.handle('save-file-content', async (_, filePath: string, content: string) => {
+  try {
+    fs.writeFileSync(filePath, content, 'utf-8')
+    return { success: true }
+  } catch (error) {
+    console.error('保存文件失败:', error)
+    return { success: false, error: (error as Error).message }
+  }
+})
+
+// 在系统默认编辑器中打开文件
+ipcMain.handle('open-file-in-editor', async (_, filePath: string) => {
+  try {
+    if (!fs.existsSync(filePath)) {
+      return { success: false, error: '文件不存在' }
+    }
+    await shell.openPath(filePath)
+    return { success: true }
+  } catch (error) {
+    console.error('打开文件失败:', error)
+    return { success: false, error: (error as Error).message }
+  }
+})
+
 // ==================== Claude Code 配置备份管理 ====================
 
 // 提取配置信息

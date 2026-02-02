@@ -116,6 +116,12 @@ export interface ElectronAPI {
   openDevtools: () => Promise<{ success: boolean; error?: string }>
   // 读取图片文件
   readImage: (imagePath: string) => Promise<{ success: boolean; data?: string; error?: string }>
+  // 读取文件内容（用于代码编辑器）
+  readFileContent: (filePath: string) => Promise<{ success: boolean; content?: string; error?: string }>
+  // 保存文件内容（用于代码编辑器）
+  saveFileContent: (filePath: string, content: string) => Promise<{ success: boolean; error?: string }>
+  // 在系统默认编辑器中打开文件
+  openFileInEditor: (filePath: string) => Promise<{ success: boolean; error?: string }>
   // Claude Code 配置备份管理
   listClaudeConfigBackups: () => Promise<ClaudeConfigBackup[]>
   createClaudeConfigBackup: (name: string) => Promise<{ success: boolean; backup?: ClaudeConfigBackup; error?: string }>

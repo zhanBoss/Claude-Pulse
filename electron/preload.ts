@@ -110,6 +110,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 读取图片文件
   readImage: (imagePath: string) => ipcRenderer.invoke('read-image', imagePath),
 
+  // 读取文件内容（用于代码编辑器）
+  readFileContent: (filePath: string) => ipcRenderer.invoke('read-file-content', filePath),
+
+  // 保存文件内容（用于代码编辑器）
+  saveFileContent: (filePath: string, content: string) => ipcRenderer.invoke('save-file-content', filePath, content),
+
+  // 在系统默认编辑器中打开文件
+  openFileInEditor: (filePath: string) => ipcRenderer.invoke('open-file-in-editor', filePath),
+
   // Claude Code 配置备份管理
   listClaudeConfigBackups: () => ipcRenderer.invoke('list-claude-config-backups'),
   createClaudeConfigBackup: (name: string) => ipcRenderer.invoke('create-claude-config-backup', name),

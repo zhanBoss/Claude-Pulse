@@ -1,13 +1,15 @@
 import { useState, useMemo, useEffect } from 'react'
-import { Button, Empty, Space, Typography, Tag, Card, message, Modal, Image } from 'antd'
-import { CopyOutlined, FolderOpenOutlined, DownOutlined, UpOutlined, StarOutlined, ClearOutlined, WarningOutlined, SettingOutlined } from '@ant-design/icons'
+import { Button, Empty, Space, Typography, Tag, Card, message, Modal, Image, Tooltip } from 'antd'
+import { CopyOutlined, FolderOpenOutlined, DownOutlined, UpOutlined, StarOutlined, ClearOutlined, WarningOutlined, SettingOutlined, FileImageOutlined, FileTextOutlined, ClockCircleOutlined } from '@ant-design/icons'
 import ReactMarkdown from 'react-markdown'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { ClaudeRecord, RecordConfig } from '../types'
 import { getThemeVars } from '../theme'
+import FileViewer from './FileViewer'
+import { replacePastedContents, formatPastedContentsForModal } from '../utils/promptFormatter'
 
-const { Text } = Typography
+const { Text, Paragraph } = Typography
 
 interface LogViewerProps {
   records: ClaudeRecord[]
@@ -26,6 +28,8 @@ interface GroupedRecord {
 function LogViewer({ records, onClear, onOpenSettings, darkMode }: LogViewerProps) {
   // 每个 session 的展开/折叠状态
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set())
+  // 每个记录的资源展开状态
+  const [expandedResources, setExpandedResources] = useState<Set<string>>(new Set())
   const themeVars = getThemeVars(darkMode)
 
   // 记录配置状态
@@ -38,6 +42,17 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode }: LogViewerProp
 
   // 图片加载缓存
   const [imageCache, setImageCache] = useState<Map<string, string>>(new Map())
+
+  // 文件查看器状态
+  const [fileViewerVisible, setFileViewerVisible] = useState(false)
+  const [viewingFilePath, setViewingFilePath] = useState<string>('')
+  const [fileViewerReadOnly, setFileViewerReadOnly] = useState(false)
+
+  // Prompt 和 Copy Text 弹窗状态
+  const [promptModalVisible, setPromptModalVisible] = useState(false)
+  const [promptModalContent, setPromptModalContent] = useState<string>('')
+  const [copyTextModalVisible, setCopyTextModalVisible] = useState(false)
+  const [copyTextModalContent, setCopyTextModalContent] = useState<Record<string, any>>({})
 
   // 加载记录配置
   useEffect(() => {
@@ -62,104 +77,23 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode }: LogViewerProp
     setExpandedSessions(newExpanded)
   }
 
-  // 检测内容类型并自动添加语法高亮
-  const detectLanguage = (text: string): string | null => {
-    // 尝试解析 JSON
-    try {
-      JSON.parse(text)
-      return 'json'
-    } catch {
-      // 不是 JSON
+  const toggleResources = (recordKey: string) => {
+    const newExpanded = new Set(expandedResources)
+    if (newExpanded.has(recordKey)) {
+      newExpanded.delete(recordKey)
+    } else {
+      newExpanded.add(recordKey)
     }
-
-    // 检测其他代码特征
-    if (text.includes('function') || text.includes('const') || text.includes('let')) {
-      return 'javascript'
-    }
-    if (text.includes('import') && text.includes('from')) {
-      return 'typescript'
-    }
-    if (text.includes('def ') || text.includes('import ')) {
-      return 'python'
-    }
-
-    return null
+    setExpandedResources(newExpanded)
   }
 
-  const renderContent = (content: string) => {
-    // 如果内容看起来像代码（有换行符和特殊字符）
-    const looksLikeCode = content.includes('\n') && (
-      content.includes('{') ||
-      content.includes('[') ||
-      content.includes('function') ||
-      content.includes('const')
-    )
-
-    if (looksLikeCode) {
-      const language = detectLanguage(content)
-      if (language) {
-        return (
-          <SyntaxHighlighter
-            language={language}
-            style={vscDarkPlus}
-            customStyle={{
-              margin: 0,
-              borderRadius: 6,
-              fontSize: 13
-            }}
-          >
-            {content}
-          </SyntaxHighlighter>
-        )
-      }
-    }
-
-    // 否则使用 Markdown 渲染
-    return (
-      <ReactMarkdown
-        components={{
-          code({ node, inline, className, children, ...props }: any) {
-            const match = /language-(\w+)/.exec(className || '')
-            return !inline && match ? (
-              <SyntaxHighlighter
-                style={vscDarkPlus}
-                language={match[1]}
-                PreTag="div"
-                customStyle={{
-                  margin: 0,
-                  borderRadius: 6,
-                  fontSize: 13
-                }}
-                {...props}
-              >
-                {String(children).replace(/\n$/, '')}
-              </SyntaxHighlighter>
-            ) : (
-              <code
-                style={{
-                  background: themeVars.codeBg,
-                  padding: '2px 6px',
-                  borderRadius: 3,
-                  fontSize: 12,
-                  fontFamily: 'monospace'
-                }}
-                {...props}
-              >
-                {children}
-              </code>
-            )
-          },
-          p({ children }) {
-            return <p style={{ marginBottom: 8, lineHeight: 1.6 }}>{children}</p>
-          },
-          pre({ children }) {
-            return <>{children}</>
-          }
-        }}
-      >
-        {content}
-      </ReactMarkdown>
-    )
+  const formatTimeShort = (timestamp: number) => {
+    const date = new Date(timestamp)
+    return date.toLocaleTimeString('zh-CN', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    })
   }
 
   // 按 sessionId 分组记录
@@ -219,6 +153,13 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode }: LogViewerProp
     } catch (error) {
       message.error('打开文件夹失败')
     }
+  }
+
+  // 打开文件查看器
+  const handleOpenFile = (filePath: string, readOnly: boolean = false) => {
+    setViewingFilePath(filePath)
+    setFileViewerReadOnly(readOnly)
+    setFileViewerVisible(true)
   }
 
   // 处理当前对话总结
@@ -344,72 +285,7 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode }: LogViewerProp
     }
   }
 
-  const renderPastedContent = (content: any, contentKey: string) => {
-    if (!content) return null
-
-    if (content.type === 'image' && content.data) {
-      return (
-        <div key={contentKey} style={{ marginTop: 8 }}>
-          <img
-            src={`data:image/png;base64,${content.data}`}
-            alt="Pasted content"
-            style={{
-              maxWidth: '100%',
-              height: 'auto',
-              borderRadius: 4,
-              border: `1px solid ${themeVars.border}`
-            }}
-          />
-        </div>
-      )
-    }
-
-    if (typeof content === 'string') {
-      return (
-        <div
-          key={contentKey}
-          style={{
-            marginTop: 8,
-            padding: 8,
-            background: themeVars.codeBg,
-            borderRadius: 4,
-            fontSize: 12,
-            fontFamily: 'monospace'
-          }}
-        >
-          {content}
-        </div>
-      )
-    }
-
-    // 处理新格式的粘贴内容（包含 content 字段）
-    if (content && typeof content === 'object' && content.content) {
-      return (
-        <div
-          key={contentKey}
-          style={{
-            marginTop: 8,
-            padding: 12,
-            background: themeVars.codeBg,
-            borderRadius: 4,
-            border: `1px solid ${themeVars.border}`
-          }}
-        >
-          <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 8 }}>
-            📎 粘贴内容 #{content.id}
-          </Text>
-          <div style={{ fontSize: 12, fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}>
-            {content.content}
-          </div>
-        </div>
-      )
-    }
-
-    return null
-  }
-
   // 图片组件 - 使用 Ant Design Image
-  // @ts-ignore - 保留以备将来使用
   const ImageThumbnail = ({ imagePath, index }: { imagePath: string; index: number }) => {
     const [imageData, setImageData] = useState<string | null>(null)
     const [loading, setLoading] = useState(true)
@@ -447,15 +323,15 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode }: LogViewerProp
     if (loading) {
       return (
         <div style={{
-          width: 80,
-          height: 80,
+          width: 64,
+          height: 64,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           background: themeVars.codeBg,
-          borderRadius: 4,
+          borderRadius: 6,
           border: `1px solid ${themeVars.border}`,
-          fontSize: 11,
+          fontSize: 10,
           color: themeVars.textSecondary
         }}>
           加载中...
@@ -466,20 +342,23 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode }: LogViewerProp
     if (error || !imageData) {
       return (
         <div style={{
-          width: 80,
-          height: 80,
+          width: 64,
+          height: 64,
           display: 'flex',
+          flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
           background: themeVars.codeBg,
-          borderRadius: 4,
+          borderRadius: 6,
           border: `1px solid ${themeVars.border}`,
-          fontSize: 11,
+          fontSize: 9,
           color: themeVars.textSecondary,
           textAlign: 'center',
-          padding: 4
+          padding: 4,
+          gap: 2
         }}>
-          加载失败
+          <span>❌</span>
+          <span style={{ fontSize: 8 }}>加载失败</span>
         </div>
       )
     }
@@ -488,11 +367,11 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode }: LogViewerProp
       <Image
         src={imageData}
         alt={`Image ${index + 1}`}
-        width={80}
-        height={80}
+        width={64}
+        height={64}
         style={{
           objectFit: 'cover',
-          borderRadius: 4,
+          borderRadius: 6,
           border: `1px solid ${themeVars.border}`,
           cursor: 'pointer'
         }}
@@ -630,7 +509,7 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode }: LogViewerProp
           )
         ) : (
           <Space vertical size="middle" style={{ width: '100%' }}>
-            {groupedRecords.map((group, groupIndex) => {
+            {groupedRecords.map((group) => {
               const isExpanded = expandedSessions.has(group.sessionId)
               const showCollapse = group.records.length > 3
               const displayRecords = (isExpanded || !showCollapse) ? group.records : group.records.slice(0, 3)
@@ -640,71 +519,170 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode }: LogViewerProp
                   key={group.sessionId}
                   size="small"
                   title={
-                    <Space>
-                      <Tag color="blue">{getProjectName(group.project)}</Tag>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <FolderOpenOutlined style={{ fontSize: 14, color: themeVars.primary }} />
+                      <Text strong style={{ fontSize: 14 }}>{getProjectName(group.project)}</Text>
                       {group.sessionId && !group.sessionId.startsWith('single-') && (
-                        <Text code style={{ fontSize: 12 }}>
-                          {group.sessionId.slice(0, 8)}
+                        <Text code style={{ fontSize: 11, color: themeVars.textTertiary }}>
+                          #{group.sessionId.slice(0, 8)}
                         </Text>
                       )}
-                      <Tag color="default">{group.records.length} 条</Tag>
-                    </Space>
+                      <Tag color="default" style={{ fontSize: 11 }}>{group.records.length}条</Tag>
+                    </div>
                   }
                   extra={
-                    <Text type="secondary" style={{ fontSize: 12 }}>
-                      {formatTime(group.latestTimestamp)}
-                    </Text>
+                    <Space size="small">
+                      <Text type="secondary" style={{ fontSize: 12 }}>
+                        {formatTime(group.latestTimestamp)}
+                      </Text>
+                      <Tooltip title="打开文件夹">
+                        <Button
+                          type="text"
+                          size="small"
+                          icon={<FolderOpenOutlined />}
+                          onClick={() => handleOpenFolder(group.project)}
+                        />
+                      </Tooltip>
+                      <Tooltip title="AI 总结此会话">
+                        <Button
+                          type="text"
+                          size="small"
+                          icon={<StarOutlined />}
+                          onClick={() => {
+                            // TODO: 实现单个会话的 AI 总结
+                            message.info('功能开发中')
+                          }}
+                        />
+                      </Tooltip>
+                    </Space>
                   }
+                  styles={{ body: { padding: 12 } }}
                 >
                   <Space vertical size="small" style={{ width: '100%' }}>
-                    {displayRecords.map((record, recordIndex) => (
-                      <div key={recordIndex}>
+                    {displayRecords.map((record, recordIndex) => {
+                      const recordKey = `${group.sessionId}-${recordIndex}`
+                      const isResourceExpanded = expandedResources.has(recordKey)
+                      const hasImages = record.images && record.images.length > 0
+                      const hasCopyText = record.pastedContents && Object.keys(record.pastedContents).length > 0
+                      const hasResources = hasImages || hasCopyText
+                      const fullPrompt = replacePastedContents(record.display, record.pastedContents || {})
+                      const lines = fullPrompt.split('\n')
+                      const isPromptLong = lines.length > 3
+
+                      return (
                         <Card
+                          key={recordIndex}
                           size="small"
-                          styles={{ body: { position: 'relative' } }}
-                          extra={
+                          styles={{ body: { padding: 12 } }}
+                          style={{
+                            background: themeVars.bgSection,
+                            border: `1px solid ${themeVars.borderSecondary}`
+                          }}
+                        >
+                          {/* 资源信息栏 */}
+                          {hasResources && (
+                            <div style={{ marginBottom: 12 }}>
+                              <Space size="middle">
+                                {hasImages && (
+                                  <Text
+                                    style={{
+                                      fontSize: 13,
+                                      color: themeVars.textSecondary,
+                                      cursor: 'pointer'
+                                    }}
+                                    onClick={() => toggleResources(recordKey)}
+                                  >
+                                    <FileImageOutlined style={{ marginRight: 4 }} />
+                                    {record.images!.length}张图片
+                                  </Text>
+                                )}
+                                {hasCopyText && (
+                                  <Text
+                                    style={{
+                                      fontSize: 13,
+                                      color: themeVars.textSecondary,
+                                      cursor: 'pointer'
+                                    }}
+                                    onClick={() => {
+                                      setCopyTextModalContent(record.pastedContents || {})
+                                      setCopyTextModalVisible(true)
+                                    }}
+                                  >
+                                    <FileTextOutlined style={{ marginRight: 4 }} />
+                                    {Object.keys(record.pastedContents!).length}个Copy Text
+                                  </Text>
+                                )}
+                              </Space>
+
+                              {/* 展开的图片网格 */}
+                              {hasImages && isResourceExpanded && (
+                                <Image.PreviewGroup>
+                                  <div style={{
+                                    display: 'flex',
+                                    gap: 8,
+                                    marginTop: 8,
+                                    flexWrap: 'wrap'
+                                  }}>
+                                    {record.images!.map((imagePath, imgIndex) => (
+                                      <ImageThumbnail key={imgIndex} imagePath={imagePath} index={imgIndex} />
+                                    ))}
+                                  </div>
+                                </Image.PreviewGroup>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Prompt 内容 */}
+                          <div style={{ marginBottom: 8 }}>
+                            <Paragraph
+                              ellipsis={isPromptLong ? {
+                                rows: 3,
+                                expandable: false
+                              } : false}
+                              style={{
+                                fontSize: 14,
+                                color: themeVars.text,
+                                marginBottom: 0,
+                                cursor: isPromptLong ? 'pointer' : 'default',
+                                whiteSpace: 'pre-wrap',
+                                lineHeight: 1.6
+                              }}
+                              onClick={() => {
+                                if (isPromptLong) {
+                                  setPromptModalContent(fullPrompt)
+                                  setPromptModalVisible(true)
+                                }
+                              }}
+                            >
+                              {fullPrompt}
+                            </Paragraph>
+                          </div>
+
+                          {/* 底部信息栏 */}
+                          <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            paddingTop: 8,
+                            borderTop: `1px solid ${themeVars.borderSecondary}`
+                          }}>
+                            <Text type="secondary" style={{ fontSize: 11 }}>
+                              <ClockCircleOutlined style={{ marginRight: 4 }} />
+                              {formatTimeShort(record.timestamp)}
+                            </Text>
                             <Button
                               type="text"
                               size="small"
                               icon={<CopyOutlined />}
-                              onClick={() => handleCopy(record.display)}
+                              onClick={() => handleCopy(fullPrompt)}
+                              style={{ fontSize: 11, padding: '0 4px', height: 20 }}
                             >
                               复制
                             </Button>
-                          }
-                        >
-                          <div style={{ fontSize: 13, color: themeVars.text }}>
-                            {renderContent(record.display)}
                           </div>
                         </Card>
-
-                        {record.pastedContents && Object.keys(record.pastedContents).length > 0 && (
-                          <div>
-                            {Object.entries(record.pastedContents).map(([key, value]) =>
-                              renderPastedContent(value, `${groupIndex}-${recordIndex}-${key}`)
-                            )}
-                          </div>
-                        )}
-
-                        {/* 渲染图片 */}
-                        {record.images && record.images.length > 0 && (
-                          <div style={{ marginTop: 8 }}>
-                            <Card size="small" title={`📷 图片 (${record.images.length})`}>
-                              <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-                                {record.images.map((imagePath, imgIndex) => (
-                                  <div key={imgIndex}>
-                                    <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>
-                                      图片 #{imgIndex + 1}: {imagePath}
-                                    </Text>
-                                    {/* <ImageViewer imagePath={imagePath} /> */}
-                                  </div>
-                                ))}
-                              </Space>
-                            </Card>
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                      )
+                    })}
 
                     {/* 展开/收起按钮 */}
                     {showCollapse && (
@@ -713,21 +691,61 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode }: LogViewerProp
                         size="small"
                         icon={isExpanded ? <UpOutlined /> : <DownOutlined />}
                         onClick={() => toggleSession(group.sessionId)}
-                        style={{ padding: 0 }}
+                        style={{ padding: 0, fontSize: 12 }}
                       >
                         {isExpanded ? '收起' : `展开剩余 ${group.records.length - 3} 条`}
                       </Button>
                     )}
 
-                    <Button
-                      type="link"
-                      size="small"
-                      icon={<FolderOpenOutlined />}
-                      onClick={() => handleOpenFolder(group.project)}
-                      style={{ padding: 0 }}
+                    {/* Session 底部路径 */}
+                    <div style={{
+                      padding: '8px 12px',
+                      background: themeVars.codeBg,
+                      borderRadius: 4,
+                      fontSize: 11,
+                      color: themeVars.textTertiary,
+                      fontFamily: 'monospace',
+                      cursor: 'pointer',
+                      wordBreak: 'break-all'
+                    }}
+                    onClick={() => handleOpenFolder(group.project)}
                     >
-                      <Text code style={{ fontSize: 12 }}>{group.project}</Text>
-                    </Button>
+                      {group.project}
+                    </div>
+
+                    {/* 存储位置 */}
+                    {recordConfig?.savePath && (
+                      <div style={{
+                        padding: '6px 12px',
+                        background: themeVars.bgSection,
+                        borderRadius: 4,
+                        fontSize: 11,
+                        color: themeVars.textSecondary,
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 4
+                      }}>
+                        <FileTextOutlined style={{ fontSize: 11 }} />
+                        <span>存储位置：</span>
+                        <Text
+                          type="secondary"
+                          style={{
+                            fontSize: 11,
+                            cursor: 'pointer',
+                            textDecoration: 'underline',
+                            color: themeVars.primary
+                          }}
+                          onClick={() => {
+                            // 使用第一条记录的时间戳生成文件名
+                            const firstRecord = group.records[0]
+                            const jsonlPath = `${recordConfig.savePath}/${getProjectName(group.project)}_${new Date(firstRecord.timestamp).toISOString().split('T')[0]}.jsonl`
+                            handleOpenFile(jsonlPath, true)
+                          }}
+                        >
+                          点击查看
+                        </Text>
+                      </div>
+                    )}
                   </Space>
                 </Card>
               )
@@ -812,6 +830,81 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode }: LogViewerProp
           </ReactMarkdown>
         </div>
       </Modal>
+
+      {/* Prompt 详情弹窗 */}
+      <Modal
+        title="Prompt 详情"
+        open={promptModalVisible}
+        onCancel={() => setPromptModalVisible(false)}
+        footer={null}
+        width={800}
+        styles={{
+          body: {
+            maxHeight: '70vh',
+            overflow: 'auto'
+          }
+        }}
+      >
+        <div style={{
+          padding: '16px',
+          background: themeVars.bgElevated,
+          borderRadius: 8,
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+          fontSize: 14,
+          lineHeight: 1.6,
+          color: themeVars.text
+        }}>
+          {promptModalContent}
+        </div>
+      </Modal>
+
+      {/* Copy Text 详情弹窗 */}
+      <Modal
+        title="Copy Text 详情"
+        open={copyTextModalVisible}
+        onCancel={() => setCopyTextModalVisible(false)}
+        footer={null}
+        width={800}
+        styles={{
+          body: {
+            maxHeight: '70vh',
+            overflow: 'auto'
+          }
+        }}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {formatPastedContentsForModal(copyTextModalContent).map(({ key, content }) => (
+            <div key={key}>
+              <Text strong style={{ fontSize: 14, color: themeVars.textSecondary, marginBottom: 8, display: 'block' }}>
+                {key}:
+              </Text>
+              <div style={{
+                padding: '12px',
+                background: themeVars.bgElevated,
+                borderRadius: 8,
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word',
+                fontSize: 13,
+                lineHeight: 1.6,
+                color: themeVars.text,
+                fontFamily: 'monospace'
+              }}>
+                {content}
+              </div>
+            </div>
+          ))}
+        </div>
+      </Modal>
+
+      {/* 文件查看器 */}
+      <FileViewer
+        filePath={viewingFilePath}
+        darkMode={darkMode}
+        visible={fileViewerVisible}
+        onClose={() => setFileViewerVisible(false)}
+        readOnly={fileViewerReadOnly}
+      />
     </div>
   )
 }

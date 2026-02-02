@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Button, Card, Tag, Space, Typography, Empty, Spin, DatePicker, message, List, Modal, Pagination, Input } from 'antd'
+import { Button, Card, Tag, Space, Typography, Empty, Spin, DatePicker, message, List, Modal, Pagination, Input, Image } from 'antd'
 import {
   FolderOpenOutlined,
   CopyOutlined,
@@ -81,6 +81,9 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
   const [summarizing, setSummarizing] = useState(false)
   const [summaryContent, setSummaryContent] = useState<string>('')
   const [summaryModalVisible, setSummaryModalVisible] = useState(false)
+
+  // 图片加载缓存
+  const [imageCache, setImageCache] = useState<Map<string, string>>(new Map())
 
   // Session Modal 关闭处理
   const handleCloseSessionModal = () => {
@@ -180,7 +183,7 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
       records: [], // 暂时为空，点击时才加载
       latestTimestamp: session.latestTimestamp,
       recordCount: session.recordCount
-    }))
+    })).sort((a, b) => b.latestTimestamp - a.latestTimestamp) // 按时间降序排序，最新的在前面
   }, [searchedSessions])
 
   // 分页数据
@@ -529,19 +532,28 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
     return null
   }
 
-  // 图片组件 (暂未使用)
-  // @ts-ignore - 保留以备将来使用
-  const ImageViewer = ({ imagePath }: { imagePath: string }) => {
+  // 图片组件 - 使用 Ant Design Image
+  const ImageThumbnail = ({ imagePath, index }: { imagePath: string; index: number }) => {
     const [imageData, setImageData] = useState<string | null>(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
 
     useEffect(() => {
+      // 检查缓存
+      if (imageCache.has(imagePath)) {
+        setImageData(imageCache.get(imagePath)!)
+        setLoading(false)
+        return
+      }
+
+      // 加载图片
       const loadImage = async () => {
         try {
           const result = await window.electronAPI.readImage(imagePath)
           if (result.success && result.data) {
             setImageData(result.data)
+            // 更新缓存
+            setImageCache(prev => new Map(prev).set(imagePath, result.data!))
           } else {
             setError(result.error || '加载失败')
           }
@@ -558,10 +570,15 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
     if (loading) {
       return (
         <div style={{
-          padding: 16,
+          width: 64,
+          height: 64,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
           background: themeVars.codeBg,
-          borderRadius: 4,
-          textAlign: 'center',
+          borderRadius: 6,
+          border: `1px solid ${themeVars.border}`,
+          fontSize: 10,
           color: themeVars.textSecondary
         }}>
           加载中...
@@ -572,41 +589,41 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
     if (error || !imageData) {
       return (
         <div style={{
-          padding: 16,
+          width: 64,
+          height: 64,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
           background: themeVars.codeBg,
-          borderRadius: 4,
+          borderRadius: 6,
+          border: `1px solid ${themeVars.border}`,
+          fontSize: 9,
+          color: themeVars.textSecondary,
           textAlign: 'center',
-          color: themeVars.textSecondary
+          padding: 4,
+          gap: 2
         }}>
-          图片加载失败: {error || '未知错误'}
+          <span>❌</span>
+          <span style={{ fontSize: 8 }}>加载失败</span>
         </div>
       )
     }
 
     return (
-      <img
+      <Image
         src={imageData}
-        alt="Uploaded image"
+        alt={`Image ${index + 1}`}
+        width={64}
+        height={64}
         style={{
-          maxWidth: '100%',
-          height: 'auto',
-          borderRadius: 4,
+          objectFit: 'cover',
+          borderRadius: 6,
           border: `1px solid ${themeVars.border}`,
           cursor: 'pointer'
         }}
-        onClick={() => {
-          Modal.info({
-            title: '图片预览',
-            width: '80%',
-            content: (
-              <img
-                src={imageData}
-                alt="Uploaded image"
-                style={{ width: '100%', height: 'auto' }}
-              />
-            ),
-            okText: '关闭'
-          })
+        preview={{
+          src: imageData
         }}
       />
     )
@@ -1204,7 +1221,17 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
                 </div>
                 <div>
                   <Text type="secondary" style={{ fontSize: 12 }}>项目：</Text>
-                  <Text code style={{ fontSize: 12 }}>{selectedRecord.project}</Text>
+                  <Text
+                    code
+                    style={{
+                      fontSize: 12,
+                      cursor: 'pointer',
+                      color: themeVars.primary
+                    }}
+                    onClick={() => handleOpenFolder(selectedRecord.project)}
+                  >
+                    {selectedRecord.project}
+                  </Text>
                 </div>
               </Space>
             </Card>
@@ -1228,6 +1255,31 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
                   renderContent(selectedRecord.display)
                 )}
               </div>
+
+              {/* 渲染图片 - 与消息内容在同一个 Card */}
+              {selectedRecord.images && selectedRecord.images.length > 0 && (
+                <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${themeVars.borderSecondary}` }}>
+                  <div style={{ marginBottom: 12 }}>
+                    <Text strong style={{ fontSize: 13 }}>
+                      📷 图片附件
+                    </Text>
+                    <Text type="secondary" style={{ fontSize: 12, marginLeft: 8 }}>
+                      ({selectedRecord.images.length} 张)
+                    </Text>
+                  </div>
+                  <Image.PreviewGroup>
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fill, minmax(64px, 1fr))',
+                      gap: 8
+                    }}>
+                      {selectedRecord.images.map((imagePath, imgIndex) => (
+                        <ImageThumbnail key={imgIndex} imagePath={imagePath} index={imgIndex} />
+                      ))}
+                    </div>
+                  </Image.PreviewGroup>
+                </div>
+              )}
             </Card>
 
             {/* 粘贴的内容 */}
