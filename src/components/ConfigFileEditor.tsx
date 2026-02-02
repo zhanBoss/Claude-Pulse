@@ -56,7 +56,7 @@ function ConfigFileEditor({
       // 验证 JSON
       JSON.parse(editedConfig)
       await onSave(editedConfig)
-      message.success('保存成功！')
+      // 不在这里显示成功消息，让父组件处理
       onClose()
     } catch (e: any) {
       if (e instanceof SyntaxError) {

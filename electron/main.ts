@@ -356,12 +356,80 @@ function processRecord(record: any, savePath: string) {
     const fileName = `${projectName}_${date}.jsonl`
     const filePath = path.join(savePath, fileName)
 
+    // 处理粘贴内容：读取实际内容
+    const expandedPastedContents: Record<string, any> = {}
+    if (record.pastedContents && typeof record.pastedContents === 'object') {
+      for (const [key, value] of Object.entries(record.pastedContents)) {
+        if (value && typeof value === 'object' && (value as any).contentHash) {
+          const contentHash = (value as any).contentHash
+          const pasteFilePath = path.join(CLAUDE_DIR, 'paste-cache', `${contentHash}.txt`)
+
+          try {
+            if (fs.existsSync(pasteFilePath)) {
+              const actualContent = fs.readFileSync(pasteFilePath, 'utf-8')
+              expandedPastedContents[key] = {
+                ...value,
+                content: actualContent
+              }
+            } else {
+              expandedPastedContents[key] = value
+            }
+          } catch (err) {
+            console.error(`Failed to read paste cache ${contentHash}:`, err)
+            expandedPastedContents[key] = value
+          }
+        } else {
+          expandedPastedContents[key] = value
+        }
+      }
+    }
+
+    // 处理图片：复制到保存目录
+    const images: string[] = []
+    if (record.sessionId) {
+      const imageCacheDir = path.join(CLAUDE_DIR, 'image-cache', record.sessionId)
+
+      try {
+        if (fs.existsSync(imageCacheDir)) {
+          const imageFiles = fs.readdirSync(imageCacheDir).filter(f =>
+            f.endsWith('.png') || f.endsWith('.jpg') || f.endsWith('.jpeg') || f.endsWith('.gif')
+          )
+
+          if (imageFiles.length > 0) {
+            // 创建图片保存目录
+            const imagesDir = path.join(savePath, 'images', record.sessionId)
+            if (!fs.existsSync(imagesDir)) {
+              fs.mkdirSync(imagesDir, { recursive: true })
+            }
+
+            // 复制图片
+            for (const imageFile of imageFiles) {
+              const srcPath = path.join(imageCacheDir, imageFile)
+              const destPath = path.join(imagesDir, imageFile)
+
+              try {
+                if (!fs.existsSync(destPath)) {
+                  fs.copyFileSync(srcPath, destPath)
+                }
+                images.push(`images/${record.sessionId}/${imageFile}`)
+              } catch (err) {
+                console.error(`Failed to copy image ${imageFile}:`, err)
+              }
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Failed to process images:', err)
+      }
+    }
+
     const logEntry = {
       timestamp,
       project: record.project,
       sessionId: record.sessionId,
       prompt: record.display,
-      pastedContents: record.pastedContents
+      pastedContents: expandedPastedContents,
+      images: images.length > 0 ? images : undefined
     }
 
     fs.appendFileSync(filePath, JSON.stringify(logEntry) + '\n', 'utf-8')
@@ -414,12 +482,42 @@ ipcMain.handle('read-history', async () => {
               continue
             }
 
+            // 处理粘贴内容：如果是旧格式（只有 contentHash），尝试读取实际内容
+            let pastedContents = record.pastedContents || {}
+            if (pastedContents && typeof pastedContents === 'object') {
+              const expandedContents: Record<string, any> = {}
+              for (const [key, value] of Object.entries(pastedContents)) {
+                if (value && typeof value === 'object' && (value as any).contentHash && !(value as any).content) {
+                  const contentHash = (value as any).contentHash
+                  const pasteFilePath = path.join(CLAUDE_DIR, 'paste-cache', `${contentHash}.txt`)
+
+                  try {
+                    if (fs.existsSync(pasteFilePath)) {
+                      const actualContent = fs.readFileSync(pasteFilePath, 'utf-8')
+                      expandedContents[key] = {
+                        ...value,
+                        content: actualContent
+                      }
+                    } else {
+                      expandedContents[key] = value
+                    }
+                  } catch (err) {
+                    expandedContents[key] = value
+                  }
+                } else {
+                  expandedContents[key] = value
+                }
+              }
+              pastedContents = expandedContents
+            }
+
             records.push({
               timestamp,
               project: record.project,
               sessionId: record.sessionId || '',
               display: record.prompt || '',
-              pastedContents: record.pastedContents || {}
+              pastedContents,
+              images: record.images || []
             })
           } catch (e) {
             console.error('解析记录失败:', e, '行内容:', line.substring(0, 100))
@@ -478,7 +576,8 @@ ipcMain.handle('export-records', async (_, options: any) => {
               project: record.project,
               sessionId: record.sessionId || '',
               display: record.prompt || '',
-              pastedContents: record.pastedContents || {}
+              pastedContents: record.pastedContents || {},
+              images: record.images || []
             })
           } catch (e) {
             // 跳过无效记录
@@ -575,11 +674,24 @@ ipcMain.handle('export-records', async (_, options: any) => {
               markdown += '```\n'
               markdown += value
               markdown += '\n```\n\n'
+            } else if (value && typeof value === 'object' && (value as any).content) {
+              // 新格式：包含 content 字段
+              markdown += '```\n'
+              markdown += (value as any).content
+              markdown += '\n```\n\n'
             } else {
               markdown += '```json\n'
               markdown += JSON.stringify(value, null, 2)
               markdown += '\n```\n\n'
             }
+          }
+        }
+
+        // 如果有图片
+        if (record.images && record.images.length > 0) {
+          markdown += '**图片**:\n\n'
+          for (const imagePath of record.images) {
+            markdown += `![图片](${imagePath})\n\n`
           }
         }
 
@@ -1083,12 +1195,31 @@ ipcMain.handle('uninstall-app', async () => {
     const configPath = store.path
     const configDir = path.dirname(configPath)
 
-    // 删除配置文件和目录
+    // 删除应用配置文件
     if (fs.existsSync(configPath)) {
       fs.unlinkSync(configPath)
     }
 
-    // 删除配置目录（如果为空）
+    // 删除 Claude Code 配置备份文件
+    try {
+      if (fs.existsSync(CLAUDE_DIR)) {
+        const files = fs.readdirSync(CLAUDE_DIR)
+        files.forEach(file => {
+          // 只删除备份文件，保留 settings.json 和 history.jsonl
+          if (file.startsWith('settings.backup-') && file.endsWith('.json')) {
+            const backupPath = path.join(CLAUDE_DIR, file)
+            if (fs.existsSync(backupPath)) {
+              fs.unlinkSync(backupPath)
+            }
+          }
+        })
+      }
+    } catch (err) {
+      console.error('删除备份文件失败:', err)
+      // 继续执行，不阻断卸载流程
+    }
+
+    // 删除应用配置目录（如果为空）
     try {
       if (fs.existsSync(configDir)) {
         const files = fs.readdirSync(configDir)
@@ -1125,6 +1256,285 @@ ipcMain.handle('open-devtools', async () => {
     return { success: false, error: (error as Error).message }
   }
 })
+
+// 读取图片文件（返回 base64）
+ipcMain.handle('read-image', async (_, imagePath: string) => {
+  try {
+    const savePath = store.get('savePath', '') as string
+    if (!savePath) {
+      return { success: false, error: '未配置保存路径' }
+    }
+
+    const fullPath = path.join(savePath, imagePath)
+
+    if (!fs.existsSync(fullPath)) {
+      return { success: false, error: '图片文件不存在' }
+    }
+
+    const imageBuffer = fs.readFileSync(fullPath)
+    const base64 = imageBuffer.toString('base64')
+
+    // 检测图片类型
+    let mimeType = 'image/png'
+    if (imagePath.endsWith('.jpg') || imagePath.endsWith('.jpeg')) {
+      mimeType = 'image/jpeg'
+    } else if (imagePath.endsWith('.gif')) {
+      mimeType = 'image/gif'
+    }
+
+    return {
+      success: true,
+      data: `data:${mimeType};base64,${base64}`
+    }
+  } catch (error) {
+    console.error('读取图片失败:', error)
+    return { success: false, error: (error as Error).message }
+  }
+})
+
+// ==================== Claude Code 配置备份管理 ====================
+
+// 提取配置信息
+function extractConfigInfo(configContent: string): {
+  model?: string
+  baseUrl?: string
+  hasApiKey: boolean
+} {
+  try {
+    const config = JSON.parse(configContent)
+    return {
+      model: config.env?.ANTHROPIC_MODEL || config.model,
+      baseUrl: config.env?.ANTHROPIC_BASE_URL || config.baseUrl,
+      hasApiKey: !!(config.env?.ANTHROPIC_API_KEY || config.apiKey)
+    }
+  } catch {
+    return { hasApiKey: false }
+  }
+}
+
+// 获取备份文件路径
+function getBackupFilePath(id: number): string {
+  return path.join(CLAUDE_DIR, `settings.backup-${id}.json`)
+}
+
+// 列出所有备份
+ipcMain.handle('list-claude-config-backups', async () => {
+  try {
+    const backups = store.get('claudeConfigBackups', []) as any[]
+
+    // 验证备份文件是否存在，并更新自动识别信息
+    const validBackups = backups.filter(backup => {
+      const filePath = getBackupFilePath(backup.id)
+      if (!fs.existsSync(filePath)) {
+        return false
+      }
+
+      // 更新自动识别信息
+      try {
+        const content = fs.readFileSync(filePath, 'utf-8')
+        backup.autoDetectedInfo = extractConfigInfo(content)
+      } catch {
+        // 忽略读取错误
+      }
+
+      return true
+    })
+
+    // 保存清理后的备份列表
+    store.set('claudeConfigBackups', validBackups)
+
+    return validBackups
+  } catch (error) {
+    console.error('列出备份失败:', error)
+    return []
+  }
+})
+
+// 创建备份
+ipcMain.handle('create-claude-config-backup', async (_, name: string) => {
+  try {
+    if (!fs.existsSync(SETTINGS_FILE)) {
+      return { success: false, error: '配置文件不存在' }
+    }
+
+    // 读取当前配置
+    const content = fs.readFileSync(SETTINGS_FILE, 'utf-8')
+
+    // 验证 JSON 格式
+    JSON.parse(content)
+
+    // 获取现有备份列表
+    const backups = store.get('claudeConfigBackups', []) as any[]
+
+    // 生成新的备份ID
+    const maxId = backups.length > 0 ? Math.max(...backups.map(b => b.id)) : 0
+    const newId = maxId + 1
+
+    // 创建备份文件
+    const backupFilePath = getBackupFilePath(newId)
+    fs.writeFileSync(backupFilePath, content, 'utf-8')
+
+    // 创建备份元数据
+    const backup = {
+      id: newId,
+      name: name || `备份 ${newId}`,
+      autoDetectedInfo: extractConfigInfo(content),
+      isActive: false,
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    }
+
+    // 保存到 store
+    backups.push(backup)
+    store.set('claudeConfigBackups', backups)
+
+    return { success: true, backup }
+  } catch (error) {
+    console.error('创建备份失败:', error)
+    return { success: false, error: (error as Error).message }
+  }
+})
+
+// 删除备份
+ipcMain.handle('delete-claude-config-backup', async (_, id: number) => {
+  try {
+    const backups = store.get('claudeConfigBackups', []) as any[]
+    const backup = backups.find(b => b.id === id)
+
+    if (!backup) {
+      return { success: false, error: '备份不存在' }
+    }
+
+    if (backup.isActive) {
+      return { success: false, error: '无法删除当前激活的配置' }
+    }
+
+    // 删除备份文件
+    const backupFilePath = getBackupFilePath(id)
+    if (fs.existsSync(backupFilePath)) {
+      fs.unlinkSync(backupFilePath)
+    }
+
+    // 从 store 中移除
+    const newBackups = backups.filter(b => b.id !== id)
+    store.set('claudeConfigBackups', newBackups)
+
+    return { success: true }
+  } catch (error) {
+    console.error('删除备份失败:', error)
+    return { success: false, error: (error as Error).message }
+  }
+})
+
+// 切换配置
+ipcMain.handle('switch-claude-config-backup', async (_, id: number) => {
+  try {
+    const backups = store.get('claudeConfigBackups', []) as any[]
+    const targetBackup = backups.find(b => b.id === id)
+
+    if (!targetBackup) {
+      return { success: false, error: '备份不存在' }
+    }
+
+    const backupFilePath = getBackupFilePath(id)
+    if (!fs.existsSync(backupFilePath)) {
+      return { success: false, error: '备份文件不存在' }
+    }
+
+    // 读取目标备份内容
+    const backupContent = fs.readFileSync(backupFilePath, 'utf-8')
+
+    // 验证 JSON 格式
+    JSON.parse(backupContent)
+
+    // 如果当前有激活的备份，取消激活状态
+    const currentActive = backups.find(b => b.isActive)
+    if (currentActive) {
+      currentActive.isActive = false
+    }
+
+    // 将当前 settings.json 保存为备份（如果不是从备份切换来的）
+    if (!currentActive && fs.existsSync(SETTINGS_FILE)) {
+      const currentContent = fs.readFileSync(SETTINGS_FILE, 'utf-8')
+
+      // 生成新的备份ID
+      const maxId = backups.length > 0 ? Math.max(...backups.map(b => b.id)) : 0
+      const newId = maxId + 1
+
+      // 创建备份文件
+      const newBackupFilePath = getBackupFilePath(newId)
+      fs.writeFileSync(newBackupFilePath, currentContent, 'utf-8')
+
+      // 创建备份元数据
+      const newBackup = {
+        id: newId,
+        name: `切换前的配置`,
+        autoDetectedInfo: extractConfigInfo(currentContent),
+        isActive: false,
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      }
+
+      backups.push(newBackup)
+    }
+
+    // 将目标备份内容写入 settings.json
+    fs.writeFileSync(SETTINGS_FILE, backupContent, 'utf-8')
+
+    // 标记为激活状态
+    targetBackup.isActive = true
+    targetBackup.updatedAt = Date.now()
+
+    // 保存到 store
+    store.set('claudeConfigBackups', backups)
+
+    return { success: true }
+  } catch (error) {
+    console.error('切换配置失败:', error)
+    return { success: false, error: (error as Error).message }
+  }
+})
+
+// 更新备份名称
+ipcMain.handle('update-claude-config-backup-name', async (_, id: number, name: string) => {
+  try {
+    const backups = store.get('claudeConfigBackups', []) as any[]
+    const backup = backups.find(b => b.id === id)
+
+    if (!backup) {
+      return { success: false, error: '备份不存在' }
+    }
+
+    backup.name = name
+    backup.updatedAt = Date.now()
+
+    store.set('claudeConfigBackups', backups)
+
+    return { success: true }
+  } catch (error) {
+    console.error('更新备份名称失败:', error)
+    return { success: false, error: (error as Error).message }
+  }
+})
+
+// 获取备份配置内容
+ipcMain.handle('get-claude-config-backup-content', async (_, id: number) => {
+  try {
+    const backupFilePath = getBackupFilePath(id)
+
+    if (!fs.existsSync(backupFilePath)) {
+      return { success: false, error: '备份文件不存在' }
+    }
+
+    const content = fs.readFileSync(backupFilePath, 'utf-8')
+    return { success: true, config: content }
+  } catch (error) {
+    console.error('读取备份配置失败:', error)
+    return { success: false, error: (error as Error).message }
+  }
+})
+
+// ==================== 初始化 ====================
 
 // 初始化时检查是否需要启动监控
 app.whenReady().then(() => {

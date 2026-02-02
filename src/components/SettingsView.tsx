@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Card, Switch, Input, Button, Typography, Space, Divider, Tag, message, Segmented, Select, Modal } from 'antd'
 import {
   SaveOutlined,
@@ -18,8 +18,8 @@ import {
 import { AppSettings } from '../types'
 import { getThemeVars } from '../theme'
 import ConfigFileEditor from './ConfigFileEditor'
-import ConfigEditor from './ConfigEditor'
-import RecordControl from './RecordControl'
+import ConfigEditor, { ConfigEditorRef } from './ConfigEditor'
+import RecordControl, { RecordControlRef } from './RecordControl'
 
 const { Text, Link } = Typography
 
@@ -30,9 +30,11 @@ interface SettingsViewProps {
   darkMode: boolean
   onThemeModeChange?: (themeMode: 'light' | 'dark' | 'system') => void
   claudeDir?: string
+  scrollToSection?: string | null
+  onScrollComplete?: () => void
 }
 
-function SettingsView({ darkMode, onThemeModeChange, claudeDir }: SettingsViewProps) {
+function SettingsView({ darkMode, onThemeModeChange, claudeDir, scrollToSection, onScrollComplete }: SettingsViewProps) {
   const [settings, setSettings] = useState<AppSettings>({
     themeMode: 'system',
     autoStart: false,
@@ -69,7 +71,32 @@ function SettingsView({ darkMode, onThemeModeChange, claudeDir }: SettingsViewPr
   const [configEditorVisible, setConfigEditorVisible] = useState(false)
   const [configPath, setConfigPath] = useState('')
 
+  // ConfigEditor 的 ref，用于刷新数据
+  const configEditorRef = useRef<ConfigEditorRef>(null)
+  // RecordControl 的 ref，用于刷新数据
+  const recordControlRef = useRef<RecordControlRef>(null)
+
   const themeVars = getThemeVars(darkMode)
+
+  // 处理滚动到指定区域
+  useEffect(() => {
+    if (scrollToSection) {
+      const timer = setTimeout(() => {
+        const element = document.getElementById(scrollToSection)
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          // 添加高亮效果
+          element.style.transition = 'box-shadow 0.3s ease'
+          element.style.boxShadow = '0 0 0 3px rgba(102, 126, 234, 0.3)'
+          setTimeout(() => {
+            element.style.boxShadow = ''
+          }, 2000)
+        }
+        onScrollComplete?.()
+      }, 300)
+      return () => clearTimeout(timer)
+    }
+  }, [scrollToSection, onScrollComplete])
 
   // 打开配置文件编辑器
   const handleShowConfigPath = async () => {
@@ -290,7 +317,9 @@ function SettingsView({ darkMode, onThemeModeChange, claudeDir }: SettingsViewPr
         <div>
           <p>卸载应用将执行以下操作：</p>
           <ul style={{ marginTop: 8, paddingLeft: 20 }}>
-            <li>移除所有配置文件和历史记录</li>
+            <li>移除应用配置文件（API Key、设置等）</li>
+            <li>移除所有 Claude Code 配置备份文件</li>
+            <li>保留 Claude Code 原始配置（settings.json 和 history.jsonl）</li>
             <li>关闭应用</li>
           </ul>
           <p style={{ marginTop: 8, color: '#ff4d4f', fontWeight: 500 }}>
@@ -354,7 +383,7 @@ function SettingsView({ darkMode, onThemeModeChange, claudeDir }: SettingsViewPr
           <Card
             title={
               <Space>
-                <BulbOutlined style={{ color: '#667eea' }} />
+                <BulbOutlined style={{ color: themeVars.primary }} />
                 <span>通用设置</span>
               </Space>
             }
@@ -478,7 +507,7 @@ function SettingsView({ darkMode, onThemeModeChange, claudeDir }: SettingsViewPr
           <Card
             title={
               <Space>
-                <CodeOutlined style={{ color: '#667eea' }} />
+                <CodeOutlined style={{ color: themeVars.primary }} />
                 <span>Claude Code 配置</span>
               </Space>
             }
@@ -487,14 +516,15 @@ function SettingsView({ darkMode, onThemeModeChange, claudeDir }: SettingsViewPr
               borderColor: themeVars.border
             }}
           >
-            <ConfigEditor darkMode={darkMode} />
+            <ConfigEditor ref={configEditorRef} darkMode={darkMode} />
           </Card>
 
           {/* 卡片 3: 对话记录管理 */}
           <Card
+            id="record-control"
             title={
               <Space>
-                <PlayCircleOutlined style={{ color: '#667eea' }} />
+                <PlayCircleOutlined style={{ color: themeVars.primary }} />
                 <span>对话记录管理</span>
               </Space>
             }
@@ -503,14 +533,14 @@ function SettingsView({ darkMode, onThemeModeChange, claudeDir }: SettingsViewPr
               borderColor: themeVars.border
             }}
           >
-            <RecordControl darkMode={darkMode} />
+            <RecordControl ref={recordControlRef} darkMode={darkMode} />
           </Card>
 
           {/* 卡片 4: AI 总结设置 */}
           <Card
             title={
               <Space>
-                <RobotOutlined style={{ color: '#667eea' }} />
+                <RobotOutlined style={{ color: themeVars.primary }} />
                 <span>AI 总结设置</span>
                 <Tag color={settings.ai.enabled ? 'success' : 'default'}>
                   {settings.ai.enabled ? '已启用' : '未启用'}
@@ -680,7 +710,7 @@ function SettingsView({ darkMode, onThemeModeChange, claudeDir }: SettingsViewPr
           <Card
             title={
               <Space>
-                <InfoCircleOutlined style={{ color: '#667eea' }} />
+                <InfoCircleOutlined style={{ color: themeVars.primary }} />
                 <span>关于</span>
               </Space>
             }
@@ -761,6 +791,21 @@ function SettingsView({ darkMode, onThemeModeChange, claudeDir }: SettingsViewPr
             await window.electronAPI.saveAppConfigFile(content)
             // 重新加载设置
             await loadSettings()
+            // 刷新所有组件的数据
+            await Promise.all([
+              configEditorRef.current?.refresh(),
+              recordControlRef.current?.refresh()
+            ])
+            // 解析配置并更新主题
+            try {
+              const config = JSON.parse(content)
+              if (config.themeMode && onThemeModeChange) {
+                onThemeModeChange(config.themeMode)
+              }
+            } catch (error) {
+              console.error('解析配置失败:', error)
+            }
+            message.success('配置已保存并刷新')
           }}
           onOpenFolder={async () => {
             await window.electronAPI.showConfigInFolder()

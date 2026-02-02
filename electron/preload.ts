@@ -90,5 +90,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
   uninstallApp: () => ipcRenderer.invoke('uninstall-app'),
 
   // 打开开发者工具
-  openDevtools: () => ipcRenderer.invoke('open-devtools')
+  openDevtools: () => ipcRenderer.invoke('open-devtools'),
+
+  // 读取图片文件
+  readImage: (imagePath: string) => ipcRenderer.invoke('read-image', imagePath),
+
+  // Claude Code 配置备份管理
+  listClaudeConfigBackups: () => ipcRenderer.invoke('list-claude-config-backups'),
+  createClaudeConfigBackup: (name: string) => ipcRenderer.invoke('create-claude-config-backup', name),
+  deleteClaudeConfigBackup: (id: number) => ipcRenderer.invoke('delete-claude-config-backup', id),
+  switchClaudeConfigBackup: (id: number) => ipcRenderer.invoke('switch-claude-config-backup', id),
+  updateClaudeConfigBackupName: (id: number, name: string) =>
+    ipcRenderer.invoke('update-claude-config-backup-name', id, name),
+  getClaudeConfigBackupContent: (id: number) => ipcRenderer.invoke('get-claude-config-backup-content', id)
 })

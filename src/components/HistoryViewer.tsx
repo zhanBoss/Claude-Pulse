@@ -8,13 +8,15 @@ import {
   StarOutlined,
   ClockCircleOutlined,
   ReloadOutlined,
-  ExportOutlined
+  ExportOutlined,
+  WarningOutlined,
+  SettingOutlined
 } from '@ant-design/icons'
 import Highlighter from 'react-highlight-words'
 import ReactMarkdown from 'react-markdown'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
-import { ClaudeRecord } from '../types'
+import { ClaudeRecord, RecordConfig } from '../types'
 import dayjs, { Dayjs } from 'dayjs'
 import 'dayjs/locale/zh-cn'
 import { getThemeVars } from '../theme'
@@ -46,6 +48,9 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
   const [customDateRange, setCustomDateRange] = useState<[Dayjs, Dayjs] | null>(null)
   const [searchKeyword, setSearchKeyword] = useState('')
   const themeVars = getThemeVars(darkMode)
+
+  // 记录配置状态
+  const [recordConfig, setRecordConfig] = useState<RecordConfig | null>(null)
 
   // 初始化默认日期范围（1天）
   useEffect(() => {
@@ -83,7 +88,17 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
 
   useEffect(() => {
     loadHistory()
+    loadRecordConfig()
   }, [])
+
+  const loadRecordConfig = async () => {
+    try {
+      const config = await window.electronAPI.getRecordConfig()
+      setRecordConfig(config)
+    } catch (error) {
+      console.error('加载记录配置失败:', error)
+    }
+  }
 
   const loadHistory = async () => {
     setLoading(true)
@@ -400,7 +415,112 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
       )
     }
 
+    // 处理新格式的粘贴内容（包含 content 字段）
+    if (content && typeof content === 'object' && content.content) {
+      return (
+        <div
+          style={{
+            marginTop: 8,
+            padding: 12,
+            background: themeVars.codeBg,
+            borderRadius: 4,
+            border: `1px solid ${themeVars.border}`
+          }}
+        >
+          <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 8 }}>
+            📎 粘贴内容 #{content.id}
+          </Text>
+          <div style={{ fontSize: 12, fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}>
+            {content.content}
+          </div>
+        </div>
+      )
+    }
+
     return null
+  }
+
+  // 图片组件 (暂未使用)
+  // @ts-ignore - 保留以备将来使用
+  const ImageViewer = ({ imagePath }: { imagePath: string }) => {
+    const [imageData, setImageData] = useState<string | null>(null)
+    const [loading, setLoading] = useState(true)
+    const [error, setError] = useState<string | null>(null)
+
+    useEffect(() => {
+      const loadImage = async () => {
+        try {
+          const result = await window.electronAPI.readImage(imagePath)
+          if (result.success && result.data) {
+            setImageData(result.data)
+          } else {
+            setError(result.error || '加载失败')
+          }
+        } catch (err: any) {
+          setError(err.message || '加载失败')
+        } finally {
+          setLoading(false)
+        }
+      }
+
+      loadImage()
+    }, [imagePath])
+
+    if (loading) {
+      return (
+        <div style={{
+          padding: 16,
+          background: themeVars.codeBg,
+          borderRadius: 4,
+          textAlign: 'center',
+          color: themeVars.textSecondary
+        }}>
+          加载中...
+        </div>
+      )
+    }
+
+    if (error || !imageData) {
+      return (
+        <div style={{
+          padding: 16,
+          background: themeVars.codeBg,
+          borderRadius: 4,
+          textAlign: 'center',
+          color: themeVars.textSecondary
+        }}>
+          图片加载失败: {error || '未知错误'}
+        </div>
+      )
+    }
+
+    return (
+      <img
+        src={imageData}
+        alt="Uploaded image"
+        style={{
+          maxWidth: '100%',
+          height: 'auto',
+          borderRadius: 4,
+          border: `1px solid ${themeVars.border}`,
+          cursor: 'pointer'
+        }}
+        onClick={() => {
+          Modal.info({
+            title: '图片预览',
+            width: '80%',
+            content: (
+              <img
+                src={imageData}
+                alt="Uploaded image"
+                style={{ width: '100%', height: 'auto' }}
+              />
+            ),
+            okText: '关闭'
+          })
+        }}
+      />
+    )
   }
 
   // 检测内容类型并自动添加语法高亮
@@ -684,7 +804,69 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
               <Spin size="large" tip="加载中..." />
             </div>
           ) : groupedRecords.length === 0 ? (
-            <Empty description="所选时间范围内没有记录" style={{ padding: 60 }} />
+            recordConfig && !recordConfig.enabled ? (
+              // 记录功能未开启时的提示
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                minHeight: 400,
+                padding: 60
+              }}>
+                <Card
+                  style={{
+                    maxWidth: 420,
+                    textAlign: 'center',
+                    border: 'none',
+                    boxShadow: darkMode
+                      ? '0 4px 24px rgba(0, 0, 0, 0.4)'
+                      : '0 4px 24px rgba(0, 0, 0, 0.06)',
+                  }}
+                >
+                  <div style={{
+                    background: themeVars.primaryGradient,
+                    width: 64,
+                    height: 64,
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    margin: '0 auto 24px',
+                    boxShadow: `0 8px 16px ${themeVars.primaryShadow}`
+                  }}>
+                    <WarningOutlined style={{ fontSize: 32, color: '#fff' }} />
+                  </div>
+
+                  <Text strong style={{ fontSize: 20, display: 'block', marginBottom: 12 }}>
+                    记录功能未开启
+                  </Text>
+
+                  <Text type="secondary" style={{ fontSize: 14, display: 'block', marginBottom: 32, lineHeight: 1.6 }}>
+                    开启后即可记录和查看所有对话历史
+                  </Text>
+
+                  <Button
+                    type="primary"
+                    size="large"
+                    icon={<SettingOutlined />}
+                    onClick={() => onOpenSettings?.()}
+                    block
+                    style={{
+                      height: 48,
+                      fontSize: 16,
+                      fontWeight: 500,
+                      borderRadius: 8,
+                      background: themeVars.primaryGradient,
+                      border: 'none'
+                    }}
+                  >
+                    前往设置开启
+                  </Button>
+                </Card>
+              </div>
+            ) : (
+              <Empty description="所选时间范围内没有记录" style={{ padding: 60 }} />
+            )
           ) : (
             <>
               <List
@@ -968,7 +1150,7 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
       <Modal
         title={
           <Space>
-            <StarOutlined style={{ color: '#667eea' }} />
+            <StarOutlined style={{ color: themeVars.primary }} />
             <Text>AI 总结</Text>
           </Space>
         }

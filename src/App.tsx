@@ -21,6 +21,7 @@ function App() {
   const [currentRoute, setCurrentRoute] = useState<Route>('realtime')
   const [darkMode, setDarkMode] = useState<boolean>(false)
   const [themeMode, setThemeMode] = useState<'light' | 'dark' | 'system'>('system')
+  const [scrollToSection, setScrollToSection] = useState<string | null>(null)
 
   // 检测系统主题
   useEffect(() => {
@@ -62,6 +63,19 @@ function App() {
       setThemeMode(settings.themeMode)
     })
 
+    // 加载历史记录到实时对话页面
+    window.electronAPI.getRecordConfig().then(config => {
+      if (config.enabled && config.savePath) {
+        window.electronAPI.readHistory().then(result => {
+          if (result.success && result.records) {
+            // 按时间倒序排列（最新的在前面）
+            const sortedRecords = result.records.sort((a, b) => b.timestamp - a.timestamp)
+            setRecords(sortedRecords)
+          }
+        })
+      }
+    })
+
     // 监听新记录
     const cleanup = window.electronAPI.onNewRecord((record) => {
       setRecords(prev => [record, ...prev])
@@ -84,12 +98,12 @@ function App() {
         background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)'
       }}>
         <Spin
-          indicator={<LoadingOutlined style={{ fontSize: 48, color: '#667eea' }} spin />}
+          indicator={<LoadingOutlined style={{ fontSize: 48, color: '#D97757' }} spin />}
           size="large"
         />
         <div style={{
           fontSize: 16,
-          color: '#667eea',
+          color: '#D97757',
           fontWeight: 500,
           letterSpacing: '0.5px'
         }}>
@@ -142,6 +156,13 @@ function App() {
     setRecords([])
   }
 
+  const handleOpenSettings = (section?: string) => {
+    setCurrentRoute('settings')
+    if (section) {
+      setScrollToSection(section)
+    }
+  }
+
   // 根据路由渲染不同内容
   const renderContent = () => {
     switch (currentRoute) {
@@ -150,14 +171,14 @@ function App() {
           <LogViewer
             records={records}
             onClear={handleClearRecords}
-            onOpenSettings={() => setCurrentRoute('settings')}
+            onOpenSettings={() => handleOpenSettings('record-control')}
             darkMode={darkMode}
           />
         )
       case 'history':
         return (
           <HistoryViewer
-            onOpenSettings={() => setCurrentRoute('settings')}
+            onOpenSettings={() => handleOpenSettings('record-control')}
             darkMode={darkMode}
           />
         )
@@ -167,6 +188,8 @@ function App() {
             darkMode={darkMode}
             onThemeModeChange={setThemeMode}
             claudeDir={claudeDir}
+            scrollToSection={scrollToSection}
+            onScrollComplete={() => setScrollToSection(null)}
           />
         )
       default:

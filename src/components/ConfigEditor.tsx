@@ -1,16 +1,27 @@
-import { useEffect, useState } from 'react'
-import { Card, Button, Alert, Spin, Space, Typography, Modal, message } from 'antd'
-import { EditOutlined, SaveOutlined, ReloadOutlined, FormatPainterOutlined, CodeOutlined, CloseOutlined } from '@ant-design/icons'
+import { useEffect, useState, forwardRef, useImperativeHandle } from 'react'
+import { Button, Alert, Spin, Space, Typography, Modal, message } from 'antd'
+import {
+  EditOutlined,
+  SaveOutlined,
+  ReloadOutlined,
+  FormatPainterOutlined,
+  CodeOutlined,
+  CloseOutlined
+} from '@ant-design/icons'
 import Editor from '@monaco-editor/react'
 import { getThemeVars } from '../theme'
 
-const { Title, Text } = Typography
+const { Text } = Typography
 
 interface ConfigEditorProps {
   darkMode: boolean
 }
 
-function ConfigEditor({ darkMode }: ConfigEditorProps) {
+export interface ConfigEditorRef {
+  refresh: () => Promise<void>
+}
+
+const ConfigEditor = forwardRef<ConfigEditorRef, ConfigEditorProps>(({ darkMode }, ref) => {
   const themeVars = getThemeVars(darkMode)
   const [config, setConfig] = useState<string>('')
   const [loading, setLoading] = useState(true)
@@ -21,6 +32,13 @@ function ConfigEditor({ darkMode }: ConfigEditorProps) {
   useEffect(() => {
     loadConfig()
   }, [])
+
+  // 暴露 refresh 方法给父组件
+  useImperativeHandle(ref, () => ({
+    refresh: async () => {
+      await loadConfig()
+    }
+  }))
 
   const loadConfig = async () => {
     setLoading(true)
@@ -106,27 +124,30 @@ function ConfigEditor({ darkMode }: ConfigEditorProps) {
   return (
     <>
       <Space vertical size="middle" style={{ width: '100%' }}>
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: 12
-        }}>
-          <Title level={4} style={{ margin: 0, minWidth: 150 }}>Claude Code 配置</Title>
-        </div>
-
-        {/* 配置入口卡片 */}
-        <Card
-          hoverable
+        {/* 当前配置显示 */}
+        <div
           onClick={handleOpenModal}
-          style={{ cursor: 'pointer' }}
-          styles={{ body: { padding: 16 } }}
+          style={{
+            cursor: 'pointer',
+            padding: '16px',
+            border: `1px solid ${themeVars.border}`,
+            borderRadius: '8px',
+            backgroundColor: themeVars.bgContainer,
+            transition: 'all 0.3s'
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.borderColor = themeVars.primary
+            e.currentTarget.style.boxShadow = `0 0 0 2px ${themeVars.primary}20`
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.borderColor = themeVars.border
+            e.currentTarget.style.boxShadow = 'none'
+          }}
         >
           <Space vertical size="small" style={{ width: '100%' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <Space>
-                <CodeOutlined style={{ fontSize: 20, color: darkMode ? '#8b9eff' : '#667eea' }} />
+                <CodeOutlined style={{ fontSize: 20, color: themeVars.primary }} />
                 <div>
                   <Text strong>settings.json</Text>
                   <br />
@@ -160,10 +181,10 @@ function ConfigEditor({ darkMode }: ConfigEditorProps) {
               {config.split('\n').length > 3 && '...'}
             </div>
           </Space>
-        </Card>
+        </div>
 
         <Alert
-          message="点击卡片查看和编辑完整配置"
+          message="点击上方卡片查看和编辑完整配置"
           type="info"
           showIcon
           style={{ fontSize: 12 }}
@@ -234,6 +255,8 @@ function ConfigEditor({ darkMode }: ConfigEditorProps) {
       </Modal>
     </>
   )
-}
+})
+
+ConfigEditor.displayName = 'ConfigEditor'
 
 export default ConfigEditor

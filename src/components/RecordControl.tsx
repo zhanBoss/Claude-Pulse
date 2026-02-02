@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Card, Switch, Button, Typography, Space, Spin, Tag } from 'antd'
+import { useEffect, useState, forwardRef, useImperativeHandle } from 'react'
+import { Card, Switch, Button, Typography, Space, Spin, Tag, Alert } from 'antd'
 import { PlayCircleOutlined, PauseCircleOutlined, EditOutlined } from '@ant-design/icons'
 import { RecordConfig } from '../types'
 import { getThemeVars } from '../theme'
@@ -10,7 +10,11 @@ interface RecordControlProps {
   darkMode: boolean
 }
 
-function RecordControl({ darkMode }: RecordControlProps) {
+export interface RecordControlRef {
+  refresh: () => Promise<void>
+}
+
+const RecordControl = forwardRef<RecordControlRef, RecordControlProps>(({ darkMode }, ref) => {
   const themeVars = getThemeVars(darkMode)
   const [config, setConfig] = useState<RecordConfig>({
     enabled: false,
@@ -21,6 +25,13 @@ function RecordControl({ darkMode }: RecordControlProps) {
   useEffect(() => {
     loadConfig()
   }, [])
+
+  // 暴露 refresh 方法给父组件
+  useImperativeHandle(ref, () => ({
+    refresh: async () => {
+      await loadConfig()
+    }
+  }))
 
   const loadConfig = async () => {
     const result = await window.electronAPI.getRecordConfig()
@@ -92,6 +103,15 @@ function RecordControl({ darkMode }: RecordControlProps) {
     <Space vertical size="middle" style={{ width: '100%' }}>
       <Title level={4} style={{ margin: 0 }}>对话记录控制</Title>
 
+      {!config.enabled && (
+        <Alert
+          message="此功能必须开启才能使用应用"
+          type="warning"
+          showIcon
+          style={{ marginBottom: 8 }}
+        />
+      )}
+
       <Card size="small">
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ flex: 1 }}>
@@ -100,11 +120,11 @@ function RecordControl({ darkMode }: RecordControlProps) {
               {config.enabled ? (
                 <Tag icon={<PlayCircleOutlined />} color="success">运行中</Tag>
               ) : (
-                <Tag icon={<PauseCircleOutlined />} color="default">已停止</Tag>
+                <Tag icon={<PauseCircleOutlined />} color="default">未开启</Tag>
               )}
             </div>
             <Text type="secondary" style={{ fontSize: 12 }}>
-              {config.enabled ? '正在记录所有对话' : '未启用记录'}
+              {config.enabled ? '正在记录所有对话' : '开启后自动记录所有 Claude Code 对话'}
             </Text>
           </div>
           <Switch
@@ -145,21 +165,23 @@ function RecordControl({ darkMode }: RecordControlProps) {
         </Card>
       )}
 
-      <Card styles={{ body: { padding: 12, background: themeVars.bgSection } }}>
+      <Card styles={{ body: { padding: 12, background: themeVars.bgSection } }} size="small">
         <Space vertical size={4}>
           <Text type="secondary" style={{ fontSize: 12 }}>
-            💡 开启后将自动记录所有 Claude Code 对话
+            💡 自动记录所有 Claude Code 对话
           </Text>
           <Text type="secondary" style={{ fontSize: 12 }}>
-            📁 记录按项目名称和日期分类保存
+            📁 按项目和日期分类保存
           </Text>
           <Text type="secondary" style={{ fontSize: 12 }}>
-            📝 格式：JSONL (每行一条记录)
+            📝 格式：JSONL
           </Text>
         </Space>
       </Card>
     </Space>
   )
-}
+})
+
+RecordControl.displayName = 'RecordControl'
 
 export default RecordControl

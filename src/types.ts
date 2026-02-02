@@ -4,6 +4,7 @@ export interface ClaudeRecord {
   sessionId?: string
   display: string
   pastedContents?: Record<string, any>
+  images?: string[]
 }
 
 export interface RecordConfig {
@@ -31,10 +32,25 @@ export interface AISettings {
   }
 }
 
+// Claude Code 配置备份
+export interface ClaudeConfigBackup {
+  id: number
+  name: string
+  autoDetectedInfo: {
+    model?: string
+    baseUrl?: string
+    hasApiKey: boolean
+  }
+  isActive: boolean
+  createdAt: number
+  updatedAt: number
+}
+
 export interface AppSettings {
   themeMode: 'light' | 'dark' | 'system'
   autoStart: boolean
   ai: AISettings
+  claudeConfigBackups?: ClaudeConfigBackup[]
 }
 
 export interface ExportOptions {
@@ -81,6 +97,15 @@ export interface ElectronAPI {
   uninstallApp: () => Promise<{ success: boolean; error?: string }>
   // 打开开发者工具
   openDevtools: () => Promise<{ success: boolean; error?: string }>
+  // 读取图片文件
+  readImage: (imagePath: string) => Promise<{ success: boolean; data?: string; error?: string }>
+  // Claude Code 配置备份管理
+  listClaudeConfigBackups: () => Promise<ClaudeConfigBackup[]>
+  createClaudeConfigBackup: (name: string) => Promise<{ success: boolean; backup?: ClaudeConfigBackup; error?: string }>
+  deleteClaudeConfigBackup: (id: number) => Promise<{ success: boolean; error?: string }>
+  switchClaudeConfigBackup: (id: number) => Promise<{ success: boolean; error?: string }>
+  updateClaudeConfigBackupName: (id: number, name: string) => Promise<{ success: boolean; error?: string }>
+  getClaudeConfigBackupContent: (id: number) => Promise<{ success: boolean; config?: string; error?: string }>
 }
 
 // AI 总结请求参数

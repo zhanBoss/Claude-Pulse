@@ -3,12 +3,12 @@ import { ThemeConfig, theme as antdTheme } from 'antd'
 // 亮色模式主题
 export const lightTheme: ThemeConfig = {
   token: {
-    // 设计系统主色
-    colorPrimary: '#667eea',
+    // 设计系统主色 - Claude Code 橙棕色
+    colorPrimary: '#D97757',
     colorSuccess: '#10b981',
     colorWarning: '#f59e0b',
     colorError: '#ef4444',
-    colorInfo: '#3b82f6',
+    colorInfo: '#D97757',
     borderRadius: 6,
     fontSize: 14,
     fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
@@ -104,6 +104,10 @@ export const getThemeVars = (isDark: boolean) => ({
   textTertiary: isDark ? '#8c8c8c' : '#9ca3af',
   codeBg: isDark ? '#2a2a2a' : '#f3f4f6',
   hoverBg: isDark ? '#2a2a2a' : '#f9fafb',
-  primary: '#667eea',
-  primaryHover: '#5568d3',
+  // Claude Code 主题色
+  primary: '#D97757',
+  primaryHover: '#C86847',
+  primaryLight: '#E88B6F',
+  primaryGradient: 'linear-gradient(135deg, #E88B6F 0%, #D97757 100%)',
+  primaryShadow: 'rgba(217, 119, 87, 0.3)',
 })
