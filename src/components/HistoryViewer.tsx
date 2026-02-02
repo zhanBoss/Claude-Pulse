@@ -334,7 +334,7 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
               content: (
                 <div>
                   <p>{error}</p>
-                  <p style={{ marginTop: 8, fontSize: 12, color: '#999' }}>
+                  <p style={{ marginTop: 8, fontSize: 12, color: themeVars.textTertiary }}>
                     提示：你可以前往相应平台充值后继续使用
                   </p>
                 </div>
@@ -347,7 +347,7 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
               content: (
                 <div>
                   <p>{error}</p>
-                  <p style={{ marginTop: 8, fontSize: 12, color: '#999' }}>
+                  <p style={{ marginTop: 8, fontSize: 12, color: themeVars.textTertiary }}>
                     提示：请前往设置页面重新配置 API Key
                   </p>
                 </div>
@@ -834,7 +834,7 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
                     margin: '0 auto 24px',
                     boxShadow: `0 8px 16px ${themeVars.primaryShadow}`
                   }}>
-                    <WarningOutlined style={{ fontSize: 32, color: '#fff' }} />
+                    <WarningOutlined style={{ fontSize: 32, color: themeVars.bgContainer }} />
                   </div>
 
                   <Text strong style={{ fontSize: 20, display: 'block', marginBottom: 12 }}>
@@ -1045,8 +1045,8 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
                           autoEscape
                           textToHighlight={record.display}
                           highlightStyle={{
-                            backgroundColor: darkMode ? '#d48806' : '#ffc069',
-                            color: darkMode ? '#fff' : '#000',
+                            backgroundColor: darkMode ? themeVars.primaryHover : themeVars.primaryLight,
+                            color: themeVars.text,
                             padding: 0,
                           }}
                         />
@@ -1117,8 +1117,8 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
                     autoEscape
                     textToHighlight={selectedRecord.display}
                     highlightStyle={{
-                      backgroundColor: darkMode ? '#d48806' : '#ffc069',
-                      color: darkMode ? '#fff' : '#000',
+                      backgroundColor: darkMode ? themeVars.primaryHover : themeVars.primaryLight,
+                      color: themeVars.text,
                       padding: '2px 4px',
                       borderRadius: 2,
                     }}

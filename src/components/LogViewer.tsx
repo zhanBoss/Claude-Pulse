@@ -296,7 +296,7 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode }: LogViewerProp
               content: (
                 <div>
                   <p>{error}</p>
-                  <p style={{ marginTop: 8, fontSize: 12, color: '#999' }}>
+                  <p style={{ marginTop: 8, fontSize: 12, color: themeVars.textTertiary }}>
                     提示：你可以前往相应平台充值后继续使用
                   </p>
                 </div>
@@ -309,7 +309,7 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode }: LogViewerProp
               content: (
                 <div>
                   <p>{error}</p>
-                  <p style={{ marginTop: 8, fontSize: 12, color: '#999' }}>
+                  <p style={{ marginTop: 8, fontSize: 12, color: themeVars.textTertiary }}>
                     提示：请前往设置页面重新配置 API Key
                   </p>
                 </div>
@@ -583,7 +583,7 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode }: LogViewerProp
                   margin: '0 auto 24px',
                   boxShadow: `0 8px 16px ${themeVars.primaryShadow}`
                 }}>
-                  <WarningOutlined style={{ fontSize: 32, color: '#fff' }} />
+                  <WarningOutlined style={{ fontSize: 32, color: themeVars.bgContainer }} />
                 </div>
 
                 <Text strong style={{ fontSize: 20, display: 'block', marginBottom: 12 }}>
@@ -740,7 +740,7 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode }: LogViewerProp
       <Modal
         title={
           <Space>
-            <StarOutlined style={{ color: '#667eea' }} />
+            <StarOutlined style={{ color: themeVars.primary }} />
             <Text>当前对话 AI 总结</Text>
           </Space>
         }

@@ -322,7 +322,7 @@ function SettingsView({ darkMode, onThemeModeChange, claudeDir, scrollToSection,
             <li>保留 Claude Code 原始配置（settings.json 和 history.jsonl）</li>
             <li>关闭应用</li>
           </ul>
-          <p style={{ marginTop: 8, color: '#ff4d4f', fontWeight: 500 }}>
+          <p style={{ marginTop: 8, color: themeVars.error, fontWeight: 500 }}>
             此操作不可恢复，请确认是否继续？
           </p>
         </div>
@@ -588,7 +588,7 @@ function SettingsView({ darkMode, onThemeModeChange, claudeDir, scrollToSection,
                       label: (
                         <div>
                           <div style={{ fontWeight: 500 }}>Groq (推荐)</div>
-                          <div style={{ fontSize: 12, color: '#52c41a' }}>✓ 完全免费 · 速度超快</div>
+                          <div style={{ fontSize: 12, color: themeVars.success }}>✓ 完全免费 · 速度超快</div>
                         </div>
                       ),
                       value: 'groq'
@@ -597,7 +597,7 @@ function SettingsView({ darkMode, onThemeModeChange, claudeDir, scrollToSection,
                       label: (
                         <div>
                           <div style={{ fontWeight: 500 }}>Google Gemini</div>
-                          <div style={{ fontSize: 12, color: '#52c41a' }}>✓ 慷慨免费额度</div>
+                          <div style={{ fontSize: 12, color: themeVars.success }}>✓ 慷慨免费额度</div>
                         </div>
                       ),
                       value: 'gemini'
@@ -606,7 +606,7 @@ function SettingsView({ darkMode, onThemeModeChange, claudeDir, scrollToSection,
                       label: (
                         <div>
                           <div style={{ fontWeight: 500 }}>DeepSeek</div>
-                          <div style={{ fontSize: 12, color: '#faad14' }}>⚠ 有限免费额度</div>
+                          <div style={{ fontSize: 12, color: themeVars.warning }}>⚠ 有限免费额度</div>
                         </div>
                       ),
                       value: 'deepseek'
@@ -615,7 +615,7 @@ function SettingsView({ darkMode, onThemeModeChange, claudeDir, scrollToSection,
                       label: (
                         <div>
                           <div style={{ fontWeight: 500 }}>自定义</div>
-                          <div style={{ fontSize: 12, color: '#1890ff' }}>⚙️ 任意 API 服务</div>
+                          <div style={{ fontSize: 12, color: themeVars.info }}>⚙️ 任意 API 服务</div>
                         </div>
                       ),
                       value: 'custom'
@@ -745,13 +745,13 @@ function SettingsView({ darkMode, onThemeModeChange, claudeDir, scrollToSection,
           <Card
             title={
               <Space>
-                <DeleteOutlined style={{ color: '#ff4d4f' }} />
-                <span style={{ color: '#ff4d4f' }}>危险操作</span>
+                <DeleteOutlined style={{ color: themeVars.error }} />
+                <span style={{ color: themeVars.error }}>危险操作</span>
               </Space>
             }
             style={{
               backgroundColor: themeVars.bgContainer,
-              borderColor: '#ff4d4f',
+              borderColor: themeVars.error,
               gridColumn: '1 / -1'
             }}
           >

@@ -8,7 +8,7 @@ import HistoryViewer from './components/HistoryViewer'
 import SettingsView from './components/SettingsView'
 import DevFooter from './components/DevFooter'
 import { ClaudeRecord } from './types'
-import { lightTheme, darkTheme } from './theme'
+import { lightTheme, darkTheme, getThemeVars } from './theme'
 import 'antd/dist/reset.css'
 
 type Route = 'realtime' | 'history' | 'settings'
@@ -87,6 +87,7 @@ function App() {
 
   // 检测中显示加载状态
   if (isCheckingClaude) {
+    const themeVars = getThemeVars(darkMode)
     return (
       <div style={{
         height: '100vh',
@@ -95,15 +96,15 @@ function App() {
         justifyContent: 'center',
         flexDirection: 'column',
         gap: '24px',
-        background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)'
+        background: themeVars.primaryGradient
       }}>
         <Spin
-          indicator={<LoadingOutlined style={{ fontSize: 48, color: '#D97757' }} spin />}
+          indicator={<LoadingOutlined style={{ fontSize: 48, color: themeVars.primary }} spin />}
           size="large"
         />
         <div style={{
           fontSize: 16,
-          color: '#D97757',
+          color: themeVars.primary,
           fontWeight: 500,
           letterSpacing: '0.5px'
         }}>
@@ -115,16 +116,17 @@ function App() {
 
   // 未安装 Claude Code
   if (!isClaudeInstalled) {
+    const themeVars = getThemeVars(darkMode)
     return (
       <div style={{
         height: '100vh',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)'
+        background: themeVars.primaryGradient
       }}>
         <Result
-          icon={<WarningOutlined style={{ fontSize: 72, color: '#faad14' }} />}
+          icon={<WarningOutlined style={{ fontSize: 72, color: themeVars.primary }} />}
           title="未检测到 Claude Code"
           subTitle="请先安装 Claude Code 才能使用本应用"
           extra={[
@@ -137,15 +139,15 @@ function App() {
             >
               前往安装 Claude Code
             </Button>,
-            <div key="hint" style={{ marginTop: 16, fontSize: 12, color: '#999' }}>
+            <div key="hint" style={{ marginTop: 16, fontSize: 12, color: themeVars.textTertiary }}>
               安装后请重启本应用
             </div>
           ]}
           style={{
-            background: 'white',
+            background: themeVars.bgContainer,
             borderRadius: 16,
             padding: '48px',
-            boxShadow: '0 8px 24px rgba(0,0,0,0.12)'
+            boxShadow: `0 8px 24px ${themeVars.primaryShadow}`
           }}
         />
       </div>
@@ -212,7 +214,7 @@ function App() {
       </MainLayout>
 
       {/* 开发模式提示（仅开发构建版本显示） */}
-      {__IS_DEV_BUILD__ && <DevFooter />}
+      {__IS_DEV_BUILD__ && <DevFooter darkMode={darkMode} />}
     </ConfigProvider>
   )
 }

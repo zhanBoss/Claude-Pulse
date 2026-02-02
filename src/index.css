@@ -84,9 +84,9 @@ code {
 }
 
 .markdown-content blockquote {
-  border-left: 3px solid #e5e7eb;
+  border-left: 3px solid var(--border-color, #e5e7eb);
   padding-left: 1rem;
-  color: #6b7280;
+  color: var(--text-secondary, #6b7280);
   margin: 0.5rem 0;
 }
 

@@ -1,7 +1,14 @@
 import { InfoCircleOutlined } from '@ant-design/icons'
 import { message } from 'antd'
+import { getThemeVars } from '../theme'
 
-function DevFooter() {
+interface DevFooterProps {
+  darkMode?: boolean
+}
+
+function DevFooter({ darkMode = false }: DevFooterProps) {
+  const themeVars = getThemeVars(darkMode)
+
   const handleOpenDevtools = async () => {
     try {
       const result = await window.electronAPI.openDevtools()
@@ -27,14 +34,14 @@ function DevFooter() {
         left: 0,
         right: 0,
         height: 32,
-        background: 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)',
+        background: themeVars.primaryGradient,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         color: 'white',
         fontSize: 12,
         zIndex: 1000,
-        borderTop: '1px solid rgba(255,255,255,0.1)',
+        borderTop: `1px solid ${themeVars.borderSecondary}`,
         backdropFilter: 'blur(10px)'
       }}
     >

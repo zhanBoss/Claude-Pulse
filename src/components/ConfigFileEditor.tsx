@@ -108,7 +108,7 @@ function ConfigFileEditor({
             <span>{title}</span>
           </Space>
           {filePath && (
-            <span style={{ fontSize: 12, fontWeight: 'normal', color: '#999' }}>{filePath}</span>
+            <span style={{ fontSize: 12, fontWeight: 'normal', color: themeVars.textTertiary }}>{filePath}</span>
           )}
         </Space>
       }

@@ -110,4 +110,9 @@ export const getThemeVars = (isDark: boolean) => ({
   primaryLight: '#E88B6F',
   primaryGradient: 'linear-gradient(135deg, #E88B6F 0%, #D97757 100%)',
   primaryShadow: 'rgba(217, 119, 87, 0.3)',
+  // 状态颜色
+  success: '#52c41a',
+  warning: '#faad14',
+  error: '#ff4d4f',
+  info: '#1890ff',
 })
