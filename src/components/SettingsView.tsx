@@ -533,7 +533,7 @@ function SettingsView({ darkMode, onThemeModeChange, claudeDir, scrollToSection,
               borderColor: themeVars.border
             }}
           >
-            <RecordControl ref={recordControlRef} darkMode={darkMode} />
+            <RecordControl ref={recordControlRef} />
           </Card>
 
           {/* 卡片 4: AI 总结设置 */}

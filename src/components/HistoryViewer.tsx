@@ -10,7 +10,9 @@ import {
   ReloadOutlined,
   ExportOutlined,
   WarningOutlined,
-  SettingOutlined
+  SettingOutlined,
+  DeleteOutlined,
+  ExclamationCircleOutlined
 } from '@ant-design/icons'
 import Highlighter from 'react-highlight-words'
 import ReactMarkdown from 'react-markdown'
@@ -418,6 +420,52 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
     } catch (error) {
       message.error('复制失败')
     }
+  }
+
+  // 删除单条记录
+  const handleDeleteRecord = async (record: ClaudeRecord) => {
+    Modal.confirm({
+      title: '确认删除',
+      icon: <ExclamationCircleOutlined />,
+      content: '删除后将无法恢复，相关图片也会被删除。确认删除这条记录吗？',
+      okText: '确认删除',
+      okType: 'danger',
+      cancelText: '取消',
+      onOk: async () => {
+        try {
+          const result = await window.electronAPI.deleteRecord(
+            record.sessionId || '',
+            record.timestamp
+          )
+
+          if (result.success) {
+            message.success('删除成功')
+            // 关闭 Record 详情弹窗
+            setRecordModalVisible(false)
+            // 重新加载 Session 详情
+            if (selectedSession) {
+              const updatedResult = await window.electronAPI.readSessionDetails(selectedSession.sessionId)
+              if (updatedResult.success && updatedResult.records) {
+                setSelectedSession({
+                  ...selectedSession,
+                  records: updatedResult.records,
+                  recordCount: updatedResult.records.length
+                })
+                // 如果删除后该 session 没有记录了，关闭 session 弹窗并刷新列表
+                if (updatedResult.records.length === 0) {
+                  setSessionModalVisible(false)
+                  loadHistoryMetadata()
+                }
+              }
+            }
+          } else {
+            message.error(`删除失败: ${result.error}`)
+          }
+        } catch (error: any) {
+          message.error(`删除失败: ${error?.message || '未知错误'}`)
+        }
+      }
+    })
   }
 
   const renderPastedContent = (content: any) => {
@@ -1122,6 +1170,14 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
         keyboard={true}
         width="60%"
         footer={[
+          <Button
+            key="delete"
+            danger
+            icon={<DeleteOutlined />}
+            onClick={() => selectedRecord && handleDeleteRecord(selectedRecord)}
+          >
+            删除
+          </Button>,
           <Button
             key="copy"
             icon={<CopyOutlined />}

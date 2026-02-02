@@ -2,20 +2,18 @@ import { useEffect, useState, forwardRef, useImperativeHandle } from 'react'
 import { Card, Switch, Button, Typography, Space, Spin, Tag, Alert, Modal, message } from 'antd'
 import { PlayCircleOutlined, PauseCircleOutlined, EditOutlined, DeleteOutlined, ExclamationCircleOutlined } from '@ant-design/icons'
 import { RecordConfig } from '../types'
-import { getThemeVars } from '../theme'
 
 const { Title, Text } = Typography
 
 interface RecordControlProps {
-  darkMode: boolean
+  // darkMode 参数保留以保持接口一致性，但当前未使用
 }
 
 export interface RecordControlRef {
   refresh: () => Promise<void>
 }
 
-const RecordControl = forwardRef<RecordControlRef, RecordControlProps>(({ darkMode }, ref) => {
-  const themeVars = getThemeVars(darkMode)
+const RecordControl = forwardRef<RecordControlRef, RecordControlProps>((_, ref) => {
   const [config, setConfig] = useState<RecordConfig>({
     enabled: false,
     savePath: ''

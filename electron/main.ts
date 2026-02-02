@@ -1334,6 +1334,90 @@ ipcMain.handle('show-claude-config-in-folder', async () => {
   }
 })
 
+// 删除单条历史记录（包括相关图片）
+ipcMain.handle('delete-record', async (_, sessionId: string, timestamp: number) => {
+  try {
+    const savePath = store.get('savePath', '') as string
+    if (!savePath) {
+      return { success: false, error: '未配置保存路径' }
+    }
+
+    if (!fs.existsSync(savePath)) {
+      return { success: false, error: '保存路径不存在' }
+    }
+
+    // 1. 找到包含该记录的文件
+    const files = fs.readdirSync(savePath).filter(f => f.endsWith('.jsonl'))
+    let recordFound = false
+    let recordToDelete: any = null
+
+    for (const file of files) {
+      const filePath = path.join(savePath, file)
+      const content = fs.readFileSync(filePath, 'utf-8')
+      const lines = content.split('\n').filter(line => line.trim())
+      const newLines: string[] = []
+      let fileModified = false
+
+      for (const line of lines) {
+        try {
+          const record = JSON.parse(line)
+          const recordTimestamp = new Date(record.timestamp).getTime()
+          const recordSessionId = record.sessionId || `single-${recordTimestamp}`
+
+          // 找到要删除的记录
+          if (recordSessionId === sessionId && recordTimestamp === timestamp) {
+            recordFound = true
+            recordToDelete = record
+            fileModified = true
+            // 不添加到 newLines，即删除这条记录
+            continue
+          }
+
+          newLines.push(line)
+        } catch (e) {
+          // 保留无法解析的行
+          newLines.push(line)
+        }
+      }
+
+      // 如果文件被修改，写回文件
+      if (fileModified) {
+        if (newLines.length === 0) {
+          // 如果文件没有记录了，删除文件
+          fs.unlinkSync(filePath)
+        } else {
+          fs.writeFileSync(filePath, newLines.join('\n') + '\n', 'utf-8')
+        }
+      }
+    }
+
+    if (!recordFound) {
+      return { success: false, error: '未找到该记录' }
+    }
+
+    // 2. 删除相关图片
+    if (recordToDelete && recordToDelete.images && Array.isArray(recordToDelete.images)) {
+      const imagesDir = path.join(savePath, 'images')
+      for (const imagePath of recordToDelete.images) {
+        try {
+          const fullImagePath = path.join(imagesDir, path.basename(imagePath))
+          if (fs.existsSync(fullImagePath)) {
+            fs.unlinkSync(fullImagePath)
+          }
+        } catch (error) {
+          console.error('删除图片失败:', error)
+          // 继续删除其他图片，不中断流程
+        }
+      }
+    }
+
+    return { success: true }
+  } catch (error) {
+    console.error('删除记录失败:', error)
+    return { success: false, error: (error as Error).message }
+  }
+})
+
 // 读取应用配置文件内容
 ipcMain.handle('read-app-config-file', async () => {
   try {

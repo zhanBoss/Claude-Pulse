@@ -102,6 +102,8 @@ export interface ElectronAPI {
   showConfigInFolder: () => Promise<void>
   // 在文件管理器中显示 Claude Code 配置文件
   showClaudeConfigInFolder: () => Promise<void>
+  // 删除单条历史记录（包括相关图片）
+  deleteRecord: (sessionId: string, timestamp: number) => Promise<{ success: boolean; error?: string }>
   // 读取应用配置文件内容
   readAppConfigFile: () => Promise<string>
   // 保存应用配置文件内容
