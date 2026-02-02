@@ -371,17 +371,17 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode }: LogViewerProp
       display: 'flex',
       flexDirection: 'column',
       height: '100%',
-      background: themeVars.bgContainer,
-      minHeight: 0
+      background: themeVars.bgContainer
     }}>
-      {/* 操作栏 */}
+      {/* 操作栏 - 顶部 */}
       <div style={{
-        padding: '12px 16px',
-        borderBottom: `1px solid ${themeVars.border}`,
-        background: themeVars.bgContainer,
+        padding: '16px',
+        borderBottom: `1px solid ${themeVars.borderSecondary}`,
+        background: themeVars.bgSection,
         display: 'flex',
         justifyContent: 'space-between',
-        alignItems: 'center'
+        alignItems: 'center',
+        flexShrink: 0
       }}>
         <Text type="secondary" style={{ fontSize: 12 }}>
           共 {groupedRecords.length} 个会话，{records.length} 条记录
