@@ -724,10 +724,10 @@ function SettingsView({ darkMode, onThemeModeChange, claudeDir }: SettingsViewPr
               </div>
             </Space>
           </Card>
-        </div>
+      </div>
 
-        {/* 配置文件编辑器 */}
-        <ConfigFileEditor
+      {/* 配置文件编辑器 */}
+      <ConfigFileEditor
           title="编辑应用配置文件"
           filePath={configPath}
           darkMode={darkMode}
@@ -746,7 +746,7 @@ function SettingsView({ darkMode, onThemeModeChange, claudeDir }: SettingsViewPr
             await window.electronAPI.showConfigInFolder()
           }}
         />
-      </div>
+    </div>
   )
 }
 
