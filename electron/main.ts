@@ -5,6 +5,11 @@ import os from 'os'
 import Store from 'electron-store'
 import fetch from 'electron-fetch'
 
+// 扩展 global 类型
+declare global {
+  var processedImages: Map<string, Set<string>> | undefined
+}
+
 const store = new Store()
 
 let mainWindow: BrowserWindow | null = null
