@@ -37,6 +37,26 @@ npm run dev
 npm run build
 ```
 
+## 安装
+
+### macOS
+
+从 [Releases](https://github.com/zhanBoss/Claude-Code-Monitor/releases) 下载最新版本的 DMG 文件。
+
+**重要提示**：由于应用未经过 Apple 公证，首次打开时可能会提示"已损坏"。请按以下步骤操作：
+
+1. 下载并安装 `CCMonitor-x.x.x-arm64.dmg`
+2. 打开终端，执行以下命令移除隔离属性：
+   ```bash
+   xattr -cr /Applications/CCMonitor.app
+   ```
+3. 现在可以正常打开应用了
+
+**或者**，在系统设置中允许：
+1. 尝试打开应用，点击"取消"
+2. 打开"系统设置" → "隐私与安全性"
+3. 找到关于 CCMonitor 的提示，点击"仍要打开"
+
 ## 使用
 
 1. 启动应用后自动检测 Claude Code 安装状态
