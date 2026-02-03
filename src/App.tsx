@@ -65,18 +65,8 @@ function App() {
       setThemeMode(settings.themeMode)
     })
 
-    // 加载历史记录到实时对话页面
-    window.electronAPI.getRecordConfig().then(config => {
-      if (config.enabled && config.savePath) {
-        window.electronAPI.readHistory().then(result => {
-          if (result.success && result.records) {
-            // 按时间倒序排列（最新的在前面）
-            const sortedRecords = result.records.sort((a, b) => b.timestamp - a.timestamp)
-            setRecords(sortedRecords)
-          }
-        })
-      }
-    })
+    // 注意：实时对话页面不加载历史记录，只显示当前会话的新记录
+    // 历史记录在 HistoryViewer 组件中按需加载
 
     // 监听新记录
     const cleanup = window.electronAPI.onNewRecord((record) => {
@@ -156,19 +146,9 @@ function App() {
     )
   }
 
-  const handleClearRecords = async () => {
-    // 清空内存中的记录
+  const handleClearRecords = () => {
+    // 只清空当前会话的内存记录，不删除历史文件
     setRecords([])
-
-    // 清空文件中的记录
-    try {
-      const result = await window.electronAPI.clearRealtimeRecords()
-      if (!result.success) {
-        console.error('清空实时记录失败:', result.error)
-      }
-    } catch (error) {
-      console.error('清空实时记录时发生错误:', error)
-    }
   }
 
   const handleOpenSettings = (section?: string) => {

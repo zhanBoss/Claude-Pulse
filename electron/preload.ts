@@ -129,8 +129,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getClaudeConfigBackupContent: (id: number) => ipcRenderer.invoke('get-claude-config-backup-content', id),
 
   // 在外部浏览器中打开链接
-  openExternal: (url: string) => ipcRenderer.invoke('open-external', url),
-
-  // 清空实时对话记录
-  clearRealtimeRecords: () => ipcRenderer.invoke('clear-realtime-records')
+  openExternal: (url: string) => ipcRenderer.invoke('open-external', url)
 })
