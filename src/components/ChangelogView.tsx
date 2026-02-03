@@ -20,6 +20,27 @@ interface VersionData {
 
 const changelog: VersionData[] = [
   {
+    version: '1.4.2',
+    date: '2026-02-03',
+    type: 'patch',
+    changes: [
+      { type: 'fix', description: '修复实时对话图片加载失败问题，解决路径重复拼接导致文件找不到' },
+      { type: 'fix', description: '添加图片加载轮询机制，确保图片最终能成功加载' },
+      { type: 'fix', description: '图片现在可以立即显示，无需刷新页面' }
+    ]
+  },
+  {
+    version: '1.4.1',
+    date: '2026-02-03',
+    type: 'patch',
+    changes: [
+      { type: 'fix', description: '修复 TypeScript 编译错误，添加 downlevelIteration 支持 Map/Set 迭代' },
+      { type: 'fix', description: '添加 esModuleInterop 和 allowSyntheticDefaultImports 支持模块导入' },
+      { type: 'fix', description: '为 Electron 主进程创建独立的 TypeScript 配置 (tsconfig.electron.json)' },
+      { type: 'fix', description: '修复 global.processedImages 类型声明问题' }
+    ]
+  },
+  {
     version: '1.4.0',
     date: '2024-02-02',
     type: 'minor',
