@@ -156,8 +156,19 @@ function App() {
     )
   }
 
-  const handleClearRecords = () => {
+  const handleClearRecords = async () => {
+    // 清空内存中的记录
     setRecords([])
+
+    // 清空文件中的记录
+    try {
+      const result = await window.electronAPI.clearRealtimeRecords()
+      if (!result.success) {
+        console.error('清空实时记录失败:', result.error)
+      }
+    } catch (error) {
+      console.error('清空实时记录时发生错误:', error)
+    }
   }
 
   const handleOpenSettings = (section?: string) => {

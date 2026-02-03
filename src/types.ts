@@ -131,6 +131,8 @@ export interface ElectronAPI {
   getClaudeConfigBackupContent: (id: number) => Promise<{ success: boolean; config?: string; error?: string }>
   // 在外部浏览器中打开链接
   openExternal: (url: string) => Promise<{ success: boolean; error?: string }>
+  // 清空实时对话记录
+  clearRealtimeRecords: () => Promise<{ success: boolean; error?: string }>
 }
 
 // AI 总结请求参数
