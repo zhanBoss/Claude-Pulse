@@ -394,68 +394,91 @@ async function processRecord(record: any, savePath: string) {
       }
     }
 
-    // 处理图片：只复制当前 prompt 使用的图片
+    // 处理图片：根据时间戳匹配当前 prompt 使用的图片
     const images: string[] = []
 
-    if (record.sessionId && record.display) {
-      // 从 display 中提取图片编号 [Image #N]
-      const imageMatches = record.display.match(/\[Image #(\d+)\]/g)
+    if (record.sessionId) {
+      const imageCacheDir = path.join(CLAUDE_DIR, 'image-cache', record.sessionId)
 
-      if (imageMatches && imageMatches.length > 0) {
-        const imageNumbers = imageMatches.map((match: string) => {
-          const num = match.match(/\d+/)
-          return num ? parseInt(num[0]) : null
-        }).filter((n: number | null) => n !== null) as number[]
+      // 等待图片目录创建（最多等待2秒）
+      let waitCount = 0
+      while (!fs.existsSync(imageCacheDir) && waitCount < 20) {
+        await new Promise(resolve => setTimeout(resolve, 100))
+        waitCount++
+      }
 
-        const imageCacheDir = path.join(CLAUDE_DIR, 'image-cache', record.sessionId)
+      try {
+        if (fs.existsSync(imageCacheDir)) {
+          // 再等待一小段时间，确保图片文件写入完成
+          await new Promise(resolve => setTimeout(resolve, 200))
 
-        // 等待图片目录创建（最多等待2秒）
-        let waitCount = 0
-        while (!fs.existsSync(imageCacheDir) && waitCount < 20) {
-          await new Promise(resolve => setTimeout(resolve, 100))
-          waitCount++
-        }
+          // 读取目录下的所有图片文件
+          const allImageFiles = fs.readdirSync(imageCacheDir)
+            .filter(f => f.endsWith('.png') || f.endsWith('.jpg') || f.endsWith('.jpeg') || f.endsWith('.gif'))
 
-        try {
-          if (fs.existsSync(imageCacheDir)) {
-            // 再等待一小段时间，确保图片文件写入完成
-            await new Promise(resolve => setTimeout(resolve, 200))
-
-            // 读取目录下的所有图片文件
-            const allImageFiles = fs.readdirSync(imageCacheDir)
-              .filter(f => f.endsWith('.png') || f.endsWith('.jpg') || f.endsWith('.jpeg') || f.endsWith('.gif'))
-              .sort() // 按文件名排序
-
+          if (allImageFiles.length > 0) {
             // 创建图片保存目录
             const imagesDir = path.join(savePath, 'images', record.sessionId)
             if (!fs.existsSync(imagesDir)) {
               fs.mkdirSync(imagesDir, { recursive: true })
             }
 
-            // 只复制当前 prompt 使用的图片
-            for (const imageNum of imageNumbers) {
-              // 图片编号从 1 开始，数组索引从 0 开始
-              const imageIndex = imageNum - 1
+            const recordTimestamp = new Date(record.timestamp).getTime()
 
-              if (imageIndex >= 0 && imageIndex < allImageFiles.length) {
-                const imageFile = allImageFiles[imageIndex]
-                const srcPath = path.join(imageCacheDir, imageFile)
-                const destPath = path.join(imagesDir, imageFile)
+            // 方案1: 如果 display 中有 [Image #N] 标记，使用精确匹配
+            const imageMatches = record.display.match(/\[Image #(\d+)\]/g)
+            if (imageMatches && imageMatches.length > 0) {
+              const imageNumbers = imageMatches.map((match: string) => {
+                const num = match.match(/\d+/)
+                return num ? parseInt(num[0]) : null
+              }).filter((n: number | null) => n !== null) as number[]
 
-                try {
-                  if (!fs.existsSync(destPath)) {
-                    fs.copyFileSync(srcPath, destPath)
+              const sortedImageFiles = allImageFiles.sort()
+
+              for (const imageNum of imageNumbers) {
+                const imageIndex = imageNum - 1
+                if (imageIndex >= 0 && imageIndex < sortedImageFiles.length) {
+                  const imageFile = sortedImageFiles[imageIndex]
+                  const srcPath = path.join(imageCacheDir, imageFile)
+                  const destPath = path.join(imagesDir, imageFile)
+
+                  try {
+                    if (!fs.existsSync(destPath)) {
+                      fs.copyFileSync(srcPath, destPath)
+                    }
+                    images.push(`images/${record.sessionId}/${imageFile}`)
+                  } catch (err) {
+                    console.error(`Failed to copy image ${imageFile}:`, err)
                   }
-                  images.push(`images/${record.sessionId}/${imageFile}`)
-                } catch (err) {
-                  console.error(`Failed to copy image ${imageFile}:`, err)
+                }
+              }
+            } else {
+              // 方案2: 没有标记时，使用时间戳匹配（前后 5 秒内的图片）
+              for (const imageFile of allImageFiles) {
+                const srcPath = path.join(imageCacheDir, imageFile)
+                const stat = fs.statSync(srcPath)
+                const imageTimestamp = stat.mtimeMs
+
+                // 图片修改时间在记录时间戳前后 5 秒内，认为是当前记录的图片
+                const timeDiff = Math.abs(imageTimestamp - recordTimestamp)
+                if (timeDiff <= 5000) {
+                  const destPath = path.join(imagesDir, imageFile)
+
+                  try {
+                    if (!fs.existsSync(destPath)) {
+                      fs.copyFileSync(srcPath, destPath)
+                    }
+                    images.push(`images/${record.sessionId}/${imageFile}`)
+                  } catch (err) {
+                    console.error(`Failed to copy image ${imageFile}:`, err)
+                  }
                 }
               }
             }
           }
-        } catch (err) {
-          console.error('Failed to process images:', err)
         }
+      } catch (err) {
+        console.error('Failed to process images:', err)
       }
     }
 
