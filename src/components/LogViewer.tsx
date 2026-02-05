@@ -1042,25 +1042,24 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode }: LogViewerProp
 
           {/* 搜索结果列表 */}
           <div style={{
-            maxHeight: '60vh',
-            overflow: 'auto',
-            minHeight: searchKeyword ? 200 : 100
+            maxHeight: '400px',
+            overflow: 'auto'
           }}>
             {!searchKeyword ? (
               <div style={{
                 textAlign: 'center',
-                padding: '40px 20px',
+                padding: '30px 20px',
                 color: themeVars.textTertiary
               }}>
-                <SearchOutlined style={{ fontSize: 48, marginBottom: 12, opacity: 0.3 }} />
-                <div style={{ fontSize: 13 }}>输入关键词搜索 Prompt 内容</div>
-                <div style={{ fontSize: 12, marginTop: 8 }}>提示：按 ESC 关闭搜索</div>
+                <SearchOutlined style={{ fontSize: 36, marginBottom: 8, opacity: 0.25 }} />
+                <div style={{ fontSize: 13, marginBottom: 4 }}>输入关键词搜索 Prompt 内容</div>
+                <div style={{ fontSize: 12, opacity: 0.7 }}>提示：按 ESC 关闭搜索</div>
               </div>
             ) : searchResults.length === 0 ? (
               <Empty
                 image={Empty.PRESENTED_IMAGE_SIMPLE}
                 description="未找到匹配的 Prompt"
-                style={{ padding: '40px 0' }}
+                style={{ padding: '30px 0' }}
               />
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
