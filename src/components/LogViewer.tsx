@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { Button, Empty, Space, Typography, Tag, Card, message, Modal, Image, Tooltip, Input } from 'antd'
 import { CopyOutlined, FolderOpenOutlined, DownOutlined, UpOutlined, StarOutlined, ClearOutlined, WarningOutlined, SettingOutlined, FileImageOutlined, FileTextOutlined, ClockCircleOutlined, SearchOutlined, CloseOutlined } from '@ant-design/icons'
+import Highlighter from 'react-highlight-words'
 import ReactMarkdown from 'react-markdown'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
@@ -57,6 +58,7 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode }: LogViewerProp
   // 搜索相关状态
   const [searchVisible, setSearchVisible] = useState(false)
   const [searchKeyword, setSearchKeyword] = useState('')
+  const [debouncedKeyword, setDebouncedKeyword] = useState('')
   const searchInputRef = useRef<any>(null)
 
   // 加载记录配置
@@ -78,6 +80,12 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode }: LogViewerProp
       // Cmd+F (Mac) 或 Ctrl+F (Windows/Linux)
       if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
         e.preventDefault()
+        // 关闭所有弹窗
+        setPromptModalVisible(false)
+        setCopyTextModalVisible(false)
+        setFileViewerVisible(false)
+        setSummaryModalVisible(false)
+        // 打开搜索
         setSearchVisible(true)
         // 延迟聚焦，确保输入框已渲染
         setTimeout(() => {
@@ -180,11 +188,19 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode }: LogViewerProp
     setFileViewerVisible(true)
   }
 
+  // 防抖 effect
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedKeyword(searchKeyword)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchKeyword])
+
   // 搜索 Prompt 内容
   const searchResults = useMemo(() => {
-    if (!searchKeyword.trim()) return []
+    if (!debouncedKeyword.trim()) return []
 
-    const keyword = searchKeyword.toLowerCase()
+    const keyword = debouncedKeyword.toLowerCase()
     const results: Array<{
       record: ClaudeRecord
       sessionId: string
@@ -215,7 +231,7 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode }: LogViewerProp
     })
 
     return results
-  }, [records, searchKeyword])
+  }, [records, debouncedKeyword])
 
   // 查看搜索结果详情
   const handleViewSearchResult = (record: ClaudeRecord) => {
@@ -502,6 +518,12 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode }: LogViewerProp
             <Button
               icon={<SearchOutlined />}
               onClick={() => {
+                // 关闭所有弹窗
+                setPromptModalVisible(false)
+                setCopyTextModalVisible(false)
+                setFileViewerVisible(false)
+                setSummaryModalVisible(false)
+                // 打开搜索
                 setSearchVisible(true)
                 setTimeout(() => {
                   searchInputRef.current?.focus()
@@ -1108,7 +1130,17 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode }: LogViewerProp
                       WebkitLineClamp: 2,
                       WebkitBoxOrient: 'vertical'
                     }}>
-                      {result.matchText}
+                      <Highlighter
+                        searchWords={[debouncedKeyword]}
+                        autoEscape={true}
+                        textToHighlight={result.matchText}
+                        highlightStyle={{
+                          backgroundColor: themeVars.primary,
+                          color: '#fff',
+                          padding: '2px 4px',
+                          borderRadius: 2
+                        }}
+                      />
                     </div>
                   </div>
                 ))}

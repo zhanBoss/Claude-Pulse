@@ -111,6 +111,11 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
       // Cmd+F (Mac) 或 Ctrl+F (Windows/Linux)
       if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
         e.preventDefault()
+        // 关闭所有弹窗
+        setSessionModalVisible(false)
+        setRecordModalVisible(false)
+        setSummaryModalVisible(false)
+        // 打开搜索
         setSearchVisible(true)
         // 延迟聚焦，确保输入框已渲染
         setTimeout(() => {
@@ -823,6 +828,11 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
               <Button
                 icon={<SearchOutlined />}
                 onClick={() => {
+                  // 关闭所有弹窗
+                  setSessionModalVisible(false)
+                  setRecordModalVisible(false)
+                  setSummaryModalVisible(false)
+                  // 打开搜索
                   setSearchVisible(true)
                   setTimeout(() => {
                     searchInputRef.current?.focus()
@@ -1461,7 +1471,17 @@ function HistoryViewer({ onOpenSettings, darkMode }: HistoryViewerProps) {
                       WebkitLineClamp: 2,
                       WebkitBoxOrient: 'vertical'
                     }}>
-                      {result.matchText}
+                      <Highlighter
+                        searchWords={[searchKeyword]}
+                        autoEscape={true}
+                        textToHighlight={result.matchText}
+                        highlightStyle={{
+                          backgroundColor: themeVars.primary,
+                          color: '#fff',
+                          padding: '2px 4px',
+                          borderRadius: 2
+                        }}
+                      />
                     </div>
                   </div>
                 ))}
