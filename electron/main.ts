@@ -3,7 +3,7 @@ import path from 'path'
 import fs from 'fs'
 import os from 'os'
 import Store from 'electron-store'
-import fetch from 'electron-fetch'
+import { request as httpRequest } from './utils/http'
 
 // 扩展 global 类型
 declare global {
@@ -971,7 +971,7 @@ ipcMain.handle('export-records', async (_, options: any) => {
 })
 
 // AI 总结功能
-ipcMain.handle('summarize-records', async (_, request: { records: any[], type: 'brief' | 'detailed' }) => {
+ipcMain.handle('summarize-records', async (event, request: { records: any[], type: 'brief' | 'detailed' }) => {
   try {
     // 获取 AI 设置
     const aiSettings = store.get('ai') as any
@@ -1072,27 +1072,26 @@ ${conversations}`
     try {
       // Gemini 使用不同的 API 格式（注意：自定义提供商默认使用 OpenAI 格式）
       if (provider === 'gemini') {
-        const response = await fetch(
-          `${currentConfig.apiBaseUrl}/models/${currentConfig.model}:generateContent?key=${currentConfig.apiKey}`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-              contents: [{
-                parts: [{
-                  text: '你是一个专业的技术对话总结助手，擅长提取关键信息和技术要点。请使用简洁清晰的中文进行总结。\n\n' + prompt
-                }]
-              }],
-              generationConfig: {
-                temperature: 0.3,
-                maxOutputTokens: 2000
-              }
-            }),
-            signal: controller.signal
-          }
-        )
+        const response = await httpRequest<Response>({
+          url: `${currentConfig.apiBaseUrl}/models/${currentConfig.model}:generateContent?key=${currentConfig.apiKey}`,
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            contents: [{
+              parts: [{
+                text: '你是一个专业的技术对话总结助手，擅长提取关键信息和技术要点。请使用简洁清晰的中文进行总结。\n\n' + prompt
+              }]
+            }],
+            generationConfig: {
+              temperature: 0.3,
+              maxOutputTokens: 2000
+            }
+          }),
+          signal: controller.signal,
+          webContents: event.sender  // 传递 webContents 以在 DevTools 中显示日志
+        })
 
         clearTimeout(timeoutId)
 
@@ -1123,7 +1122,8 @@ ${conversations}`
 
       // OpenAI 兼容格式 (Groq, DeepSeek, 自定义)
       // 注意：自定义提供商默认使用 OpenAI 格式，用户可自行配置兼容的 API
-      const response = await fetch(`${currentConfig.apiBaseUrl}/chat/completions`, {
+      const response = await httpRequest<Response>({
+        url: `${currentConfig.apiBaseUrl}/chat/completions`,
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -1144,7 +1144,8 @@ ${conversations}`
           temperature: 0.3,
           max_tokens: 2000
         }),
-        signal: controller.signal
+        signal: controller.signal,
+        webContents: event.sender  // 传递 webContents 以在 DevTools 中显示日志
       })
 
       clearTimeout(timeoutId)
@@ -1284,7 +1285,8 @@ ${conversations}`
 
     // OpenAI 兼容格式的流式请求 (Groq, DeepSeek, 自定义)
     // 自定义提供商需要确保 API 兼容 OpenAI 的流式格式
-    const response = await fetch(`${currentConfig.apiBaseUrl}/chat/completions`, {
+    const response = await httpRequest<Response>({
+      url: `${currentConfig.apiBaseUrl}/chat/completions`,
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -1305,7 +1307,8 @@ ${conversations}`
         temperature: 0.3,
         max_tokens: 2000,
         stream: true  // 启用流式输出
-      })
+      }),
+      webContents: event.sender  // 传递 webContents 以在 DevTools 中显示日志
     })
 
     if (!response.ok) {
@@ -1323,7 +1326,7 @@ ${conversations}`
     // 读取流式响应 - 使用 Node.js Stream API
     let buffer = ''
 
-    response.body.on('data', (chunk: Buffer) => {
+    (response.body as any).on('data', (chunk: Buffer) => {
       buffer += chunk.toString()
       const lines = buffer.split('\n')
 
@@ -1354,11 +1357,11 @@ ${conversations}`
       }
     })
 
-    response.body.on('end', () => {
+    (response.body as any).on('end', () => {
       event.sender.send('summary-stream-complete')
     })
 
-    response.body.on('error', (error: Error) => {
+    (response.body as any).on('error', (error: Error) => {
       event.sender.send('summary-stream-error', error.message || '流式读取失败')
     })
 

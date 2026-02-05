@@ -50,6 +50,10 @@ export const lightTheme: ThemeConfig = {
       siderBg: '#ffffff',
       triggerBg: '#f0f0f0',
     },
+    Menu: {
+      itemSelectedBg: '#FFF5ED',  // 浅橙色/米色选中背景
+      itemSelectedColor: '#D97757', // 选中文字颜色
+    },
   },
 }
 
@@ -84,6 +88,10 @@ export const darkTheme: ThemeConfig = {
       ...lightTheme.components?.Modal,
       contentBg: '#1f1f1f',
       headerBg: '#1f1f1f',  // 与 contentBg 保持一致，避免颜色割裂
+    },
+    Menu: {
+      itemSelectedBg: '#2A2420',  // 深色模式下的深橙棕色选中背景
+      itemSelectedColor: '#E88B6F', // 选中文字颜色(更亮)
     },
   },
 }
