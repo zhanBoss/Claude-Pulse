@@ -148,6 +148,13 @@ export interface ElectronAPI {
   deleteCommonCommand: (id: string) => Promise<{ success: boolean; error?: string }>
   togglePinCommand: (id: string) => Promise<{ success: boolean; error?: string }>
   openCommonCommandsFile: () => Promise<{ success: boolean; error?: string }>
+  // AI 对话
+  chatStream: (
+    request: ChatRequest,
+    onChunk: (chunk: string) => void,
+    onComplete: () => void,
+    onError: (error: string) => void
+  ) => Promise<void>
 }
 
 // AI 总结请求参数
@@ -162,6 +169,36 @@ export interface SummaryResponse {
   summary?: string
   error?: string
   tokensUsed?: number
+}
+
+// AI 对话消息
+export interface ChatMessage {
+  id: string
+  role: 'user' | 'assistant' | 'system'
+  content: string
+  timestamp: number
+}
+
+// 对话上下文
+export interface ChatContext {
+  type: 'history' | 'summary'
+  content: string
+  display: string
+  timestamp?: number
+  sessionId?: string
+}
+
+// AI 对话请求
+export interface ChatRequest {
+  messages: ChatMessage[]
+  provider?: 'deepseek' | 'groq' | 'gemini' | 'custom'
+}
+
+// AI 对话响应
+export interface ChatResponse {
+  success: boolean
+  message?: string
+  error?: string
 }
 
 declare global {

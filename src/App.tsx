@@ -6,6 +6,7 @@ import MainLayout from './components/MainLayout'
 import LogViewer from './components/LogViewer'
 import HistoryViewer from './components/HistoryViewer'
 import CommonPrompts from './components/CommonPrompts'
+import ChatView from './components/ChatView'
 import SettingsView from './components/SettingsView'
 import AboutView from './components/AboutView'
 import ChangelogView from './components/ChangelogView'
@@ -14,7 +15,7 @@ import { ClaudeRecord } from './types'
 import { lightTheme, darkTheme, getThemeVars } from './theme'
 import 'antd/dist/reset.css'
 
-type Route = 'realtime' | 'history' | 'prompts' | 'settings' | 'changelog' | 'about'
+type Route = 'realtime' | 'history' | 'prompts' | 'chat' | 'settings' | 'changelog' | 'about'
 
 function App() {
   const [isClaudeInstalled, setIsClaudeInstalled] = useState<boolean>(false)
@@ -25,6 +26,7 @@ function App() {
   const [darkMode, setDarkMode] = useState<boolean>(false)
   const [themeMode, setThemeMode] = useState<'light' | 'dark' | 'system'>('system')
   const [scrollToSection, setScrollToSection] = useState<string | null>(null)
+  const [chatInitialPrompt, setChatInitialPrompt] = useState<string | null>(null)
 
   // 检测系统主题
   useEffect(() => {
@@ -182,6 +184,20 @@ function App() {
         return (
           <CommonPrompts
             darkMode={darkMode}
+            onSendToChat={(content: string) => {
+              setChatInitialPrompt(content)
+              setCurrentRoute('chat')
+            }}
+          />
+        )
+      case 'chat':
+        return (
+          <ChatView
+            darkMode={darkMode}
+            onOpenSettings={handleOpenSettings}
+            initialPrompt={chatInitialPrompt}
+            onInitialPromptUsed={() => setChatInitialPrompt(null)}
+            realtimeRecords={records}
           />
         )
       case 'settings':

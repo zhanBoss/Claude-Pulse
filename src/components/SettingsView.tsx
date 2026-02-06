@@ -540,6 +540,7 @@ function SettingsView({ darkMode, onThemeModeChange, claudeDir, scrollToSection,
 
           {/* 卡片 4: AI 总结设置 */}
           <Card
+            id="ai-settings"
             title={
               <Space>
                 <RobotOutlined style={{ color: themeVars.primary }} />

@@ -9,7 +9,8 @@ import {
   PushpinFilled,
   FileTextOutlined,
   SearchOutlined,
-  CloseOutlined
+  CloseOutlined,
+  CommentOutlined
 } from '@ant-design/icons'
 import Highlighter from 'react-highlight-words'
 import { CommonCommand } from '../types'
@@ -22,9 +23,11 @@ const { Text, Title } = Typography
 
 interface CommonPromptsProps {
   darkMode: boolean
+  onSendToChat?: (content: string) => void
 }
 
-const CommonPrompts = ({ darkMode }: CommonPromptsProps) => {
+const CommonPrompts = (props: CommonPromptsProps) => {
+  const { darkMode, onSendToChat } = props
   const [commands, setCommands] = useState<CommonCommand[]>([])
   const [loading, setLoading] = useState(true)
   const [modalVisible, setModalVisible] = useState(false)
@@ -357,6 +360,16 @@ const CommonPrompts = ({ darkMode }: CommonPromptsProps) => {
                     }}
                     onClick={(e) => e.stopPropagation()}
                   >
+                    {onSendToChat && (
+                      <Tooltip title="发送到AI助手">
+                        <Button
+                          type="text"
+                          size="small"
+                          icon={<CommentOutlined style={{ color: themeVars.primary }} />}
+                          onClick={() => onSendToChat(command.content)}
+                        />
+                      </Tooltip>
+                    )}
                     <Tooltip title={command.pinned ? '取消置顶' : '置顶'}>
                       <Button
                         type="text"
@@ -578,7 +591,7 @@ const CommonPrompts = ({ darkMode }: CommonPromptsProps) => {
                       transition: "all 0.2s"
                     }}
                     onMouseEnter={(e) => {
-                      e.currentTarget.style.background = themeVars.bgHover
+                      e.currentTarget.style.background = themeVars.hoverBg
                       e.currentTarget.style.borderColor = themeVars.primary
                     }}
                     onMouseLeave={(e) => {

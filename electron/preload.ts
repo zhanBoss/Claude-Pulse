@@ -138,5 +138,32 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.invoke('update-common-command', id, name, content),
   deleteCommonCommand: (id: string) => ipcRenderer.invoke('delete-common-command', id),
   togglePinCommand: (id: string) => ipcRenderer.invoke('toggle-pin-command', id),
-  openCommonCommandsFile: () => ipcRenderer.invoke('open-common-commands-file')
+  openCommonCommandsFile: () => ipcRenderer.invoke('open-common-commands-file'),
+
+  // AI 对话流式响应
+  chatStream: (
+    request: any,
+    onChunk: (chunk: string) => void,
+    onComplete: () => void,
+    onError: (error: string) => void
+  ) => {
+    // 注册流式响应监听器
+    const chunkListener = (_: any, chunk: string) => onChunk(chunk)
+    const completeListener = () => onComplete()
+    const errorListener = (_: any, error: string) => onError(error)
+
+    ipcRenderer.on('chat-stream-chunk', chunkListener)
+    ipcRenderer.once('chat-stream-complete', completeListener)
+    ipcRenderer.once('chat-stream-error', errorListener)
+
+    // 发起请求
+    return ipcRenderer.invoke('chat-stream', request).then(() => {
+      // 清理监听器
+      return () => {
+        ipcRenderer.removeListener('chat-stream-chunk', chunkListener)
+        ipcRenderer.removeListener('chat-stream-complete', completeListener)
+        ipcRenderer.removeListener('chat-stream-error', errorListener)
+      }
+    })
+  }
 })
