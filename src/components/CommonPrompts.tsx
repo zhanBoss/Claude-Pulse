@@ -8,7 +8,6 @@ import {
   PushpinOutlined,
   PushpinFilled,
   FileTextOutlined,
-  CheckCircleFilled,
   SearchOutlined,
   CloseOutlined
 } from '@ant-design/icons'
@@ -33,7 +32,6 @@ const CommonPrompts = ({ darkMode }: CommonPromptsProps) => {
   const [configEditorVisible, setConfigEditorVisible] = useState(false)
   const [configFilePath, setConfigFilePath] = useState('')
   const [clickingId, setClickingId] = useState<string | null>(null)
-  const [copiedId, setCopiedId] = useState<string | null>(null)
   const [searchKeyword, setSearchKeyword] = useState('')
   const [searchVisible, setSearchVisible] = useState(false)
   const searchInputRef = useRef<any>(null)
@@ -165,19 +163,13 @@ const CommonPrompts = ({ darkMode }: CommonPromptsProps) => {
 
       await window.electronAPI.copyToClipboard(content)
 
-      // 显示复制成功状态
-      setCopiedId(id)
-      message.success('已复制到剪贴板，可以直接粘贴到对话框中使用')
+      // 显示toast提示
+      message.success('复制成功')
 
       // 重置点击动画
       setTimeout(() => {
         setClickingId(null)
       }, 200)
-
-      // 2秒后隐藏复制成功状态
-      setTimeout(() => {
-        setCopiedId(null)
-      }, 2000)
     } catch (error) {
       message.error('复制失败')
       setClickingId(null)
@@ -350,35 +342,6 @@ const CommonPrompts = ({ darkMode }: CommonPromptsProps) => {
                     }
                   }}
                 >
-                  {/* 复制成功提示 */}
-                  {copiedId === command.id && (
-                    <div
-                      style={{
-                        position: 'absolute',
-                        top: '50%',
-                        left: '50%',
-                        transform: 'translate(-50%, -50%)',
-                        background: 'rgba(0, 0, 0, 0.75)',
-                        color: '#fff',
-                        padding: '12px 24px',
-                        borderRadius: 8,
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 8,
-                        fontSize: 14,
-                        fontWeight: 500,
-                        zIndex: 10,
-                        pointerEvents: 'none',
-                        backdropFilter: 'blur(4px)',
-                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
-                        animation: 'copySuccess 0.3s ease-out'
-                      }}
-                    >
-                      <CheckCircleFilled style={{ fontSize: 18, color: '#52c41a' }} />
-                      <span>复制成功</span>
-                    </div>
-                  )}
-
                   {/* 操作按钮 - 仅在hover时显示 */}
                   <div
                     className="prompt-actions"
@@ -679,17 +642,6 @@ const CommonPrompts = ({ darkMode }: CommonPromptsProps) => {
         </div>
       </ElectronModal>
       <style>{`
-        @keyframes copySuccess {
-          0% {
-            opacity: 0;
-            transform: translate(-50%, -50%) scale(0.8);
-          }
-          100% {
-            opacity: 1;
-            transform: translate(-50%, -50%) scale(1);
-          }
-        }
-
         .prompt-item:hover .prompt-actions {
           opacity: 1 !important;
         }
