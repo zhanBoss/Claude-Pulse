@@ -70,6 +70,21 @@ function createWindow() {
 app.whenReady().then(() => {
   createWindow();
 
+  // 应用启动时,自动启动文件监控(如果已启用)
+  const recordEnabled = store.get("recordEnabled", false) as boolean;
+  const savePath = store.get("savePath", "") as string;
+
+  if (recordEnabled && savePath) {
+    console.log(
+      `[启动] 自动启动文件监控: enabled=${recordEnabled}, savePath=${savePath}`,
+    );
+    startHistoryMonitor(savePath);
+  } else {
+    console.log(
+      `[启动] 未启动文件监控: enabled=${recordEnabled}, savePath=${savePath}`,
+    );
+  }
+
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
