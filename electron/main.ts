@@ -761,8 +761,8 @@ ipcMain.handle("read-session-details", async (_, sessionId: string) => {
       }
     }
 
-    // 按时间排序
-    records.sort((a, b) => a.timestamp - b.timestamp);
+    // 按时间倒序排序（最新的在前）
+    records.sort((a, b) => b.timestamp - a.timestamp);
 
     return { success: true, records };
   } catch (error) {

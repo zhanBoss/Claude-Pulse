@@ -1104,7 +1104,7 @@ function HistoryViewer({ onOpenSettings, darkMode, onSendToChat }: HistoryViewer
                     title={
                       <Space>
                         <Text type="secondary" style={{ fontSize: 12 }}>
-                          #{index + 1}
+                          #{selectedSession.records.length - index}
                         </Text>
                         <ClockCircleOutlined style={{ fontSize: 12 }} />
                         <Text type="secondary" style={{ fontSize: 12 }}>
