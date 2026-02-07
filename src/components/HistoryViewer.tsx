@@ -1199,7 +1199,7 @@ function HistoryViewer({ onOpenSettings, darkMode, onSendToChat }: HistoryViewer
                 {/* 图片网格 - 默认显示 */}
                 {selectedRecord.images && selectedRecord.images.length > 0 && (
                   <Image.PreviewGroup
-                    preview={getCopyablePreviewConfig()}
+                    preview={getCopyablePreviewConfig(darkMode)}
                   >
                     <div style={{
                       display: 'flex',
@@ -1422,7 +1422,7 @@ function HistoryViewer({ onOpenSettings, darkMode, onSendToChat }: HistoryViewer
                         textToHighlight={result.matchText}
                         highlightStyle={{
                           backgroundColor: themeVars.primary,
-                          color: '#fff',
+                          color: themeVars.highlightText,
                           padding: '2px 4px',
                           borderRadius: 2
                         }}

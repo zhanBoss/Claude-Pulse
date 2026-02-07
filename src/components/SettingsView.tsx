@@ -740,7 +740,7 @@ function SettingsView({
               },
             }}
           >
-            <RecordControl ref={recordControlRef} />
+            <RecordControl ref={recordControlRef} darkMode={darkMode} />
           </Card>
 
           {/* 卡片 4: AI 功能配置（Tab 切换：对话 / 总结） */}

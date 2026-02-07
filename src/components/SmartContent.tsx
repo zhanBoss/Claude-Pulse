@@ -251,14 +251,14 @@ function SmartContent({
           <span
             key={index}
             style={{
-              background: "#e7f3ff",
-              color: "#1890ff",
+              background: themeVars.infoLight,
+              color: themeVars.info,
               padding: "2px 8px",
               borderRadius: 4,
               fontSize: "0.95em",
               fontWeight: 500,
               cursor: "pointer",
-              border: "1px solid #91d5ff",
+              border: `1px solid ${themeVars.infoBorder}`,
               display: "inline-block",
               transition: "all 0.2s",
               marginRight: 4,
@@ -268,12 +268,12 @@ function SmartContent({
               onImageClick(imageNumber);
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = "#bae7ff";
-              e.currentTarget.style.borderColor = "#40a9ff";
+              e.currentTarget.style.background = themeVars.infoHover;
+              e.currentTarget.style.borderColor = themeVars.infoDark;
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = "#e7f3ff";
-              e.currentTarget.style.borderColor = "#91d5ff";
+              e.currentTarget.style.background = themeVars.infoLight;
+              e.currentTarget.style.borderColor = themeVars.infoBorder;
             }}
             title={`点击预览图片 #${imageNumber}`}
           >

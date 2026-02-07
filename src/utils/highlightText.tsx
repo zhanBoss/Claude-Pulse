@@ -1,4 +1,5 @@
 import React from 'react'
+import { getThemeVars } from '../theme'
 
 /**
  * 关键词高亮工具
@@ -11,8 +12,9 @@ export const highlightText = (
   text: string,
   keyword: string,
   primaryColor: string,
-  _darkMode?: boolean
+  darkMode?: boolean
 ): React.ReactNode => {
+  const themeVars = getThemeVars(darkMode || false)
   if (!keyword.trim()) return text
 
   const lowerText = text.toLowerCase()
@@ -38,7 +40,7 @@ export const highlightText = (
         key={idx}
         style={{
           backgroundColor: primaryColor,
-          color: '#fff',
+          color: themeVars.highlightText,
           padding: '0 2px',
           borderRadius: 2
         }}

@@ -45,11 +45,12 @@ interface ChatViewProps {
 }
 
 /* Avatar 组件 */
-const ChatAvatar = ({ isUser, primaryGradient, aiBgColor, primaryColor }: {
+const ChatAvatar = ({ isUser, primaryGradient, aiBgColor, primaryColor, themeVars }: {
   isUser: boolean
   primaryGradient: string
   aiBgColor: string
   primaryColor: string
+  themeVars: ReturnType<typeof getThemeVars>
 }) => (
   <div style={{
     width: 32,
@@ -59,19 +60,20 @@ const ChatAvatar = ({ isUser, primaryGradient, aiBgColor, primaryColor }: {
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    color: isUser ? '#fff' : primaryColor
+    color: isUser ? themeVars.textWhite : primaryColor
   }}>
     {isUser ? <UserOutlined style={{ fontSize: 14 }} /> : <RobotOutlined style={{ fontSize: 14 }} />}
   </div>
 )
 
-/* 代码块组件（带复制功能） */
+/* Code Block Component with Copy Feature */
 const CodeBlock = ({ language, value, darkMode }: {
   language: string
   value: string
   darkMode: boolean
 }) => {
   const [copied, setCopied] = useState(false)
+  const themeVars = getThemeVars(darkMode)
 
   const handleCopy = async () => {
     try {
@@ -85,7 +87,7 @@ const CodeBlock = ({ language, value, darkMode }: {
 
   return (
     <div style={{ position: 'relative', margin: '8px 0' }}>
-      {/* 复制按钮 */}
+      {/* Copy Button */}
       <Tooltip title={copied ? '已复制' : '复制代码'}>
         <Button
           type="text"
@@ -97,7 +99,7 @@ const CodeBlock = ({ language, value, darkMode }: {
             top: 8,
             right: 8,
             zIndex: 10,
-            color: copied ? '#52c41a' : (darkMode ? '#fff' : '#000'),
+            color: copied ? themeVars.success : themeVars.textWhite,
             background: darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
             borderRadius: 6,
             padding: '4px 8px',
@@ -116,7 +118,7 @@ const CodeBlock = ({ language, value, darkMode }: {
         />
       </Tooltip>
 
-      {/* 代码高亮 */}
+      {/* Code Highlighting */}
       <SyntaxHighlighter
         style={darkMode ? vscDarkPlus : prism}
         language={language}
@@ -124,8 +126,8 @@ const CodeBlock = ({ language, value, darkMode }: {
         customStyle={{
           borderRadius: 6,
           fontSize: 13,
-          background: darkMode ? '#1e1e1e' : '#f6f8fa',
-          paddingRight: 50 // 为复制按钮留空间
+          background: themeVars.bgCode,
+          paddingRight: 50 // Space for copy button
         }}
       >
         {value}
@@ -172,7 +174,7 @@ const MarkdownContent = ({ content, darkMode, textColor }: {
                 borderRadius: 3,
                 fontSize: 13,
                 fontFamily: 'monospace',
-                color: darkMode ? '#e06c75' : '#d73a49'
+                color: themeVars.textError
               }}
               {...props}
             >
@@ -207,11 +209,11 @@ const MarkdownContent = ({ content, darkMode, textColor }: {
         blockquote({ children }) {
           return (
             <blockquote style={{
-              borderLeft: `4px solid ${darkMode ? '#444' : '#ddd'}`,
+              borderLeft: `4px solid ${themeVars.borderCode}`,
               paddingLeft: 12,
               marginLeft: 0,
               marginBottom: 8,
-              color: darkMode ? '#aaa' : '#666',
+              color: themeVars.textQuote,
               fontStyle: 'italic'
             }}>
               {children}
@@ -225,7 +227,7 @@ const MarkdownContent = ({ content, darkMode, textColor }: {
               target="_blank"
               rel="noopener noreferrer"
               style={{
-                color: darkMode ? '#58a6ff' : '#0969da',
+                color: themeVars.link,
                 textDecoration: 'none'
               }}
               onMouseEnter={(e) => e.currentTarget.style.textDecoration = 'underline'}
@@ -250,9 +252,9 @@ const MarkdownContent = ({ content, darkMode, textColor }: {
         th({ children }) {
           return (
             <th style={{
-              border: `1px solid ${darkMode ? '#444' : '#ddd'}`,
+              border: `1px solid ${themeVars.borderCode}`,
               padding: '6px 12px',
-              background: darkMode ? '#2a2a2a' : '#f6f8fa',
+              background: themeVars.codeBg,
               fontWeight: 600,
               textAlign: 'left'
             }}>
@@ -263,7 +265,7 @@ const MarkdownContent = ({ content, darkMode, textColor }: {
         td({ children }) {
           return (
             <td style={{
-              border: `1px solid ${darkMode ? '#444' : '#ddd'}`,
+              border: `1px solid ${themeVars.borderCode}`,
               padding: '6px 12px'
             }}>
               {children}
@@ -535,7 +537,7 @@ const ChatView = (props: ChatViewProps) => {
         key: `m-${prompt.id}`,
         title: prompt.name,
         content: prompt.content,
-        extra: prompt.pinned ? <PushpinFilled style={{ fontSize: 11, color: '#faad14' }} /> : undefined,
+        extra: prompt.pinned ? <PushpinFilled style={{ fontSize: 11, color: themeVars.warning }} /> : undefined,
         mentionData: { id: prompt.id, label: prompt.name, content: prompt.content, type: 'prompt' as const }
       }))
     },
@@ -840,7 +842,7 @@ const ChatView = (props: ChatViewProps) => {
     const textColor = themeVars.text
     const primaryColor = themeVars.primary
     const userBgColor = darkMode ? 'rgba(217, 119, 87, 0.12)' : 'rgba(217, 119, 87, 0.06)'
-    const aiBgColor = darkMode ? '#333' : '#fde3cf'
+    const aiBgColor = themeVars.aiBg
 
     const items: any[] = messages
       .filter(msg => msg.role !== 'system')
@@ -856,6 +858,7 @@ const ChatView = (props: ChatViewProps) => {
             primaryGradient={primaryGradient}
             aiBgColor={aiBgColor}
             primaryColor={primaryColor}
+            themeVars={themeVars}
           />,
           // AI 消息使用 Markdown 渲染
           contentRender: !isUser ? (content: string) => (
@@ -898,6 +901,7 @@ const ChatView = (props: ChatViewProps) => {
           primaryGradient={primaryGradient}
           aiBgColor={aiBgColor}
           primaryColor={primaryColor}
+          themeVars={themeVars}
         />,
         // 流式消息也使用 Markdown 渲染
         contentRender: (content: string) => (
@@ -972,7 +976,7 @@ const ChatView = (props: ChatViewProps) => {
         justifyContent: 'center',
         boxShadow: `0 8px 24px ${themeVars.primaryShadow}`
       }}>
-        <RobotOutlined style={{ fontSize: 36, color: '#fff' }} />
+        <RobotOutlined style={{ fontSize: 36, color: themeVars.textWhite }} />
       </div>
 
       <div style={{ textAlign: 'center' }}>
@@ -1076,7 +1080,7 @@ const ChatView = (props: ChatViewProps) => {
             justifyContent: 'center',
             flexShrink: 0
           }}>
-            <RobotOutlined style={{ fontSize: 14, color: '#fff' }} />
+            <RobotOutlined style={{ fontSize: 14, color: themeVars.textWhite }} />
           </div>
           {!isCompact && (
             <Text strong style={{ color: themeVars.text, fontSize: 15 }}>AI 助手</Text>
@@ -1208,7 +1212,7 @@ const ChatView = (props: ChatViewProps) => {
               prompt.id,
               prompt.name,
               prompt.content,
-              prompt.pinned ? <PushpinFilled style={{ fontSize: 11, color: '#faad14' }} /> : undefined,
+              prompt.pinned ? <PushpinFilled style={{ fontSize: 11, color: themeVars.warning }} /> : undefined,
               () => handleUseContent(prompt.content),
               promptSearchKeyword
             )
@@ -1344,7 +1348,7 @@ const ChatView = (props: ChatViewProps) => {
           justifyContent: 'center',
           flexShrink: 0
         }}>
-          <RobotOutlined style={{ fontSize: 14, color: '#fff' }} />
+          <RobotOutlined style={{ fontSize: 14, color: themeVars.textWhite }} />
         </div>
         {/* 紧凑模式下隐藏标题文案 */}
         {!isCompact && (
@@ -1632,7 +1636,7 @@ const ChatView = (props: ChatViewProps) => {
           margin: 0 2px;
           border-radius: 4px;
           background: ${darkMode ? 'rgba(217, 119, 87, 0.15)' : 'rgba(217, 119, 87, 0.08)'};
-          color: ${darkMode ? '#E88B6F' : '#D97757'};
+          color: ${themeVars.primaryLight};
           font-size: 13px;
           line-height: 1.6;
           cursor: default;

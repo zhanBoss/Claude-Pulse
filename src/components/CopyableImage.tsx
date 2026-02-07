@@ -50,8 +50,8 @@ const toolbarIconStyle: React.CSSProperties = {
 /**
  * 工具栏图标 hover 处理
  */
-const handleIconMouseEnter = (e: React.MouseEvent<HTMLSpanElement>) => {
-  e.currentTarget.style.color = "#fff";
+const handleIconMouseEnter = (e: React.MouseEvent<HTMLSpanElement>, themeVars: ReturnType<typeof getThemeVars>) => {
+  e.currentTarget.style.color = themeVars.textWhite;
 };
 
 const handleIconMouseLeave = (e: React.MouseEvent<HTMLSpanElement>) => {
@@ -62,9 +62,12 @@ const handleIconMouseLeave = (e: React.MouseEvent<HTMLSpanElement>) => {
  * 生成带复制按钮的 Image.PreviewGroup preview 配置
  * 完全自定义工具栏，将复制按钮与原生操作统一在同一容器内
  */
-export const getCopyablePreviewConfig = () => ({
-  actionsRender: (_originalNode: React.ReactElement, info: any) => {
-    const { icons, actions } = info;
+export const getCopyablePreviewConfig = (darkMode?: boolean) => {
+  const themeVars = getThemeVars(darkMode || false);
+
+  return {
+    actionsRender: (_originalNode: React.ReactElement, info: any) => {
+      const { icons, actions } = info;
 
     /* 原生工具栏按钮 */
     const builtinItems = [
@@ -97,7 +100,7 @@ export const getCopyablePreviewConfig = () => ({
             <span
               onClick={item.action}
               style={toolbarIconStyle}
-              onMouseEnter={handleIconMouseEnter}
+              onMouseEnter={(e) => handleIconMouseEnter(e, themeVars)}
               onMouseLeave={handleIconMouseLeave}
             >
               {item.icon}
@@ -113,7 +116,7 @@ export const getCopyablePreviewConfig = () => ({
               copyImageToClipboard(imageUrl);
             }}
             style={toolbarIconStyle}
-            onMouseEnter={handleIconMouseEnter}
+            onMouseEnter={(e) => handleIconMouseEnter(e, themeVars)}
             onMouseLeave={handleIconMouseLeave}
           >
             <CopyOutlined />
@@ -122,7 +125,7 @@ export const getCopyablePreviewConfig = () => ({
       </div>
     );
   },
-});
+};};
 
 const CopyableImage = (props: CopyableImageProps) => {
   const { imagePath, index, darkMode, imageCache, onCacheUpdate } = props;

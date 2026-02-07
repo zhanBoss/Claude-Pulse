@@ -105,11 +105,18 @@ export const getThemeVars = (isDark: boolean) => ({
   bgElevated: isDark ? '#262626' : '#ffffff',
   bgLayout: isDark ? '#141414' : '#f5f7fa',
   bgSection: isDark ? '#1a1a1a' : '#f9fafb',
+  bgCode: isDark ? '#1e1e1e' : '#f6f8fa',
+  bgCodeHeader: isDark ? '#2a2a2a' : '#f6f8fa',
   border: isDark ? '#434343' : '#e5e7eb',
   borderSecondary: isDark ? '#303030' : '#f3f4f6',
+  borderCode: isDark ? '#444' : '#ddd',
+  borderQuote: isDark ? '#444' : '#ddd',
   text: isDark ? '#f0f0f0' : '#1f2937',
   textSecondary: isDark ? '#b8b8b8' : '#6b7280',
   textTertiary: isDark ? '#8c8c8c' : '#9ca3af',
+  textWhite: '#fff',
+  textQuote: isDark ? '#aaa' : '#666',
+  textError: isDark ? '#e06c75' : '#d73a49',
   codeBg: isDark ? '#2a2a2a' : '#f3f4f6',
   hoverBg: isDark ? '#2a2a2a' : '#f9fafb',
   // Claude Code 主题色
@@ -118,9 +125,20 @@ export const getThemeVars = (isDark: boolean) => ({
   primaryLight: '#E88B6F',
   primaryGradient: 'linear-gradient(135deg, #E88B6F 0%, #D97757 100%)',
   primaryShadow: 'rgba(217, 119, 87, 0.3)',
+  // AI 消息背景色
+  aiBg: isDark ? '#333' : '#fde3cf',
   // 状态颜色
   success: '#52c41a',
   warning: '#faad14',
   error: '#ff4d4f',
   info: '#1890ff',
+  infoLight: '#e7f3ff',
+  infoBorder: '#91d5ff',
+  infoHover: '#bae7ff',
+  infoDark: '#40a9ff',
+  // 链接颜色
+  link: isDark ? '#58a6ff' : '#0969da',
+  // 高亮颜色
+  highlightBg: isDark ? 'rgba(217, 119, 87, 0.3)' : 'rgba(217, 119, 87, 0.2)',
+  highlightText: '#fff',
 })

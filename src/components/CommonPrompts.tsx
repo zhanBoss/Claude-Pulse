@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { Card, Button, List, Space, Input, Form, message, Typography, Empty, Popconfirm, Tooltip, Tag } from 'antd'
+import { Card, Button, Space, Input, Form, message, Typography, Empty, Popconfirm, Tooltip, Tag } from 'antd'
 import {
   PlusOutlined,
   EditOutlined,
@@ -454,7 +454,7 @@ const CommonPrompts = (props: CommonPromptsProps) => {
             justifyContent: 'center',
             boxShadow: `0 4px 12px ${themeVars.primaryShadow}`
           }}>
-            <StarOutlined style={{ fontSize: 24, color: '#fff' }} />
+            <StarOutlined style={{ fontSize: 24, color: themeVars.textWhite }} />
           </div>
           <div>
             <Title level={3} style={{ margin: 0, fontSize: 20 }}>
@@ -737,7 +737,7 @@ const CommonPrompts = (props: CommonPromptsProps) => {
                         textToHighlight={command.name}
                         highlightStyle={{
                           backgroundColor: themeVars.primary,
-                          color: "#fff",
+                          color: themeVars.highlightText,
                           padding: "0 2px",
                           borderRadius: 2
                         }}
@@ -767,7 +767,7 @@ const CommonPrompts = (props: CommonPromptsProps) => {
                         textToHighlight={command.content}
                         highlightStyle={{
                           backgroundColor: themeVars.primary,
-                          color: "#fff",
+                          color: themeVars.highlightText,
                           padding: "0 2px",
                           borderRadius: 2
                         }}

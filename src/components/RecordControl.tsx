@@ -3,11 +3,12 @@ import { Card, Switch, Button, Typography, Space, Spin, Tag, Alert, message, Mod
 import { PlayCircleOutlined, PauseCircleOutlined, EditOutlined, DeleteOutlined, ExclamationCircleOutlined, ClockCircleOutlined } from '@ant-design/icons'
 import { RecordConfig, AutoCleanupConfig } from '../types'
 import { getElectronModalConfig } from './ElectronModal'
+import { getThemeVars } from '../theme'
 
 const { Title, Text } = Typography
 
 interface RecordControlProps {
-  // darkMode 参数保留以保持接口一致性，但当前未使用
+  darkMode: boolean
 }
 
 export interface RecordControlRef {
@@ -45,7 +46,8 @@ const timeUnitToMs = (value: number, unit: string): number => {
   return value * (unitConfig?.ms || 60 * 1000)
 }
 
-const RecordControl = forwardRef<RecordControlRef, RecordControlProps>((_, ref) => {
+const RecordControl = forwardRef<RecordControlRef, RecordControlProps>(({ darkMode }, ref) => {
+  const themeVars = getThemeVars(darkMode)
   const [config, setConfig] = useState<RecordConfig>({
     enabled: false,
     savePath: ''
@@ -393,7 +395,7 @@ const RecordControl = forwardRef<RecordControlRef, RecordControlProps>((_, ref) 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: autoCleanup.enabled ? 16 : 0 }}>
               <div style={{ flex: 1 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                  <ClockCircleOutlined style={{ color: '#D97757' }} />
+                  <ClockCircleOutlined style={{ color: themeVars.primary }} />
                   <Text strong>自动清理</Text>
                   {autoCleanup.enabled && (
                     <Tag color="processing" style={{ fontSize: 11 }}>已开启</Tag>

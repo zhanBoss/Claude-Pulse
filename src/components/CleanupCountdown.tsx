@@ -231,7 +231,7 @@ const CleanupCountdown = (props: CleanupCountdownProps) => {
             style={{
               fontSize: 12,
               fontWeight: 700,
-              color: "#ff4d4f",
+              color: themeVars.error,
               fontFamily: "'SF Mono', monospace",
               whiteSpace: "nowrap",
               textAlign: "center",
@@ -301,9 +301,9 @@ const CleanupCountdown = (props: CleanupCountdownProps) => {
                 width: 6,
                 height: 6,
                 borderRadius: "50%",
-                background: isLastMinute ? "#ff4d4f" : themeVars.primary,
+                background: isLastMinute ? themeVars.error : themeVars.primary,
                 boxShadow: isLastMinute
-                  ? "0 0 8px #ff4d4f"
+                  ? `0 0 8px ${themeVars.error}`
                   : `0 0 8px ${themeVars.primary}`,
                 flexShrink: 0,
                 animation: isLastMinute ? "pulse 1s infinite" : "none",
@@ -316,7 +316,7 @@ const CleanupCountdown = (props: CleanupCountdownProps) => {
               style={{
                 fontSize: 13,
                 fontWeight: 600,
-                color: isLastMinute ? "#ff4d4f" : themeVars.text,
+                color: isLastMinute ? themeVars.error : themeVars.text,
                 fontFamily: "'SF Mono', monospace",
                 whiteSpace: "nowrap",
               }}

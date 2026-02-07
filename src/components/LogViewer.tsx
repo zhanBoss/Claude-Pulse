@@ -762,7 +762,7 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
                               {/* 图片网格 - 默认显示 */}
                               {hasImages && (
                                 <Image.PreviewGroup
-                                  preview={getCopyablePreviewConfig()}
+                                  preview={getCopyablePreviewConfig(darkMode)}
                                 >
                                   <div style={{
                                     display: 'flex',
@@ -1040,7 +1040,7 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
             onVisibleChange: (visible) => {
               setImagePreviewVisible(visible)
             },
-            ...getCopyablePreviewConfig()
+            ...getCopyablePreviewConfig(darkMode)
           }}
           items={imagePreviewList.map(imagePath => ({
             src: previewImageCache.get(imagePath) || imagePath
@@ -1060,7 +1060,6 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
                   return newCache
                 })
               }}
-              style={{ display: 'none' }}
             />
           ))}
         </Image.PreviewGroup>
@@ -1191,7 +1190,7 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
                         textToHighlight={result.matchText}
                         highlightStyle={{
                           backgroundColor: themeVars.primary,
-                          color: '#fff',
+                          color: themeVars.highlightText,
                           padding: '2px 4px',
                           borderRadius: 2
                         }}
