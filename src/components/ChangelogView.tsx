@@ -20,6 +20,20 @@ interface VersionData {
 
 const changelog: VersionData[] = [
   {
+    version: '1.7.0',
+    date: '2026-02-07',
+    type: 'minor',
+    changes: [
+      { type: 'feat', description: '设置页面右侧导航栏优化：默认收起只显示图标，hover 时自动展开' },
+      { type: 'feat', description: '导航栏收起状态下图标居中显示，激活项右上角显示高亮点' },
+      { type: 'feat', description: '鼠标离开导航栏 3 秒后自动收起，提升空间利用率' },
+      { type: 'refactor', description: '移除左侧 Sidebar 自动收起功能，保持固定宽度 200px' },
+      { type: 'refactor', description: '优化导航栏过渡动画，使用 transition 实现流畅展开/收起' },
+      { type: 'fix', description: '修复导航栏高亮跟随问题，收起状态下仍保持高亮指示' },
+      { type: 'fix', description: '修复图标居中对齐问题，使用 justifyContent 实现完美居中' }
+    ]
+  },
+  {
     version: '1.6.0',
     date: '2026-02-05',
     type: 'minor',

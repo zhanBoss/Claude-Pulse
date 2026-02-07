@@ -83,7 +83,7 @@ function AboutView({ darkMode }: AboutViewProps) {
                 <Space direction="vertical" size={12} style={{ width: '100%' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <Text type="secondary">版本</Text>
-                    <Text strong>1.5.0</Text>
+                    <Text strong>1.7.0</Text>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <Text type="secondary">作者</Text>
@@ -111,11 +111,12 @@ function AboutView({ darkMode }: AboutViewProps) {
               }}
             >
               <Space direction="vertical" size={8}>
-                <Text>• 实时监控 Claude Code 对话历史</Text>
-                <Text>• 支持对话记录的搜索和筛选</Text>
-                <Text>• AI 驱动的对话摘要功能</Text>
-                <Text>• Claude Code 配置管理和备份</Text>
-                <Text>• 支持明暗主题切换</Text>
+                <Text>• 实时监控 Claude Code 对话历史，支持快捷搜索（Cmd+F）</Text>
+                <Text>• 历史记录搜索和筛选，支持 Prompt 内容搜索</Text>
+                <Text>• AI 驱动的对话摘要功能，支持多个提供商</Text>
+                <Text>• Claude Code 配置管理、备份和可视化编辑</Text>
+                <Text>• 常用 Prompt 管理，支持拖拽排序和快速复制</Text>
+                <Text>• 支持明暗主题切换和响应式设计</Text>
                 <Text>• 跨平台支持（macOS、Windows、Linux）</Text>
               </Space>
             </Card>
@@ -175,10 +176,11 @@ function AboutView({ darkMode }: AboutViewProps) {
               <Space direction="vertical" size={8}>
                 <Text>感谢以下开源项目：</Text>
                 <Text type="secondary">• Electron - 跨平台桌面应用框架</Text>
-                <Text type="secondary">• React - 用户界面库</Text>
-                <Text type="secondary">• Ant Design - 企业级 UI 设计语言</Text>
-                <Text type="secondary">• Monaco Editor - 代码编辑器</Text>
-                <Text type="secondary">• Vite - 前端构建工具</Text>
+                <Text type="secondary">• React 18 - 现代化用户界面库</Text>
+                <Text type="secondary">• Ant Design 6.x - 企业级 UI 设计语言</Text>
+                <Text type="secondary">• Monaco Editor - VS Code 同款代码编辑器</Text>
+                <Text type="secondary">• Vite 5 - 下一代前端构建工具</Text>
+                <Text type="secondary">• TypeScript 5.3 - 类型安全的 JavaScript 超集</Text>
               </Space>
             </Card>
 
