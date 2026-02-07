@@ -89,6 +89,9 @@ function SettingsView({
   const [configPath, setConfigPath] = useState("");
   const [activeSection, setActiveSection] = useState("general");
   const [hoveredSection, setHoveredSection] = useState<string | null>(null);
+  // 导航栏收起状态（默认收起）
+  const [navCollapsed, setNavCollapsed] = useState(true);
+  const navCollapseTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // ConfigEditor 的 ref，用于刷新数据
   const configEditorRef = useRef<ConfigEditorRef>(null);
@@ -100,6 +103,33 @@ function SettingsView({
   const isClickScrolling = useRef(false);
 
   const themeVars = getThemeVars(darkMode);
+
+  // 导航栏鼠标事件处理
+  const handleNavMouseEnter = () => {
+    if (navCollapseTimerRef.current) {
+      clearTimeout(navCollapseTimerRef.current);
+      navCollapseTimerRef.current = null;
+    }
+    setNavCollapsed(false);
+  };
+
+  const handleNavMouseLeave = () => {
+    if (navCollapseTimerRef.current) {
+      clearTimeout(navCollapseTimerRef.current);
+    }
+    navCollapseTimerRef.current = setTimeout(() => {
+      setNavCollapsed(true);
+    }, 3000); // 3秒后收起
+  };
+
+  // 清理定时器
+  useEffect(() => {
+    return () => {
+      if (navCollapseTimerRef.current) {
+        clearTimeout(navCollapseTimerRef.current);
+      }
+    };
+  }, []);
 
   // 导航项配置
   const navItems = [
@@ -353,8 +383,10 @@ function SettingsView({
           position: "relative",
         }}
       >
-        {/* 右上角浮动导航栏 - 高透明度设计 */}
+        {/* 右上角浮动导航栏 - 高透明度设计，支持自动收起 */}
         <div
+          onMouseEnter={handleNavMouseEnter}
+          onMouseLeave={handleNavMouseLeave}
           style={{
             position: "fixed",
             top: 80,
@@ -374,7 +406,8 @@ function SettingsView({
               ? "0 4px 16px rgba(0, 0, 0, 0.3)"
               : "0 4px 16px rgba(0, 0, 0, 0.08)",
             transition: "all 0.3s ease",
-            minWidth: 140,
+            minWidth: navCollapsed ? 48 : 140,
+            width: navCollapsed ? 48 : "auto",
           }}
         >
           {navItems.map((item, index) => {
@@ -386,11 +419,14 @@ function SettingsView({
               <div
                 key={item.id}
                 onClick={() => handleNavClick(item.id)}
+                onMouseEnter={() => setHoveredSection(item.id)}
+                onMouseLeave={() => setHoveredSection(null)}
                 style={{
                   display: "flex",
                   alignItems: "center",
-                  gap: 8,
-                  padding: "8px 12px",
+                  justifyContent: navCollapsed ? "center" : "flex-start",
+                  gap: navCollapsed ? 0 : 8,
+                  padding: navCollapsed ? "8px" : "8px 12px",
                   borderRadius: 8,
                   cursor: "pointer",
                   marginBottom: index === navItems.length - 1 ? 0 : 4,
@@ -407,9 +443,12 @@ function SettingsView({
                   transition: "all 0.2s ease",
                   fontSize: 13,
                   fontWeight: shouldHighlight ? 600 : 400,
-                  transform: shouldHighlight
+                  transform: shouldHighlight && !navCollapsed
                     ? "translateX(-2px)"
                     : "translateX(0)",
+                  overflow: "hidden",
+                  whiteSpace: "nowrap",
+                  position: "relative",
                 }}
               >
                 <span
@@ -419,19 +458,39 @@ function SettingsView({
                     alignItems: "center",
                     opacity: shouldHighlight ? 1 : 0.6,
                     transition: "opacity 0.2s ease",
+                    flexShrink: 0,
                   }}
                 >
                   {item.icon}
                 </span>
-                <span style={{ flex: 1 }}>{item.label}</span>
-                {shouldHighlight && (
+                {!navCollapsed && (
+                  <>
+                    <span style={{ flex: 1 }}>{item.label}</span>
+                    {shouldHighlight && (
+                      <span
+                        style={{
+                          width: 4,
+                          height: 4,
+                          borderRadius: "50%",
+                          backgroundColor: themeVars.primary,
+                          boxShadow: `0 0 6px ${themeVars.primary}`,
+                          flexShrink: 0,
+                        }}
+                      />
+                    )}
+                  </>
+                )}
+                {navCollapsed && shouldHighlight && (
                   <span
                     style={{
-                      width: 4,
-                      height: 4,
+                      position: "absolute",
+                      top: 6,
+                      right: 6,
+                      width: 6,
+                      height: 6,
                       borderRadius: "50%",
                       backgroundColor: themeVars.primary,
-                      boxShadow: `0 0 6px ${themeVars.primary}`,
+                      boxShadow: `0 0 8px ${themeVars.primary}`,
                     }}
                   />
                 )}
