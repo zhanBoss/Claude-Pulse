@@ -160,6 +160,7 @@ export interface ElectronAPI {
   onAutoCleanupTick: (callback: (data: { nextCleanupTime: number; remainingMs: number }) => void) => () => void
   onAutoCleanupExecuted: (callback: (data: { deletedCount: number; nextCleanupTime: number }) => void) => () => void
   onAutoCleanupError: (callback: (data: { error: string }) => void) => () => void
+  onAutoCleanupConfigUpdated: (callback: (config: AutoCleanupConfig) => void) => () => void
   // 打开开发者工具
   openDevtools: () => Promise<{ success: boolean; error?: string }>
   // 读取图片文件

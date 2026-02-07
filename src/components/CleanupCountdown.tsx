@@ -71,6 +71,12 @@ const CleanupCountdown = (props: CleanupCountdownProps) => {
       message.error(`自动清理失败：${data.error}`);
     });
 
+    // 监听配置更新（即时响应）
+    const configUpdated = window.electronAPI.onAutoCleanupConfigUpdated((config) => {
+      setEnabled(config.enabled ?? false);
+      setShowFloatingBall(config.showFloatingBall ?? true);
+    });
+
     // 组件挂载后立即请求一次最新状态（防止页面刷新后状态丢失）
     const refreshStatus = async () => {
       try {
@@ -93,32 +99,8 @@ const CleanupCountdown = (props: CleanupCountdownProps) => {
       cleanupTick();
       cleanupExecuted();
       cleanupError();
+      configUpdated();
     };
-  }, []);
-
-  // 定期轮询检查配置变化（降低轮询频率到 10 秒）
-  useEffect(() => {
-    const checkInterval = setInterval(async () => {
-      try {
-        const settings = await window.electronAPI.getAppSettings();
-        const autoCleanup = settings.autoCleanup;
-        setEnabled(autoCleanup?.enabled ?? false);
-        setShowFloatingBall(autoCleanup?.showFloatingBall ?? true);
-
-        if (!autoCleanup?.enabled) {
-          setRemainingMs(null);
-        } else {
-          const status = await window.electronAPI.getAutoCleanupStatus();
-          if (status.remainingMs !== null) {
-            setRemainingMs(status.remainingMs);
-          }
-        }
-      } catch {
-        // 忽略错误
-      }
-    }, 10000); // 从 5 秒改为 10 秒
-
-    return () => clearInterval(checkInterval);
   }, []);
 
   // 测量内容宽度

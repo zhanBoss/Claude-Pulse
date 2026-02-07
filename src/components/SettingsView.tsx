@@ -438,14 +438,28 @@ function SettingsView({
           {/* 卡片 2: Claude Code 配置 */}
           <Card
             title={
-              <Space>
-                <CodeOutlined style={{ color: themeVars.primary }} />
-                <span>Claude Code 配置</span>
+              <Space size={10}>
+                <CodeOutlined style={{ color: themeVars.primary, fontSize: 18 }} />
+                <span style={{ fontSize: 15, fontWeight: 600 }}>Claude Code 配置</span>
               </Space>
             }
             style={{
               backgroundColor: themeVars.bgContainer,
               borderColor: themeVars.border,
+              borderRadius: 12,
+              boxShadow: darkMode
+                ? "0 2px 8px rgba(0, 0, 0, 0.15)"
+                : "0 2px 8px rgba(0, 0, 0, 0.06)",
+              transition: "all 0.3s ease",
+            }}
+            styles={{
+              header: {
+                borderBottom: `1px solid ${themeVars.borderSecondary}`,
+                padding: "16px 20px",
+              },
+              body: {
+                padding: "20px",
+              },
             }}
           >
             <ConfigEditor ref={configEditorRef} darkMode={darkMode} />
@@ -455,14 +469,28 @@ function SettingsView({
           <Card
             id="record-control"
             title={
-              <Space>
-                <PlayCircleOutlined style={{ color: themeVars.primary }} />
-                <span>对话记录管理</span>
+              <Space size={10}>
+                <PlayCircleOutlined style={{ color: themeVars.primary, fontSize: 18 }} />
+                <span style={{ fontSize: 15, fontWeight: 600 }}>对话记录管理</span>
               </Space>
             }
             style={{
               backgroundColor: themeVars.bgContainer,
               borderColor: themeVars.border,
+              borderRadius: 12,
+              boxShadow: darkMode
+                ? "0 2px 8px rgba(0, 0, 0, 0.15)"
+                : "0 2px 8px rgba(0, 0, 0, 0.06)",
+              transition: "all 0.3s ease",
+            }}
+            styles={{
+              header: {
+                borderBottom: `1px solid ${themeVars.borderSecondary}`,
+                padding: "16px 20px",
+              },
+              body: {
+                padding: "20px",
+              },
             }}
           >
             <RecordControl ref={recordControlRef} />
@@ -485,7 +513,8 @@ function SettingsView({
             margin: "0 auto",
             width: "100%",
             textAlign: "center",
-            paddingTop: "24px",
+            paddingTop: "32px",
+            marginTop: "12px",
             borderTop: `1px solid ${themeVars.borderSecondary}`,
           }}
         >
@@ -494,8 +523,12 @@ function SettingsView({
             danger
             icon={<DeleteOutlined />}
             onClick={handleUninstall}
-            size="small"
-            style={{ padding: "4px 8px" }}
+            size="middle"
+            style={{
+              padding: "6px 16px",
+              fontSize: 13,
+              height: 36,
+            }}
           >
             卸载应用
           </Button>

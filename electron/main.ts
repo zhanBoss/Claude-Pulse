@@ -360,6 +360,10 @@ ipcMain.handle(
         store.set("autoCleanup", settings.autoCleanup);
         // 重新启动或停止自动清理定时器
         setupAutoCleanupTimer();
+        // 通知渲染进程配置已更新
+        if (mainWindow && !mainWindow.isDestroyed()) {
+          mainWindow.webContents.send("auto-cleanup-config-updated", settings.autoCleanup);
+        }
       }
 
       // 设置开机自启

@@ -140,6 +140,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
     }
   },
 
+  // 监听自动清理配置更新
+  onAutoCleanupConfigUpdated: (callback: (config: any) => void) => {
+    const listener = (_: any, config: any) => callback(config)
+    ipcRenderer.on('auto-cleanup-config-updated', listener)
+    return () => {
+      ipcRenderer.removeListener('auto-cleanup-config-updated', listener)
+    }
+  },
+
   // 打开开发者工具
   openDevtools: () => ipcRenderer.invoke('open-devtools'),
 
