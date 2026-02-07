@@ -110,6 +110,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 获取自动清理状态
   getAutoCleanupStatus: () => ipcRenderer.invoke('get-auto-cleanup-status'),
 
+  // 手动触发自动清理
+  triggerAutoCleanup: () => ipcRenderer.invoke('trigger-auto-cleanup'),
+
   // 监听自动清理倒计时更新
   onAutoCleanupTick: (callback: (data: { nextCleanupTime: number; remainingMs: number }) => void) => {
     const listener = (_: any, data: any) => callback(data)
@@ -125,6 +128,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('auto-cleanup-executed', listener)
     return () => {
       ipcRenderer.removeListener('auto-cleanup-executed', listener)
+    }
+  },
+
+  // 监听自动清理错误
+  onAutoCleanupError: (callback: (data: { error: string }) => void) => {
+    const listener = (_: any, data: any) => callback(data)
+    ipcRenderer.on('auto-cleanup-error', listener)
+    return () => {
+      ipcRenderer.removeListener('auto-cleanup-error', listener)
     }
   },
 

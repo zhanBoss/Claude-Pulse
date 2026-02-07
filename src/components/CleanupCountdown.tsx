@@ -46,24 +46,9 @@ const CleanupCountdown = (props: CleanupCountdownProps) => {
   const hasDraggedRef = useRef(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // 初始化：获取自动清理状态
+  // 监听倒计时更新（每次组件挂载都重新注册监听器）
   useEffect(() => {
-    const loadStatus = async () => {
-      try {
-        const status = await window.electronAPI.getAutoCleanupStatus();
-        setEnabled(status.enabled);
-        if (status.remainingMs !== null) {
-          setRemainingMs(status.remainingMs);
-        }
-      } catch (error) {
-        console.error("获取自动清理状态失败:", error);
-      }
-    };
-    loadStatus();
-  }, []);
-
-  // 监听倒计时更新
-  useEffect(() => {
+    // 注册事件监听器
     const cleanupTick = window.electronAPI.onAutoCleanupTick((data) => {
       setEnabled(true);
       setRemainingMs(data.remainingMs);
@@ -78,13 +63,32 @@ const CleanupCountdown = (props: CleanupCountdownProps) => {
       setRemainingMs(remaining > 0 ? remaining : null);
     });
 
+    const cleanupError = window.electronAPI.onAutoCleanupError((data) => {
+      message.error(`自动清理失败：${data.error}`);
+    });
+
+    // 组件挂载后立即请求一次最新状态（防止页面刷新后状态丢失）
+    const refreshStatus = async () => {
+      try {
+        const status = await window.electronAPI.getAutoCleanupStatus();
+        setEnabled(status.enabled);
+        if (status.remainingMs !== null) {
+          setRemainingMs(status.remainingMs);
+        }
+      } catch (error) {
+        console.error("刷新自动清理状态失败:", error);
+      }
+    };
+    refreshStatus();
+
     return () => {
       cleanupTick();
       cleanupExecuted();
+      cleanupError();
     };
   }, []);
 
-  // 监听设置变化（通过定时轮询）
+  // 定期轮询检查配置变化（降低轮询频率到 10 秒）
   useEffect(() => {
     const checkInterval = setInterval(async () => {
       try {
@@ -92,11 +96,14 @@ const CleanupCountdown = (props: CleanupCountdownProps) => {
         setEnabled(status.enabled);
         if (!status.enabled) {
           setRemainingMs(null);
+        } else if (status.remainingMs !== null) {
+          // 只在启用时更新剩余时间
+          setRemainingMs(status.remainingMs);
         }
       } catch {
         // 忽略错误
       }
-    }, 5000);
+    }, 10000); // 从 5 秒改为 10 秒
 
     return () => clearInterval(checkInterval);
   }, []);

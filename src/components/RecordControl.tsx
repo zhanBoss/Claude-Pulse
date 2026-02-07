@@ -51,6 +51,7 @@ const RecordControl = forwardRef<RecordControlRef, RecordControlProps>((_, ref) 
     savePath: ''
   })
   const [loading, setLoading] = useState(true)
+  const [cleanupLoading, setCleanupLoading] = useState(false) // 手动清理加载状态
 
   // 自动清理配置
   const [autoCleanup, setAutoCleanup] = useState<AutoCleanupConfig>({
@@ -253,6 +254,36 @@ const RecordControl = forwardRef<RecordControlRef, RecordControlProps>((_, ref) 
     await saveAutoCleanupConfig(newConfig)
   }
 
+  // 手动触发清理
+  const handleManualCleanup = async () => {
+    Modal.confirm({
+      title: '立即执行清理',
+      icon: <ExclamationCircleOutlined />,
+      content: `将立即清理超过保留时间（${retainValue} ${TIME_UNIT_OPTIONS.find(u => u.value === retainUnit)?.label}）的数据。确定继续？`,
+      okText: '立即清理',
+      okType: 'primary',
+      cancelText: '取消',
+      onOk: async () => {
+        setCleanupLoading(true)
+        try {
+          const result = await window.electronAPI.triggerAutoCleanup()
+          if (result.success) {
+            message.success(`清理完成，删除了 ${result.deletedCount} 条记录`)
+            // 刷新配置以更新倒计时
+            await loadConfig()
+          } else {
+            message.error(result.error || '清理失败')
+          }
+        } catch (error: any) {
+          message.error(error?.message || '清理失败')
+        } finally {
+          setCleanupLoading(false)
+        }
+      },
+      ...getElectronModalConfig()
+    })
+  }
+
   if (loading) {
     return (
       <div style={{ textAlign: 'center', padding: 40 }}>
@@ -417,6 +448,18 @@ const RecordControl = forwardRef<RecordControlRef, RecordControlProps>((_, ref) 
                     <span style={{ fontSize: 13, color: 'inherit', whiteSpace: 'nowrap' }}>的数据</span>
                   </div>
                 </div>
+
+                {/* 手动清理按钮 */}
+                <Button
+                  type="primary"
+                  size="small"
+                  onClick={handleManualCleanup}
+                  loading={cleanupLoading}
+                  block
+                  style={{ marginTop: 4 }}
+                >
+                  立即执行清理
+                </Button>
 
                 {/* 说明 */}
                 <Alert

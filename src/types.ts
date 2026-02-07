@@ -152,9 +152,12 @@ export interface ElectronAPI {
   clearCacheByAge: (retainMs: number) => Promise<{ success: boolean; deletedCount?: number; error?: string }>
   // 获取自动清理倒计时状态
   getAutoCleanupStatus: () => Promise<{ enabled: boolean; nextCleanupTime: number | null; remainingMs: number | null }>
+  // 手动触发自动清理
+  triggerAutoCleanup: () => Promise<{ success: boolean; deletedCount?: number; nextCleanupTime?: number; error?: string }>
   // 监听自动清理事件
   onAutoCleanupTick: (callback: (data: { nextCleanupTime: number; remainingMs: number }) => void) => () => void
   onAutoCleanupExecuted: (callback: (data: { deletedCount: number; nextCleanupTime: number }) => void) => () => void
+  onAutoCleanupError: (callback: (data: { error: string }) => void) => () => void
   // 打开开发者工具
   openDevtools: () => Promise<{ success: boolean; error?: string }>
   // 读取图片文件
