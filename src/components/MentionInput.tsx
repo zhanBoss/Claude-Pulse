@@ -391,7 +391,12 @@ const MentionInput = forwardRef<MentionInputRef, MentionInputProps>((props, ref)
     editor.innerHTML = ''
     mentionActiveRef.current = false
     mentionAtNodeRef.current = null
-    updateState()
+
+    // 使用 requestAnimationFrame 确保 DOM 更新完成后再更新状态
+    // 避免输入框闪烁变小的问题
+    requestAnimationFrame(() => {
+      updateState()
+    })
   }, [updateState])
 
   /* 设置纯文本内容（清除已有内容） */
