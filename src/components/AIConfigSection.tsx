@@ -27,7 +27,6 @@ interface AIConfigSectionProps {
   darkMode: boolean;
   onSettingsChange: (newSettings: AISummarySettings) => void;
   showEnabled?: boolean; // 是否显示启用开关（仅总结配置显示）
-  showAutoFormatPrompt?: boolean; // 是否显示自动格式化选项（仅总结配置显示）
 }
 
 const AIConfigSection = ({
@@ -36,7 +35,6 @@ const AIConfigSection = ({
   darkMode,
   onSettingsChange,
   showEnabled = false,
-  showAutoFormatPrompt = false,
 }: AIConfigSectionProps) => {
   const [apiKeySaving, setApiKeySaving] = useState(false);
   const [apiKeyVisible, setApiKeyVisible] = useState(false);
@@ -179,45 +177,6 @@ const AIConfigSection = ({
                 onChange={(checked) => updateSetting("enabled", checked)}
               />
             </div>
-            <Divider style={{ margin: 0 }} />
-          </>
-        )}
-
-        {/* 自动格式化 Prompt（仅总结配置显示） */}
-        {showAutoFormatPrompt && "autoFormatPrompt" in settings && (
-          <>
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <div>
-                <Text style={{ color: themeVars.text }}>
-                  AI 自动格式化 Prompt
-                </Text>
-                <br />
-                <Text
-                  type="secondary"
-                  style={{ fontSize: "12px", color: themeVars.textSecondary }}
-                >
-                  查看 Prompt 详情时，自动转换为结构化 Markdown
-                </Text>
-              </div>
-              <Switch
-                checked={
-                  (settings as AISummarySettings).autoFormatPrompt ?? true
-                }
-                onChange={(checked) =>
-                  updateSetting("autoFormatPrompt", checked)
-                }
-                disabled={
-                  showEnabled && !(settings as AISummarySettings).enabled
-                }
-              />
-            </div>
-
             <Divider style={{ margin: 0 }} />
           </>
         )}

@@ -220,12 +220,10 @@ ipcMain.handle("get-app-settings", async () => {
       apiBaseUrl: "",
       model: "",
     },
-    // AI 总结配置（包含 enabled 和自动格式化）
+    // AI 总结配置
     aiSummary: {
       enabled: false,
       provider: "groq" as "groq" | "deepseek" | "gemini" | "custom",
-      autoFormatPrompt: true, // 默认开启自动格式化
-      formatTimeout: 15000,
       providers: defaultProviders,
     },
   };
@@ -269,13 +267,11 @@ ipcMain.handle("get-app-settings", async () => {
       store.set("aiChat", aiChat);
     }
 
-    // 迁移到 aiSummary（总结配置继承旧配置，包含 enabled 和格式化）
+    // 迁移到 aiSummary（总结配置继承旧配置）
     if (!aiSummary) {
       aiSummary = {
         enabled: oldAi.enabled || false,
         provider: oldAi.provider || "groq",
-        autoFormatPrompt: oldAi.autoFormatPrompt ?? true, // 默认开启
-        formatTimeout: oldAi.formatTimeout || 15000,
         providers: oldAi.providers || defaultProviders,
       };
       store.set("aiSummary", aiSummary);
@@ -2410,13 +2406,9 @@ ipcMain.handle(
       // 使用 AI 总结配置（格式化是轻量任务，用总结 API 更合适）
       const aiSummarySettings = store.get("aiSummary") as any;
 
-      // 检查 AI 功能和格式化开关
-      if (!aiSummarySettings || !aiSummarySettings.enabled) {
-        return { success: false, error: "AI 功能未启用" };
-      }
-
-      if (!aiSummarySettings.autoFormatPrompt) {
-        return { success: false, error: "自动格式化功能未启用" };
+      // 检查 AI 配置是否存在
+      if (!aiSummarySettings) {
+        return { success: false, error: "AI 配置不存在" };
       }
 
       // 检查缓存

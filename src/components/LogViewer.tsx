@@ -39,9 +39,6 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
   // 记录配置状态
   const [recordConfig, setRecordConfig] = useState<RecordConfig | null>(null)
 
-  // AI 格式化配置
-  const [enableAIFormat, setEnableAIFormat] = useState(false)
-
   // AI 总结相关状态
   const [summarizing, setSummarizing] = useState(false)
   const [summaryContent, setSummaryContent] = useState<string>('')
@@ -78,20 +75,6 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
       }
     }
     loadConfig()
-  }, [])
-
-  // 加载 AI 格式化配置
-  useEffect(() => {
-    const loadSettings = async () => {
-      try {
-        const settings = await window.electronAPI.getAppSettings()
-        // 使用 aiSummary.autoFormatPrompt 控制是否启用 AI 格式化
-        setEnableAIFormat(settings.aiSummary.autoFormatPrompt ?? true)
-      } catch (error) {
-        console.error('加载设置失败:', error)
-      }
-    }
-    loadSettings()
   }, [])
 
   // 监听 Cmd+F 快捷键
@@ -1103,7 +1086,7 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
         </div>
       </ElectronModal>
 
-      {/* Prompt 详情弹窗 - 使用 AI 格式化 */}
+      {/* Prompt 详情弹窗 */}
       <FormattedPromptModal
         visible={promptModalVisible}
         onClose={() => setPromptModalVisible(false)}
@@ -1117,7 +1100,6 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
         onClose={() => setCopyTextModalVisible(false)}
         content={copyTextModalContent}
         darkMode={darkMode}
-        enableAIFormat={enableAIFormat}
       />
 
       {/* 文件查看器 */}

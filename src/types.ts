@@ -45,12 +45,10 @@ export interface AIChatSettings {
   model: string
 }
 
-// AI 总结设置接口（包含 enabled 和格式化功能）
+// AI 总结设置接口
 export interface AISummarySettings {
   enabled: boolean
   provider: 'deepseek' | 'groq' | 'gemini' | 'custom'
-  autoFormatPrompt?: boolean // AI 自动格式化 Prompt 开关（默认开启）
-  formatTimeout?: number // 格式化超时时间（毫秒，默认 15000）
   // 每个提供商的独立配置
   providers: {
     deepseek: ProviderConfig

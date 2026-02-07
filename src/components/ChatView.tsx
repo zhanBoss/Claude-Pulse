@@ -2,6 +2,11 @@ import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
 import { Input, Button, Select, message, Typography, Spin, Tag, Tooltip, Segmented, Modal } from 'antd'
 import { Bubble } from '@ant-design/x'
 import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import remarkMath from 'remark-math'
+import rehypeKatex from 'rehype-katex'
+import rehypeSlug from 'rehype-slug'
+import rehypeAutolinkHeadings from 'rehype-autolink-headings'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus, prism } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import {
@@ -139,6 +144,15 @@ const MarkdownContent = ({ content, darkMode, textColor }: {
 
   return (
     <ReactMarkdown
+      remarkPlugins={[
+        remarkGfm,      // GitHub Flavored Markdown（表格、删除线、任务列表等）
+        remarkMath      // 数学公式支持（$...$ 和 $$...$$）
+      ]}
+      rehypePlugins={[
+        rehypeKatex,    // 渲染数学公式（需要配合 remarkMath）
+        rehypeSlug,     // 为标题添加 ID
+        rehypeAutolinkHeadings  // 为标题添加锚点链接
+      ]}
       components={{
         code({ node, inline, className, children, ...props }: any) {
           const match = /language-(\w+)/.exec(className || '')

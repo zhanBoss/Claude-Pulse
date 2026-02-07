@@ -56,12 +56,10 @@ function SettingsView({
       apiBaseUrl: "",
       model: "",
     },
-    // AI 总结配置（有 enabled 和自动格式化）
+    // AI 总结配置
     aiSummary: {
       enabled: false,
       provider: "groq",
-      autoFormatPrompt: true,
-      formatTimeout: 15000,
       providers: {
         groq: {
           apiKey: "",

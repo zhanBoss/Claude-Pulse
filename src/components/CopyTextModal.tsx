@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Typography, Tag, Segmented, Button, message, Spin, Space } from 'antd'
-import { CopyOutlined, RobotOutlined } from '@ant-design/icons'
+import { Typography, Tag, Button, message } from 'antd'
+import { CopyOutlined } from '@ant-design/icons'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import ReactMarkdown from 'react-markdown'
@@ -18,42 +18,35 @@ interface CopyTextModalProps {
   content: Record<string, any>
   darkMode: boolean
   zIndex?: number
-  enableAIFormat?: boolean // 是否启用 AI 格式化
 }
-
-type ViewMode = 'original' | 'formatted'
 
 /**
  * Copy Text 详情弹窗组件
  *
  * 用于展示 Claude Code 对话中的 pastedContents（Copy Text）内容
  * - 自动检测代码并进行语法高亮
+ * - 自动尝试 AI 格式化（失败时显示原始内容）
  * - 支持多个 Copy Text 的展示
- * - 支持 AI 格式化（可选）
- * - 统一的样式和交互
  */
 function CopyTextModal({
   visible,
   onClose,
   content,
   darkMode,
-  zIndex = 1003,
-  enableAIFormat = false
+  zIndex = 1003
 }: CopyTextModalProps) {
   const themeVars = getThemeVars(darkMode)
 
-  const [viewMode, setViewMode] = useState<ViewMode>('original')
   const [formattedContent, setFormattedContent] = useState<Record<string, string>>({})
   const [formatting, setFormatting] = useState(false)
-  const [formatError, setFormatError] = useState<string>('')
 
-  // 弹窗打开时尝试 AI 格式化（仅当启用时）
+  // 弹窗打开时尝试 AI 格式化
   useEffect(() => {
-    if (!visible || !enableAIFormat) return
+    if (!visible) return
 
     const tryFormat = async () => {
       setFormatting(true)
-      setFormatError('')
+      setFormattedContent({}) // 重置状态
 
       const formatted: Record<string, string> = {}
       const pastedItems = formatPastedContentsForModal(content)
@@ -62,7 +55,6 @@ function CopyTextModal({
         // 并行格式化所有 Copy Text 内容
         await Promise.all(
           pastedItems.map(async ({ key, content: itemContent }) => {
-            // 只格式化非代码内容，或者所有内容（根据需求）
             const contentHash = crypto.MD5(itemContent).toString()
 
             try {
@@ -71,28 +63,25 @@ function CopyTextModal({
                 formatted[key] = result.formatted
               }
             } catch (error) {
-              console.error(`格式化 ${key} 失败:`, error)
+              console.warn(`格式化 ${key} 失败:`, error)
             }
           })
         )
 
         setFormattedContent(formatted)
       } catch (error: any) {
-        setFormatError(error.message || '格式化失败')
-        setViewMode('original')
+        console.warn('格式化失败:', error)
       } finally {
         setFormatting(false)
       }
     }
 
     tryFormat()
-  }, [visible, content, enableAIFormat])
+  }, [visible, content])
 
-  // 复制内容
+  // 复制内容（优先复制格式化后的）
   const handleCopy = async (itemContent: string, formattedItemContent?: string) => {
-    const textToCopy = viewMode === 'formatted' && formattedItemContent
-      ? formattedItemContent
-      : itemContent
+    const textToCopy = formattedItemContent || itemContent
 
     try {
       await window.electronAPI.copyToClipboard(textToCopy)
@@ -257,44 +246,14 @@ function CopyTextModal({
       }}
       zIndex={zIndex}
     >
-      {/* AI 格式化控制 */}
-      {enableAIFormat && (
-        <div style={{ marginBottom: 16 }}>
-          <Space size="middle">
-            <Segmented
-              value={viewMode}
-              onChange={(value) => setViewMode(value as ViewMode)}
-              options={[
-                { label: '原始', value: 'original' },
-                {
-                  label: (
-                    <span>
-                      <RobotOutlined style={{ marginRight: 4 }} />
-                      AI 格式化
-                    </span>
-                  ),
-                  value: 'formatted',
-                  disabled: formatting || Object.keys(formattedContent).length === 0
-                }
-              ]}
-            />
-            {formatting && (
-              <Spin size="small" tip="AI 格式化中..." />
-            )}
-            {formatError && (
-              <Text type="danger" style={{ fontSize: 12 }}>
-                {formatError}
-              </Text>
-            )}
-          </Space>
-        </div>
-      )}
-
       <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         {pastedItems.map(({ key, content: itemContent }) => {
           const isCodeContent = isCode(itemContent)
           const language = isCodeContent ? detectLanguage(itemContent) : 'plaintext'
           const formattedItemContent = formattedContent[key]
+
+          // 优先显示格式化后的内容，否则显示原始内容
+          const shouldRenderFormatted = formattedItemContent && !formatting
 
           return (
             <div key={key}>
@@ -308,7 +267,7 @@ function CopyTextModal({
                   <Text strong style={{ fontSize: 14, color: themeVars.textSecondary }}>
                     {key}:
                   </Text>
-                  {viewMode === 'original' && isCodeContent && (
+                  {!shouldRenderFormatted && isCodeContent && (
                     <Tag color="blue" style={{ fontSize: 11 }}>
                       {language}
                     </Tag>
@@ -324,7 +283,7 @@ function CopyTextModal({
                 </Button>
               </div>
 
-              {viewMode === 'formatted' && formattedItemContent ? (
+              {shouldRenderFormatted ? (
                 renderFormattedContent(formattedItemContent)
               ) : (
                 renderOriginalContent(itemContent, language, isCodeContent)

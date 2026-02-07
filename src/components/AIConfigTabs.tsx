@@ -82,7 +82,6 @@ const AIConfigTabs = ({
                 darkMode={darkMode}
                 onSettingsChange={(newSettings) => onAISummaryChange(newSettings)}
                 showEnabled={true}
-                showAutoFormatPrompt={true}
               />
             ),
           },
