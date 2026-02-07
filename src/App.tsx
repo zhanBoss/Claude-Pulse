@@ -11,6 +11,7 @@ import SettingsView from './components/SettingsView'
 import AboutView from './components/AboutView'
 import ChangelogView from './components/ChangelogView'
 import DevFooter from './components/DevFooter'
+import CleanupCountdown from './components/CleanupCountdown'
 import { ClaudeRecord } from './types'
 import { lightTheme, darkTheme, getThemeVars } from './theme'
 import 'antd/dist/reset.css'
@@ -248,6 +249,9 @@ function App() {
       >
         {renderContent()}
       </MainLayout>
+
+      {/* 自动清理缓存倒计时浮窗 */}
+      <CleanupCountdown darkMode={darkMode} />
 
       {/* 开发模式提示（仅开发构建版本显示） */}
       {__IS_DEV_BUILD__ && <DevFooter darkMode={darkMode} />}

@@ -104,6 +104,30 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 清除缓存
   clearCache: () => ipcRenderer.invoke('clear-cache'),
 
+  // 按时间范围清理缓存
+  clearCacheByAge: (retainMs: number) => ipcRenderer.invoke('clear-cache-by-age', retainMs),
+
+  // 获取自动清理状态
+  getAutoCleanupStatus: () => ipcRenderer.invoke('get-auto-cleanup-status'),
+
+  // 监听自动清理倒计时更新
+  onAutoCleanupTick: (callback: (data: { nextCleanupTime: number; remainingMs: number }) => void) => {
+    const listener = (_: any, data: any) => callback(data)
+    ipcRenderer.on('auto-cleanup-tick', listener)
+    return () => {
+      ipcRenderer.removeListener('auto-cleanup-tick', listener)
+    }
+  },
+
+  // 监听自动清理执行完成
+  onAutoCleanupExecuted: (callback: (data: { deletedCount: number; nextCleanupTime: number }) => void) => {
+    const listener = (_: any, data: any) => callback(data)
+    ipcRenderer.on('auto-cleanup-executed', listener)
+    return () => {
+      ipcRenderer.removeListener('auto-cleanup-executed', listener)
+    }
+  },
+
   // 打开开发者工具
   openDevtools: () => ipcRenderer.invoke('open-devtools'),
 

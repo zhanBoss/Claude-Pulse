@@ -24,6 +24,10 @@ let mainWindow: BrowserWindow | null = null;
 let historyWatcher: fs.FSWatcher | null = null;
 let lastFileSize = 0;
 
+// 自动清理缓存定时器
+let autoCleanupTimer: ReturnType<typeof setInterval> | null = null;
+let autoCleanupTickTimer: ReturnType<typeof setInterval> | null = null;
+
 const CLAUDE_DIR = path.join(os.homedir(), ".claude");
 const HISTORY_FILE = path.join(CLAUDE_DIR, "history.jsonl");
 const SETTINGS_FILE = path.join(CLAUDE_DIR, "settings.json");
@@ -97,6 +101,9 @@ app.whenReady().then(() => {
     );
   }
 
+  // 启动自动清理缓存定时器
+  setupAutoCleanupTimer();
+
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
@@ -107,6 +114,15 @@ app.whenReady().then(() => {
 app.on("window-all-closed", () => {
   if (historyWatcher) {
     historyWatcher.close();
+  }
+  // 清理自动清理定时器
+  if (autoCleanupTimer) {
+    clearInterval(autoCleanupTimer);
+    autoCleanupTimer = null;
+  }
+  if (autoCleanupTickTimer) {
+    clearInterval(autoCleanupTickTimer);
+    autoCleanupTickTimer = null;
   }
   if (process.platform !== "darwin") {
     app.quit();
@@ -305,7 +321,16 @@ ipcMain.handle("get-app-settings", async () => {
     store.set("aiSummary", aiSummary);
   }
 
-  return { themeMode, autoStart, aiChat, aiSummary };
+  // 自动清理缓存配置
+  const autoCleanup = store.get("autoCleanup", {
+    enabled: false,
+    intervalMs: 24 * 60 * 60 * 1000, // 默认 24 小时
+    retainMs: 12 * 60 * 60 * 1000, // 默认保留 12 小时
+    lastCleanupTime: null,
+    nextCleanupTime: null,
+  }) as any;
+
+  return { themeMode, autoStart, aiChat, aiSummary, autoCleanup };
 });
 
 // 保存应用设置
@@ -318,6 +343,7 @@ ipcMain.handle(
       autoStart: boolean;
       aiChat: any;
       aiSummary: any;
+      autoCleanup?: any;
     },
   ) => {
     try {
@@ -328,6 +354,11 @@ ipcMain.handle(
       }
       if (settings.aiSummary) {
         store.set("aiSummary", settings.aiSummary);
+      }
+      if (settings.autoCleanup !== undefined) {
+        store.set("autoCleanup", settings.autoCleanup);
+        // 重新启动或停止自动清理定时器
+        setupAutoCleanupTimer();
       }
 
       // 设置开机自启
@@ -1798,6 +1829,232 @@ ipcMain.handle("clear-cache", async () => {
     return { success: false, error: (error as Error).message };
   }
 });
+
+// 按时间范围清理缓存（保留 retainMs 内的数据，删除更早的）
+ipcMain.handle("clear-cache-by-age", async (_, retainMs: number) => {
+  try {
+    const savePath = store.get("savePath", "") as string;
+    if (!savePath) {
+      return { success: false, error: "未配置保存路径" };
+    }
+
+    if (!fs.existsSync(savePath)) {
+      return { success: false, error: "保存路径不存在" };
+    }
+
+    const cutoffTime = Date.now() - retainMs;
+    let deletedCount = 0;
+    const files = fs.readdirSync(savePath);
+
+    for (const file of files) {
+      const filePath = path.join(savePath, file);
+      const stat = fs.statSync(filePath);
+
+      if (stat.isFile() && file.endsWith(".jsonl")) {
+        // 读取 JSONL 文件，过滤掉超期的记录
+        const content = fs.readFileSync(filePath, "utf-8");
+        const lines = content.split("\n").filter((line) => line.trim());
+        const retainedLines: string[] = [];
+        let removedInFile = 0;
+
+        for (const line of lines) {
+          try {
+            const record = JSON.parse(line);
+            if (record.timestamp && record.timestamp >= cutoffTime) {
+              retainedLines.push(line);
+            } else {
+              removedInFile++;
+            }
+          } catch {
+            // 无法解析的行保留
+            retainedLines.push(line);
+          }
+        }
+
+        if (removedInFile > 0) {
+          if (retainedLines.length > 0) {
+            fs.writeFileSync(filePath, retainedLines.join("\n") + "\n", "utf-8");
+          } else {
+            fs.unlinkSync(filePath);
+          }
+          deletedCount += removedInFile;
+        }
+      }
+    }
+
+    // 清理过期的图片缓存目录
+    const imagesDir = path.join(savePath, "images");
+    if (fs.existsSync(imagesDir)) {
+      const sessionDirs = fs.readdirSync(imagesDir);
+      for (const sessionDir of sessionDirs) {
+        const sessionDirPath = path.join(imagesDir, sessionDir);
+        const sessionStat = fs.statSync(sessionDirPath);
+        if (sessionStat.isDirectory() && sessionStat.mtimeMs < cutoffTime) {
+          fs.rmSync(sessionDirPath, { recursive: true, force: true });
+        }
+      }
+    }
+
+    return { success: true, deletedCount };
+  } catch (error) {
+    console.error("按时间范围清理缓存失败:", error);
+    return { success: false, error: (error as Error).message };
+  }
+});
+
+// 获取自动清理状态
+ipcMain.handle("get-auto-cleanup-status", async () => {
+  const autoCleanup = store.get("autoCleanup", null) as any;
+  if (!autoCleanup || !autoCleanup.enabled) {
+    return { enabled: false, nextCleanupTime: null, remainingMs: null };
+  }
+
+  const now = Date.now();
+  const nextCleanupTime = autoCleanup.nextCleanupTime || null;
+  const remainingMs = nextCleanupTime ? Math.max(0, nextCleanupTime - now) : null;
+
+  return { enabled: true, nextCleanupTime, remainingMs };
+});
+
+/**
+ * 自动清理缓存定时器管理
+ * 启动、停止和执行自动清理任务
+ */
+const setupAutoCleanupTimer = () => {
+  // 清除旧定时器
+  if (autoCleanupTimer) {
+    clearInterval(autoCleanupTimer);
+    autoCleanupTimer = null;
+  }
+  if (autoCleanupTickTimer) {
+    clearInterval(autoCleanupTickTimer);
+    autoCleanupTickTimer = null;
+  }
+
+  const autoCleanup = store.get("autoCleanup", null) as any;
+  if (!autoCleanup || !autoCleanup.enabled) {
+    return;
+  }
+
+  const now = Date.now();
+
+  // 确定下次清理时间
+  let nextCleanupTime = autoCleanup.nextCleanupTime;
+  if (!nextCleanupTime || nextCleanupTime <= now) {
+    // 如果没有设置或已过期，从现在开始计算
+    nextCleanupTime = now + autoCleanup.intervalMs;
+    store.set("autoCleanup.nextCleanupTime", nextCleanupTime);
+  }
+
+  // 执行清理的函数
+  const executeCleanup = async () => {
+    try {
+      const config = store.get("autoCleanup", null) as any;
+      if (!config || !config.enabled) return;
+
+      const savePath = store.get("savePath", "") as string;
+      if (!savePath || !fs.existsSync(savePath)) return;
+
+      const cutoffTime = Date.now() - config.retainMs;
+      let deletedCount = 0;
+      const files = fs.readdirSync(savePath);
+
+      for (const file of files) {
+        const filePath = path.join(savePath, file);
+        const stat = fs.statSync(filePath);
+
+        if (stat.isFile() && file.endsWith(".jsonl")) {
+          const content = fs.readFileSync(filePath, "utf-8");
+          const lines = content.split("\n").filter((line) => line.trim());
+          const retainedLines: string[] = [];
+          let removedInFile = 0;
+
+          for (const line of lines) {
+            try {
+              const record = JSON.parse(line);
+              if (record.timestamp && record.timestamp >= cutoffTime) {
+                retainedLines.push(line);
+              } else {
+                removedInFile++;
+              }
+            } catch {
+              retainedLines.push(line);
+            }
+          }
+
+          if (removedInFile > 0) {
+            if (retainedLines.length > 0) {
+              fs.writeFileSync(filePath, retainedLines.join("\n") + "\n", "utf-8");
+            } else {
+              fs.unlinkSync(filePath);
+            }
+            deletedCount += removedInFile;
+          }
+        }
+      }
+
+      // 清理过期图片
+      const imagesDir = path.join(savePath, "images");
+      if (fs.existsSync(imagesDir)) {
+        const sessionDirs = fs.readdirSync(imagesDir);
+        for (const sessionDir of sessionDirs) {
+          const sessionDirPath = path.join(imagesDir, sessionDir);
+          const sessionStat = fs.statSync(sessionDirPath);
+          if (sessionStat.isDirectory() && sessionStat.mtimeMs < cutoffTime) {
+            fs.rmSync(sessionDirPath, { recursive: true, force: true });
+          }
+        }
+      }
+
+      // 更新状态
+      const newNextCleanupTime = Date.now() + config.intervalMs;
+      store.set("autoCleanup.lastCleanupTime", Date.now());
+      store.set("autoCleanup.nextCleanupTime", newNextCleanupTime);
+
+      console.log(`[自动清理] 完成，删除了 ${deletedCount} 条记录，下次清理时间: ${new Date(newNextCleanupTime).toLocaleString()}`);
+
+      // 通知渲染进程
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send("auto-cleanup-executed", {
+          deletedCount,
+          nextCleanupTime: newNextCleanupTime,
+        });
+      }
+    } catch (error) {
+      console.error("[自动清理] 执行失败:", error);
+    }
+  };
+
+  // 计算首次执行的延迟
+  const initialDelay = Math.max(0, nextCleanupTime - now);
+
+  // 设置首次执行
+  setTimeout(() => {
+    executeCleanup();
+    // 设置后续的周期性执行
+    autoCleanupTimer = setInterval(executeCleanup, autoCleanup.intervalMs);
+  }, initialDelay);
+
+  // 每秒向渲染进程发送倒计时更新
+  autoCleanupTickTimer = setInterval(() => {
+    const currentConfig = store.get("autoCleanup", null) as any;
+    if (!currentConfig || !currentConfig.enabled) return;
+
+    const currentNextTime = currentConfig.nextCleanupTime;
+    if (!currentNextTime) return;
+
+    const remaining = Math.max(0, currentNextTime - Date.now());
+
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send("auto-cleanup-tick", {
+        nextCleanupTime: currentNextTime,
+        remainingMs: remaining,
+      });
+    }
+  }, 1000);
+
+  console.log(`[自动清理] 定时器已启动，间隔: ${autoCleanup.intervalMs}ms，保留: ${autoCleanup.retainMs}ms，下次执行: ${new Date(nextCleanupTime).toLocaleString()}`);
+};
 
 // 卸载应用
 ipcMain.handle("uninstall-app", async () => {

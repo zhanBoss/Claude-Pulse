@@ -72,6 +72,20 @@ export interface ClaudeConfigBackup {
   updatedAt: number
 }
 
+// 自动清理缓存配置
+export interface AutoCleanupConfig {
+  // 是否启用自动清理
+  enabled: boolean
+  // 清理间隔（毫秒）
+  intervalMs: number
+  // 清理范围：保留最近多长时间的数据（毫秒），清理比这更早的
+  retainMs: number
+  // 上次清理时间戳
+  lastCleanupTime: number | null
+  // 下次清理时间戳
+  nextCleanupTime: number | null
+}
+
 export interface AppSettings {
   themeMode: 'light' | 'dark' | 'system'
   autoStart: boolean
@@ -80,6 +94,8 @@ export interface AppSettings {
   // AI 总结配置（用于 Summary 功能，包含 enabled 和格式化）
   aiSummary: AISummarySettings
   claudeConfigBackups?: ClaudeConfigBackup[]
+  // 自动清理缓存配置
+  autoCleanup?: AutoCleanupConfig
 }
 
 export interface ExportOptions {
@@ -132,6 +148,13 @@ export interface ElectronAPI {
   uninstallApp: () => Promise<{ success: boolean; error?: string }>
   // 清除缓存
   clearCache: () => Promise<{ success: boolean; deletedCount?: number; error?: string }>
+  // 自动清理缓存：按时间范围清理
+  clearCacheByAge: (retainMs: number) => Promise<{ success: boolean; deletedCount?: number; error?: string }>
+  // 获取自动清理倒计时状态
+  getAutoCleanupStatus: () => Promise<{ enabled: boolean; nextCleanupTime: number | null; remainingMs: number | null }>
+  // 监听自动清理事件
+  onAutoCleanupTick: (callback: (data: { nextCleanupTime: number; remainingMs: number }) => void) => () => void
+  onAutoCleanupExecuted: (callback: (data: { deletedCount: number; nextCleanupTime: number }) => void) => () => void
   // 打开开发者工具
   openDevtools: () => Promise<{ success: boolean; error?: string }>
   // 读取图片文件
