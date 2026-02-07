@@ -328,6 +328,7 @@ ipcMain.handle("get-app-settings", async () => {
     retainMs: 12 * 60 * 60 * 1000, // 默认保留 12 小时
     lastCleanupTime: null,
     nextCleanupTime: null,
+    showFloatingBall: true, // 默认显示悬浮球
   }) as any;
 
   return { themeMode, autoStart, aiChat, aiSummary, autoCleanup };

@@ -238,47 +238,63 @@ function SettingsView({
         style={{
           flex: 1,
           overflow: "auto",
-          padding: "24px",
+          padding: "32px",
         }}
       >
         <div
           style={{
             display: "grid",
             gridTemplateColumns:
-              "repeat(auto-fit, minmax(min(400px, 100%), 1fr))",
-            gap: "24px",
+              "repeat(auto-fit, minmax(min(420px, 100%), 1fr))",
+            gap: "20px",
             maxWidth: "1400px",
             margin: "0 auto",
-            paddingBottom: "24px",
+            paddingBottom: "32px",
             width: "100%",
           }}
         >
           {/* 卡片 1: 通用设置 */}
           <Card
             title={
-              <Space>
-                <BulbOutlined style={{ color: themeVars.primary }} />
-                <span>通用设置</span>
+              <Space size={10}>
+                <BulbOutlined style={{ color: themeVars.primary, fontSize: 18 }} />
+                <span style={{ fontSize: 15, fontWeight: 600 }}>通用设置</span>
               </Space>
             }
             style={{
               backgroundColor: themeVars.bgContainer,
               borderColor: themeVars.border,
+              borderRadius: 12,
+              boxShadow: darkMode
+                ? "0 2px 8px rgba(0, 0, 0, 0.15)"
+                : "0 2px 8px rgba(0, 0, 0, 0.06)",
+              transition: "all 0.3s ease",
+            }}
+            styles={{
+              header: {
+                borderBottom: `1px solid ${themeVars.borderSecondary}`,
+                padding: "16px 20px",
+              },
+              body: {
+                padding: "20px",
+              },
             }}
           >
-            <Space vertical size="large" style={{ width: "100%" }}>
+            <Space direction="vertical" size={20} style={{ width: "100%" }}>
               <div>
-                <Text style={{ color: themeVars.text, fontWeight: 500 }}>
+                <Text style={{ color: themeVars.text, fontWeight: 500, fontSize: 14 }}>
                   外观主题
                 </Text>
                 <br />
                 <Text
                   type="secondary"
                   style={{
-                    fontSize: "12px",
+                    fontSize: 13,
                     color: themeVars.textSecondary,
-                    marginBottom: "12px",
+                    marginTop: 4,
+                    marginBottom: 12,
                     display: "block",
+                    lineHeight: 1.5,
                   }}
                 >
                   选择应用的外观主题
@@ -328,7 +344,7 @@ function SettingsView({
                 />
               </div>
 
-              <Divider style={{ margin: 0 }} />
+              <Divider style={{ margin: "4px 0" }} />
 
               <div
                 style={{
@@ -338,11 +354,11 @@ function SettingsView({
                 }}
               >
                 <div>
-                  <Text style={{ color: themeVars.text }}>开机自启动</Text>
+                  <Text style={{ color: themeVars.text, fontSize: 14, fontWeight: 500 }}>开机自启动</Text>
                   <br />
                   <Text
                     type="secondary"
-                    style={{ fontSize: "12px", color: themeVars.textSecondary }}
+                    style={{ fontSize: 13, color: themeVars.textSecondary, lineHeight: 1.5 }}
                   >
                     系统启动时自动运行应用
                   </Text>
@@ -357,20 +373,22 @@ function SettingsView({
                 />
               </div>
 
-              <Divider style={{ margin: 0 }} />
+              <Divider style={{ margin: "4px 0" }} />
 
               <div>
-                <Text style={{ color: themeVars.text, fontWeight: 500 }}>
+                <Text style={{ color: themeVars.text, fontWeight: 500, fontSize: 14 }}>
                   Claude Code 目录
                 </Text>
                 <br />
                 <Text
                   type="secondary"
                   style={{
-                    fontSize: "12px",
+                    fontSize: 13,
                     color: themeVars.textSecondary,
-                    marginBottom: "12px",
+                    marginTop: 4,
+                    marginBottom: 12,
                     display: "block",
+                    lineHeight: 1.5,
                   }}
                 >
                   当前监控的 Claude Code 安装路径
@@ -386,23 +404,25 @@ function SettingsView({
                 />
               </div>
 
-              <Divider style={{ margin: 0 }} />
+              <Divider style={{ margin: "4px 0" }} />
 
               <div>
-                <Text style={{ color: themeVars.text, fontWeight: 500 }}>
+                <Text style={{ color: themeVars.text, fontWeight: 500, fontSize: 14 }}>
                   数据存储
                 </Text>
                 <br />
                 <Text
                   type="secondary"
                   style={{
-                    fontSize: "12px",
+                    fontSize: 13,
                     color: themeVars.textSecondary,
-                    marginBottom: "12px",
+                    marginTop: 4,
+                    marginBottom: 12,
                     display: "block",
+                    lineHeight: 1.5,
                   }}
                 >
-                  你的 API Key 和设置存储在本地加密文件中（非 localStorage）
+                  你的 API Key 和设置存储在本地加密文件中
                 </Text>
                 <Button
                   icon={<FolderOpenOutlined />}

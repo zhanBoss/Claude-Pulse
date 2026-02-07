@@ -84,6 +84,8 @@ export interface AutoCleanupConfig {
   lastCleanupTime: number | null
   // 下次清理时间戳
   nextCleanupTime: number | null
+  // 是否显示悬浮球倒计时
+  showFloatingBall?: boolean
 }
 
 export interface AppSettings {

@@ -60,6 +60,7 @@ const RecordControl = forwardRef<RecordControlRef, RecordControlProps>((_, ref) 
     retainMs: 12 * 60 * 60 * 1000,
     lastCleanupTime: null,
     nextCleanupTime: null,
+    showFloatingBall: true,
   })
 
   // 时间输入状态
@@ -167,7 +168,10 @@ const RecordControl = forwardRef<RecordControlRef, RecordControlProps>((_, ref) 
         try {
           const result = await window.electronAPI.clearCache()
           if (result.success) {
-            message.success(`已清除 ${result.deletedCount} 个文件`)
+            // 只有删除了文件才显示提示
+            if (result.deletedCount && result.deletedCount > 0) {
+              message.success(`已清除 ${result.deletedCount} 个文件`)
+            }
           } else {
             message.error(result.error || '清除失败')
           }
@@ -268,7 +272,10 @@ const RecordControl = forwardRef<RecordControlRef, RecordControlProps>((_, ref) 
         try {
           const result = await window.electronAPI.triggerAutoCleanup()
           if (result.success) {
-            message.success(`清理完成，删除了 ${result.deletedCount} 条记录`)
+            // 只有删除了记录才显示提示
+            if (result.deletedCount && result.deletedCount > 0) {
+              message.success(`清理完成，删除了 ${result.deletedCount} 条记录`)
+            }
             // 刷新配置以更新倒计时
             await loadConfig()
           } else {
@@ -282,6 +289,15 @@ const RecordControl = forwardRef<RecordControlRef, RecordControlProps>((_, ref) 
       },
       ...getElectronModalConfig()
     })
+  }
+
+  // 切换悬浮球显示
+  const handleFloatingBallToggle = async (checked: boolean) => {
+    const newConfig: AutoCleanupConfig = {
+      ...autoCleanup,
+      showFloatingBall: checked,
+    }
+    await saveAutoCleanupConfig(newConfig)
   }
 
   if (loading) {
@@ -460,6 +476,18 @@ const RecordControl = forwardRef<RecordControlRef, RecordControlProps>((_, ref) 
                 >
                   立即执行清理
                 </Button>
+
+                {/* 悬浮球显示开关 */}
+                <div style={{ marginTop: 12, padding: '8px 12px', background: 'rgba(0,0,0,0.02)', borderRadius: 4 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text style={{ fontSize: 13 }}>显示悬浮球倒计时</Text>
+                    <Switch
+                      size="small"
+                      checked={autoCleanup.showFloatingBall ?? true}
+                      onChange={handleFloatingBallToggle}
+                    />
+                  </div>
+                </div>
 
                 {/* 说明 */}
                 <Alert

@@ -34,6 +34,7 @@ const CleanupCountdown = (props: CleanupCountdownProps) => {
 
   // 组件状态
   const [enabled, setEnabled] = useState(false);
+  const [showFloatingBall, setShowFloatingBall] = useState(true); // 是否显示悬浮球
   const [remainingMs, setRemainingMs] = useState<number | null>(null);
   const [isHovered, setIsHovered] = useState(false); // hover 状态
   const [contentWidth, setContentWidth] = useState(0); // 内容宽度
@@ -55,7 +56,10 @@ const CleanupCountdown = (props: CleanupCountdownProps) => {
     });
 
     const cleanupExecuted = window.electronAPI.onAutoCleanupExecuted((data) => {
-      message.success(`自动清理完成，删除了 ${data.deletedCount} 条记录`);
+      // 只有删除了记录才显示提示
+      if (data.deletedCount > 0) {
+        message.success(`自动清理完成，删除了 ${data.deletedCount} 条记录`);
+      }
       // 清除后重置状态
       setIsHovered(false);
       // 重新计算剩余时间
@@ -70,8 +74,12 @@ const CleanupCountdown = (props: CleanupCountdownProps) => {
     // 组件挂载后立即请求一次最新状态（防止页面刷新后状态丢失）
     const refreshStatus = async () => {
       try {
+        const settings = await window.electronAPI.getAppSettings();
+        const autoCleanup = settings.autoCleanup;
+        setEnabled(autoCleanup?.enabled ?? false);
+        setShowFloatingBall(autoCleanup?.showFloatingBall ?? true);
+
         const status = await window.electronAPI.getAutoCleanupStatus();
-        setEnabled(status.enabled);
         if (status.remainingMs !== null) {
           setRemainingMs(status.remainingMs);
         }
@@ -92,13 +100,18 @@ const CleanupCountdown = (props: CleanupCountdownProps) => {
   useEffect(() => {
     const checkInterval = setInterval(async () => {
       try {
-        const status = await window.electronAPI.getAutoCleanupStatus();
-        setEnabled(status.enabled);
-        if (!status.enabled) {
+        const settings = await window.electronAPI.getAppSettings();
+        const autoCleanup = settings.autoCleanup;
+        setEnabled(autoCleanup?.enabled ?? false);
+        setShowFloatingBall(autoCleanup?.showFloatingBall ?? true);
+
+        if (!autoCleanup?.enabled) {
           setRemainingMs(null);
-        } else if (status.remainingMs !== null) {
-          // 只在启用时更新剩余时间
-          setRemainingMs(status.remainingMs);
+        } else {
+          const status = await window.electronAPI.getAutoCleanupStatus();
+          if (status.remainingMs !== null) {
+            setRemainingMs(status.remainingMs);
+          }
         }
       } catch {
         // 忽略错误
@@ -172,8 +185,8 @@ const CleanupCountdown = (props: CleanupCountdownProps) => {
     };
   }, [isDragging]);
 
-  // 不启用时不渲染
-  if (!enabled) return null;
+  // 不启用时或关闭悬浮球时不渲染
+  if (!enabled || !showFloatingBall) return null;
 
   const remainingText = remainingMs !== null ? formatRemainingTime(remainingMs) : "--";
 
