@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState, useEffect, useRef } from 'react'
 import { Button, Typography, Spin, Segmented } from 'antd'
 import { SearchOutlined, CloseOutlined } from '@ant-design/icons'
 import { getThemeVars } from '../theme'
@@ -66,6 +66,12 @@ const MentionPopup = (props: MentionPopupProps) => {
 
   const themeVars = getThemeVars(darkMode)
 
+  /* 键盘导航状态 */
+  const [selectedIndex, setSelectedIndex] = useState(0)
+  const listContainerRef = useRef<HTMLDivElement>(null)
+  const popupContainerRef = useRef<HTMLDivElement>(null)
+  const itemRefs = useRef<Map<number, HTMLDivElement>>(new Map())
+
   /* 当前激活的 tab 配置 */
   const currentTab = useMemo(
     () => tabs.find(t => t.key === activeTab) ?? tabs[0],
@@ -78,57 +84,140 @@ const MentionPopup = (props: MentionPopupProps) => {
     [tabs]
   )
 
+  /* 当前可见的项列表 */
+  const visibleItems = useMemo(
+    () => (currentTab?.items || []).slice(0, 30),
+    [currentTab]
+  )
+
+  /* 当 tab 或搜索结果变化时重置选中索引 */
+  useEffect(() => {
+    setSelectedIndex(0)
+  }, [activeTab, searchText, visibleItems.length])
+
+  /* 组件显示时和 Tab 切换后，自动聚焦到弹窗容器，确保键盘事件生效 */
+  useEffect(() => {
+    if (visible && popupContainerRef.current) {
+      // 使用 setTimeout 确保在 DOM 渲染后聚焦
+      setTimeout(() => {
+        popupContainerRef.current?.focus()
+      }, 0)
+    }
+  }, [visible, activeTab])
+
+  /* 监听 selectedIndex 变化，自动滚动到选中项 */
+  useEffect(() => {
+    const itemElement = itemRefs.current.get(selectedIndex)
+    if (itemElement && listContainerRef.current) {
+      const container = listContainerRef.current
+      const itemTop = itemElement.offsetTop
+      const itemBottom = itemTop + itemElement.offsetHeight
+      const containerTop = container.scrollTop
+      const containerBottom = containerTop + container.clientHeight
+
+      if (itemTop < containerTop) {
+        container.scrollTop = itemTop
+      } else if (itemBottom > containerBottom) {
+        container.scrollTop = itemBottom - container.clientHeight
+      }
+    }
+  }, [selectedIndex])
+
+  /* 键盘事件处理 */
+  useEffect(() => {
+    if (!visible || visibleItems.length === 0) return
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // 只处理上下键、Enter 和 Escape，不影响 Tab 切换（左右键）
+      switch (e.key) {
+        case 'ArrowDown':
+        case 'ArrowUp':
+          // 阻止默认行为和事件冒泡，避免影响其他组件
+          e.preventDefault()
+          e.stopPropagation()
+
+          if (e.key === 'ArrowDown') {
+            setSelectedIndex(prev => Math.min(prev + 1, visibleItems.length - 1))
+          } else {
+            setSelectedIndex(prev => Math.max(prev - 1, 0))
+          }
+          break
+
+        case 'Enter':
+          e.preventDefault()
+          e.stopPropagation()
+          if (visibleItems[selectedIndex]) {
+            onSelect(visibleItems[selectedIndex].mentionData)
+          }
+          break
+
+        case 'Escape':
+          e.preventDefault()
+          e.stopPropagation()
+          onDismiss()
+          break
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [visible, visibleItems, selectedIndex, onSelect, onDismiss])
+
   if (!visible) return null
 
   /* ---- 渲染单条列表项 ---- */
-  const renderItem = (item: MentionPopupItem) => (
-    <div
-      key={item.key}
-      onClick={() => onSelect(item.mentionData)}
-      style={{
-        padding: '10px 14px',
-        borderRadius: 8,
-        cursor: 'pointer',
-        border: '1px solid transparent',
-        background: 'transparent',
-        transition: 'all 0.15s'
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.background = themeVars.hoverBg
-        e.currentTarget.style.borderColor = themeVars.borderSecondary
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.background = 'transparent'
-        e.currentTarget.style.borderColor = 'transparent'
-      }}
-    >
-      <div style={{
-        fontSize: 13,
-        fontWeight: 500,
-        color: themeVars.text,
-        marginBottom: 4,
-        display: 'flex',
-        alignItems: 'center',
-        gap: 6
-      }}>
-        {highlightText(item.title, searchText, themeVars.primary, darkMode)}
-        {item.extra}
+  const renderItem = (item: MentionPopupItem, index: number) => {
+    const isSelected = index === selectedIndex
+
+    return (
+      <div
+        key={item.key}
+        ref={(el) => {
+          if (el) {
+            itemRefs.current.set(index, el)
+          } else {
+            itemRefs.current.delete(index)
+          }
+        }}
+        onClick={() => onSelect(item.mentionData)}
+        onMouseEnter={() => setSelectedIndex(index)}
+        style={{
+          padding: '10px 14px',
+          borderRadius: 8,
+          cursor: 'pointer',
+          border: `1px solid ${isSelected ? themeVars.borderSecondary : 'transparent'}`,
+          background: isSelected ? themeVars.hoverBg : 'transparent',
+          transition: 'all 0.15s'
+        }}
+      >
+        <div style={{
+          fontSize: 13,
+          fontWeight: 500,
+          color: themeVars.text,
+          marginBottom: 4,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6
+        }}>
+          {highlightText(item.title, searchText, themeVars.primary, darkMode)}
+          {item.extra}
+        </div>
+        <div style={{
+          fontSize: 12,
+          color: themeVars.textTertiary,
+          lineHeight: 1.5,
+          display: '-webkit-box',
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: 'vertical',
+          overflow: 'hidden',
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word'
+        }}>
+          {highlightText(item.content, searchText, themeVars.primary, darkMode)}
+        </div>
       </div>
-      <div style={{
-        fontSize: 12,
-        color: themeVars.textTertiary,
-        lineHeight: 1.5,
-        display: '-webkit-box',
-        WebkitLineClamp: 2,
-        WebkitBoxOrient: 'vertical',
-        overflow: 'hidden',
-        whiteSpace: 'pre-wrap',
-        wordBreak: 'break-word'
-      }}>
-        {highlightText(item.content, searchText, themeVars.primary, darkMode)}
-      </div>
-    </div>
-  )
+    )
+  }
 
   /* ---- 渲染空状态 ---- */
   const renderEmpty = (icon: React.ReactNode, title: string, desc?: string) => (
@@ -173,13 +262,15 @@ const MentionPopup = (props: MentionPopupProps) => {
     /* 正常列表 */
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        {currentTab.items.slice(0, 30).map(renderItem)}
+        {visibleItems.map((item, index) => renderItem(item, index))}
       </div>
     )
   }
 
   return (
     <div
+      ref={popupContainerRef}
+      tabIndex={-1}
       style={{
         position: 'absolute',
         bottom: '100%',
@@ -194,6 +285,7 @@ const MentionPopup = (props: MentionPopupProps) => {
           : '0 -4px 24px rgba(0,0,0,0.1)',
         zIndex: 100,
         overflow: 'hidden',
+        outline: 'none',
         ...style
       }}
       onMouseDown={(e) => e.preventDefault()}
@@ -221,7 +313,13 @@ const MentionPopup = (props: MentionPopupProps) => {
         {/* 来源 Tab */}
         <Segmented
           value={activeTab}
-          onChange={(val) => onTabChange(val as string)}
+          onChange={(val) => {
+            onTabChange(val as string)
+            // Tab 切换后，立即重新聚焦到弹窗容器，确保键盘导航继续生效
+            setTimeout(() => {
+              popupContainerRef.current?.focus()
+            }, 0)
+          }}
           options={segmentedOptions}
           block
           size="small"
@@ -243,7 +341,7 @@ const MentionPopup = (props: MentionPopupProps) => {
         )}
 
         {/* 列表内容 */}
-        <div style={{ maxHeight: 240, overflow: 'auto' }}>
+        <div ref={listContainerRef} style={{ maxHeight: 240, overflow: 'auto' }}>
           {renderTabContent()}
         </div>
 
