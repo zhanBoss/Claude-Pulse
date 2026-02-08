@@ -3075,9 +3075,10 @@ ipcMain.handle(
         return { success: false, error: "AI 配置不存在" };
       }
 
-      // 检查缓存
+      // 检查缓存（包含 prompt 版本）
+      const PROMPT_VERSION = "v3"; // 更新 prompt 版本以失效旧缓存（v3：增加表格预处理）
       if (request.contentHash) {
-        const cacheKey = `formatted_${request.contentHash}`;
+        const cacheKey = `formatted_${PROMPT_VERSION}_${request.contentHash}`;
         const cached = store.get(cacheKey) as string | undefined;
         if (cached) {
           return { success: true, formatted: cached };
@@ -3092,17 +3093,79 @@ ipcMain.handle(
         return { success: false, error: "AI 配置不完整" };
       }
 
+      // 🔧 预处理：修复单行表格格式（关键步骤）
+      let processedContent = request.content;
+
+      // 检测单行表格模式：多个 | 字符且包含 --- 分隔符
+      if (processedContent.includes("|") && processedContent.includes("---")) {
+        // 正则匹配：| xxx | xxx | | --- | --- | | data | data |
+        // 策略：在每个 " | | " 处添加换行符，将单行表格拆分为多行
+        processedContent = processedContent
+          .replace(/\|\s*\|\s*/g, "|\n|")  // | | 替换为 |\n|
+          .replace(/\n\s*\n/g, "\n");      // 清理多余空行
+      }
+
       // 构建格式化 system prompt
-      const systemPrompt = `你是一个专业的 Markdown 格式化助手。请将用户提供的内容转换为结构化的 Markdown 格式。
+      const systemPrompt = `你是一个专业的 Markdown 格式化助手。请将用户提供的内容转换为结构化、美观的 Markdown 格式。
 
-严格要求：
-1. **保持内容完全不变** - 不要修改、删除或添加任何实质性内容
-2. **识别并标记代码块** - 将代码片段用 \`\`\`语言名 包裹，自动识别语言（如 javascript, python, json, bash 等）
-3. **识别结构** - 适当添加标题（#）、列表（- 或 1.）、引用（>）等 Markdown 标记
-4. **保留原有格式** - 已有的换行、空行、缩进尽量保留
-5. **不要添加任何说明** - 直接输出格式化后的 Markdown，不要添加"以下是格式化后的内容"等说明
+核心原则：
+1. **内容保真** - 不修改、删除或添加任何实质性内容
+2. **结构化呈现** - 合理使用 Markdown 语法组织内容
+3. **表格优先** - 遇到表格相关内容（包含 | 字符），优先识别为表格并修复格式
 
-示例：
+格式化规则：
+
+📝 **文本结构**
+- 识别标题层级，使用 # ## ### 标记
+- 列表内容使用 - 或 1. 2. 3. 格式
+- 重要内容使用 **加粗** 或 *斜体*
+- 引用内容使用 > 引用块
+
+💻 **代码识别**
+- 单行代码用 \`code\` 包裹
+- 多行代码用 \`\`\`语言名 包裹
+- 自动识别语言：javascript, typescript, python, json, bash, sql, html, css 等
+- 保持代码缩进和换行
+
+📊 **表格处理**（最高优先级！）
+⚠️ 关键：如果内容包含多个 | 字符，极有可能是表格，必须按表格处理！
+
+表格识别规则：
+1. 识别格式错误的 Markdown 表格（单行挤压的表格）
+2. 识别表格分隔符 | --- | --- | (可能在同一行)
+3. 将单行表格拆分为多行，每个数据行独立
+
+表格输出格式（强制要求）：
+| 列1 | 列2 | 列3 |
+|-----|-----|-----|
+| 数据1 | 数据2 | 数据3 |
+| 数据4 | 数据5 | 数据6 |
+
+修复步骤：
+- 步骤1: 识别表头（第一组 | xxx | xxx | 之间的内容）
+- 步骤2: 识别分隔符（| --- | --- | 或 | - | - |）
+- 步骤3: 识别数据行（后续所有 | xxx | xxx | 之间的内容）
+- 步骤4: 将每个部分独立成行，确保换行符正确
+
+常见错误格式示例：
+❌ 错误: | A | B | | --- | --- | | 数据1 | 数据2 | | 数据3 | 数据4 |
+✅ 正确:
+| A | B |
+|---|---|
+| 数据1 | 数据2 |
+| 数据3 | 数据4 |
+
+🔗 **链接和分隔**
+- URL 转换为 [链接文本](URL) 格式
+- 使用 --- 或 *** 添加分隔线（章节之间）
+
+⚠️ **注意事项**
+- 不要添加"以下是格式化后的内容"等说明
+- 非表格内容保留原有的换行和空行
+- 表格必须确保每一行（表头、分隔符、数据行）独占一行，即使原始内容是单行挤压的
+- 如果内容已经是良好的 Markdown 且表格格式正确（每行独占一行），保持原样
+
+示例 1 - 代码格式化：
 输入：请帮我写一个函数 function add(a, b) { return a + b }
 输出：
 请帮我写一个函数
@@ -3111,7 +3174,39 @@ ipcMain.handle(
 function add(a, b) {
   return a + b;
 }
-\`\`\``;
+\`\`\`
+
+示例 2 - 修复单行表格（关键！）：
+输入：| 需求项 | 详情 | 确认 | | --- | --- | --- | | 接口返回数据 | 一次性返回 | | | 前端分页 | 数据处理 | |
+输出：
+| 需求项 | 详情 | 确认 |
+|---------|--------|------|
+| 接口返回数据 | 一次性返回 | ✓ |
+| 前端分页 | 数据处理 | ✓ |
+
+示例 3 - 表格格式化：
+输入：需求项 | 详情 | 确认 接口返回所有数据 不再分页 前端实现分页功能 前端实现筛选功能
+输出：
+| 需求项 | 详情 | 确认 |
+|--------|------|------|
+| 接口返回所有数据 | 不再分页 | ✓ |
+| 前端实现分页功能 | - | ✓ |
+| 前端实现筛选功能 | - | ✓ |
+
+示例 4 - 结构化内容：
+输入：页面大优化需求 需求概述 页面地址：http://example.com 优化内容：接口返回所有数据 前端实现分页功能 前端实现筛选功能
+输出：
+# 页面大优化需求
+
+## 需求概述
+
+**页面地址**：http://example.com
+
+**优化内容**：
+- 接口返回所有数据，不再分页
+- 前端实现分页功能
+- 前端实现筛选功能
+- 前端实现禁用启用的筛选功能`;
 
       const timeout = aiSummarySettings.formatTimeout || 15000; // 默认15秒超时
       const controller = new AbortController();
@@ -3135,13 +3230,13 @@ function add(a, b) {
                     text:
                       systemPrompt +
                       "\n\n--- 需要格式化的内容 ---\n\n" +
-                      request.content,
+                      processedContent,
                   },
                 ],
               },
             ],
             generationConfig: {
-              temperature: 0.1, // 低温度，确保准确性
+              temperature: 0.3, // 适中温度，平衡创造性和准确性
               maxOutputTokens: 4000,
             },
           }),
@@ -3175,10 +3270,10 @@ function add(a, b) {
               },
               {
                 role: "user",
-                content: request.content,
+                content: processedContent,
               },
             ],
-            temperature: 0.1, // 低温度，确保准确性
+            temperature: 0.3, // 适中温度，平衡创造性和准确性
             max_tokens: 4000,
           }),
           signal: controller.signal,
@@ -3199,9 +3294,9 @@ function add(a, b) {
         return { success: false, error: "格式化结果为空" };
       }
 
-      // 缓存结果
+      // 缓存结果（包含版本号）
       if (request.contentHash) {
-        const cacheKey = `formatted_${request.contentHash}`;
+        const cacheKey = `formatted_${PROMPT_VERSION}_${request.contentHash}`;
         store.set(cacheKey, formatted);
       }
 
