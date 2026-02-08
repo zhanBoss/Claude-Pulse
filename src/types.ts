@@ -200,6 +200,8 @@ export interface ElectronAPI {
   ) => Promise<void>
   // AI 格式化 Prompt
   formatPrompt: (content: string, contentHash?: string) => Promise<{ success: boolean; formatted?: string; error?: string }>
+  // 导出 AI 对话
+  exportChatHistory: (messages: ChatMessage[], format: 'pdf' | 'html' | 'markdown' | 'word') => Promise<{ success: boolean; filePath?: string; error?: string }>
 }
 
 // AI 总结请求参数

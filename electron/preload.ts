@@ -218,5 +218,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // AI 格式化 Prompt
   formatPrompt: (content: string, contentHash?: string) =>
-    ipcRenderer.invoke('format-prompt', { content, contentHash })
+    ipcRenderer.invoke('format-prompt', { content, contentHash }),
+
+  // 导出 AI 对话历史
+  exportChatHistory: (messages: any[], format: 'pdf' | 'html' | 'markdown' | 'word') =>
+    ipcRenderer.invoke('export-chat-history', { messages, format })
 })

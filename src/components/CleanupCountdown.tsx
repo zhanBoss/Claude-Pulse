@@ -40,8 +40,12 @@ const CleanupCountdown = (props: CleanupCountdownProps) => {
   const [contentWidth, setContentWidth] = useState(0); // 内容宽度
   const textRef = useRef<HTMLSpanElement>(null); // 文字引用，用于测量宽度
 
-  // 拖拽状态
-  const [position, setPosition] = useState({ x: 20, y: 20 }); // 距离右下角的距离
+  // 拖拽状态 - 默认在左下角（距离右边很远，距离底部 20px）
+  const [position, setPosition] = useState(() => {
+    // 初始化时计算左下角的位置
+    const windowWidth = typeof window !== 'undefined' ? window.innerWidth : 1920;
+    return { x: windowWidth - 80, y: 20 }; // 距离右边 windowWidth-80，距离底部 20
+  });
   const [isDragging, setIsDragging] = useState(false);
   const dragStartRef = useRef({ x: 0, y: 0, posX: 0, posY: 0 });
   const hasDraggedRef = useRef(false);
@@ -181,6 +185,19 @@ const CleanupCountdown = (props: CleanupCountdownProps) => {
   // 计算动态宽度
   const dynamicWidth = shouldExpand ? Math.max(contentWidth, 120) : 48;
 
+  // 基于球心位置同步计算展开方向（球在左侧→向右展开，球在右侧→向左展开）
+  const ballCenterFromLeft = window.innerWidth - position.x - 24;
+  const expandDirection = ballCenterFromLeft < window.innerWidth / 2 ? "right" : "left";
+
+  /*
+   * 定位补偿：CSS right 定位时，宽度增大会向左扩展
+   * 向左展开（右侧球）：right 不变，宽度增大自然向左 ✓
+   * 向右展开（左侧球）：需要同步减小 right 值，使左边缘固定、右边缘向右扩展
+   * 数学证明：left_edge = screenWidth - right - width，当 right 减少量 = width 增加量时，left_edge 恒定
+   */
+  const rightAdjustment = expandDirection === "right" && shouldExpand ? dynamicWidth - 48 : 0;
+  const adjustedRight = position.x - rightAdjustment;
+
   // 胶囊容器
   return (
     <div
@@ -194,7 +211,7 @@ const CleanupCountdown = (props: CleanupCountdownProps) => {
       onMouseLeave={() => !isDragging && setIsHovered(false)}
       style={{
         position: "fixed",
-        right: position.x,
+        right: adjustedRight,
         bottom: position.y,
         height: 48,
         width: dynamicWidth,
@@ -216,11 +233,15 @@ const CleanupCountdown = (props: CleanupCountdownProps) => {
         WebkitUserSelect: "none",
         transition: isDragging
           ? "none"
-          : "width 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)",
+          : "width 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), right 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)",
         overflow: "hidden",
         display: "flex",
         alignItems: "center",
         padding: "0 8px",
+        // 根据展开方向调整布局
+        // right: 向右展开 → Icon在左，文字在右 → row
+        // left: 向左展开 → 文字在左，Icon在右 → row-reverse
+        flexDirection: expandDirection === "right" ? "row" : "row-reverse",
       }}
     >
       {/* 中心内容：收起时显示 icon 或倒计时，展开时显示完整内容 */}
@@ -256,11 +277,9 @@ const CleanupCountdown = (props: CleanupCountdownProps) => {
       ) : (
         // 展开状态：显示完整内容
         <>
-          {/* 右侧图标（固定位置） */}
+          {/* Logo 图标 */}
           <div
             style={{
-              position: "absolute",
-              right: 8,
               width: 32,
               height: 32,
               borderRadius: "50%",
@@ -283,7 +302,7 @@ const CleanupCountdown = (props: CleanupCountdownProps) => {
             />
           </div>
 
-          {/* 左侧内容 */}
+          {/* 内容区域（内部也镜像：向右展开时 [时间 ·]，向左展开时 [· 时间]） */}
           <div
             style={{
               display: "flex",
@@ -291,8 +310,8 @@ const CleanupCountdown = (props: CleanupCountdownProps) => {
               gap: 8,
               opacity: 1,
               transition: "opacity 0.2s ease",
-              paddingRight: 40,
               flex: 1,
+              flexDirection: expandDirection === "right" ? "row-reverse" : "row",
             }}
           >
             {/* 发光小圆点 */}

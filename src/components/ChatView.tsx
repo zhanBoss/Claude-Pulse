@@ -1,14 +1,29 @@
-import { useState, useRef, useEffect, useMemo, useCallback } from 'react'
-import { Input, Button, Select, message, Typography, Spin, Tag, Tooltip, Segmented, Modal } from 'antd'
-import { Bubble } from '@ant-design/x'
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
-import remarkMath from 'remark-math'
-import rehypeKatex from 'rehype-katex'
-import rehypeSlug from 'rehype-slug'
-import rehypeAutolinkHeadings from 'rehype-autolink-headings'
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
-import { vscDarkPlus, prism } from 'react-syntax-highlighter/dist/esm/styles/prism'
+import { useState, useRef, useEffect, useMemo, useCallback } from "react";
+import {
+  Input,
+  Button,
+  Select,
+  message,
+  Typography,
+  Spin,
+  Tag,
+  Tooltip,
+  Segmented,
+  Modal,
+  Dropdown,
+} from "antd";
+import { Bubble } from "@ant-design/x";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
+import rehypeSlug from "rehype-slug";
+import rehypeAutolinkHeadings from "rehype-autolink-headings";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import {
+  vscDarkPlus,
+  prism,
+} from "react-syntax-highlighter/dist/esm/styles/prism";
 import {
   SendOutlined,
   ClearOutlined,
@@ -24,96 +39,122 @@ import {
   StarOutlined,
   ClockCircleOutlined,
   CopyOutlined,
-  CheckOutlined
-} from '@ant-design/icons'
-import { ChatMessage, CommonCommand, AIChatSettings, ClaudeRecord } from '../types'
-import { getThemeVars } from '../theme'
-import ElectronModal from './ElectronModal'
-import MentionInput, { MentionInputRef, MentionItem } from './MentionInput'
-import MentionPopup, { MentionPopupTab } from './MentionPopup'
-import { highlightText } from '../utils/highlightText'
+  CheckOutlined,
+  DownloadOutlined,
+} from "@ant-design/icons";
+import {
+  ChatMessage,
+  CommonCommand,
+  AIChatSettings,
+  ClaudeRecord,
+} from "../types";
+import { getThemeVars } from "../theme";
+import ElectronModal from "./ElectronModal";
+import MentionInput, { MentionInputRef, MentionItem } from "./MentionInput";
+import MentionPopup, { MentionPopupTab } from "./MentionPopup";
+import { highlightText } from "../utils/highlightText";
 
-const { TextArea } = Input
-const { Text } = Typography
+const { TextArea } = Input;
+const { Text } = Typography;
 
 interface ChatViewProps {
-  darkMode: boolean
-  onOpenSettings?: (section?: string) => void
-  initialPrompt?: string | null
-  onInitialPromptUsed?: () => void
-  realtimeRecords?: ClaudeRecord[]
+  darkMode: boolean;
+  onOpenSettings?: (section?: string) => void;
+  initialPrompt?: string | null;
+  onInitialPromptUsed?: () => void;
+  realtimeRecords?: ClaudeRecord[];
 }
 
 /* Avatar 组件 */
-const ChatAvatar = ({ isUser, primaryGradient, aiBgColor, primaryColor, themeVars }: {
-  isUser: boolean
-  primaryGradient: string
-  aiBgColor: string
-  primaryColor: string
-  themeVars: ReturnType<typeof getThemeVars>
+const ChatAvatar = ({
+  isUser,
+  primaryGradient,
+  aiBgColor,
+  primaryColor,
+  themeVars,
+}: {
+  isUser: boolean;
+  primaryGradient: string;
+  aiBgColor: string;
+  primaryColor: string;
+  themeVars: ReturnType<typeof getThemeVars>;
 }) => (
-  <div style={{
-    width: 32,
-    height: 32,
-    borderRadius: '50%',
-    background: isUser ? primaryGradient : aiBgColor,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    color: isUser ? themeVars.textWhite : primaryColor
-  }}>
-    {isUser ? <UserOutlined style={{ fontSize: 14 }} /> : <RobotOutlined style={{ fontSize: 14 }} />}
+  <div
+    style={{
+      width: 32,
+      height: 32,
+      borderRadius: "50%",
+      background: isUser ? primaryGradient : aiBgColor,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      color: isUser ? themeVars.textWhite : primaryColor,
+    }}
+  >
+    {isUser ? (
+      <UserOutlined style={{ fontSize: 14 }} />
+    ) : (
+      <RobotOutlined style={{ fontSize: 14 }} />
+    )}
   </div>
-)
+);
 
 /* Code Block Component with Copy Feature */
-const CodeBlock = ({ language, value, darkMode }: {
-  language: string
-  value: string
-  darkMode: boolean
+const CodeBlock = ({
+  language,
+  value,
+  darkMode,
+}: {
+  language: string;
+  value: string;
+  darkMode: boolean;
 }) => {
-  const [copied, setCopied] = useState(false)
-  const themeVars = getThemeVars(darkMode)
+  const [copied, setCopied] = useState(false);
+  const themeVars = getThemeVars(darkMode);
 
   const handleCopy = async () => {
     try {
-      await window.electronAPI.copyToClipboard(value)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+      await window.electronAPI.copyToClipboard(value);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
     } catch (error) {
-      message.error('复制失败')
+      message.error("复制失败");
     }
-  }
+  };
 
   return (
-    <div style={{ position: 'relative', margin: '8px 0' }}>
+    <div style={{ position: "relative", margin: "8px 0" }}>
       {/* Copy Button */}
-      <Tooltip title={copied ? '已复制' : '复制代码'}>
+      <Tooltip title={copied ? "已复制" : "复制代码"}>
         <Button
           type="text"
           size="small"
           icon={copied ? <CheckOutlined /> : <CopyOutlined />}
           onClick={handleCopy}
           style={{
-            position: 'absolute',
+            position: "absolute",
             top: 8,
             right: 8,
             zIndex: 10,
             color: copied ? themeVars.success : themeVars.textWhite,
-            background: darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)',
+            background: darkMode ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.05)",
             borderRadius: 6,
-            padding: '4px 8px',
+            padding: "4px 8px",
             height: 28,
             opacity: 0.7,
-            transition: 'all 0.2s'
+            transition: "all 0.2s",
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.opacity = '1'
-            e.currentTarget.style.background = darkMode ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.1)'
+            e.currentTarget.style.opacity = "1";
+            e.currentTarget.style.background = darkMode
+              ? "rgba(255,255,255,0.15)"
+              : "rgba(0,0,0,0.1)";
           }}
           onMouseLeave={(e) => {
-            e.currentTarget.style.opacity = '0.7'
-            e.currentTarget.style.background = darkMode ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'
+            e.currentTarget.style.opacity = "0.7";
+            e.currentTarget.style.background = darkMode
+              ? "rgba(255,255,255,0.1)"
+              : "rgba(0,0,0,0.05)";
           }}
         />
       </Tooltip>
@@ -127,38 +168,42 @@ const CodeBlock = ({ language, value, darkMode }: {
           borderRadius: 6,
           fontSize: 13,
           background: themeVars.bgCode,
-          paddingRight: 50 // Space for copy button
+          paddingRight: 50, // Space for copy button
         }}
       >
         {value}
       </SyntaxHighlighter>
     </div>
-  )
-}
+  );
+};
 
 /* Markdown 渲染组件 */
-const MarkdownContent = ({ content, darkMode, textColor }: {
-  content: string
-  darkMode: boolean
-  textColor: string
+const MarkdownContent = ({
+  content,
+  darkMode,
+  textColor,
+}: {
+  content: string;
+  darkMode: boolean;
+  textColor: string;
 }) => {
-  const themeVars = getThemeVars(darkMode)
+  const themeVars = getThemeVars(darkMode);
 
   return (
     <ReactMarkdown
       remarkPlugins={[
-        remarkGfm,      // GitHub Flavored Markdown（表格、删除线、任务列表等）
-        remarkMath      // 数学公式支持（$...$ 和 $$...$$）
+        remarkGfm, // GitHub Flavored Markdown（表格、删除线、任务列表等）
+        remarkMath, // 数学公式支持（$...$ 和 $$...$$）
       ]}
       rehypePlugins={[
-        rehypeKatex,    // 渲染数学公式（需要配合 remarkMath）
-        rehypeSlug,     // 为标题添加 ID
-        rehypeAutolinkHeadings  // 为标题添加锚点链接
+        rehypeKatex, // 渲染数学公式（需要配合 remarkMath）
+        rehypeSlug, // 为标题添加 ID
+        rehypeAutolinkHeadings, // 为标题添加锚点链接
       ]}
       components={{
         code({ node, inline, className, children, ...props }: any) {
-          const match = /language-(\w+)/.exec(className || '')
-          const codeValue = String(children).replace(/\n$/, '')
+          const match = /language-(\w+)/.exec(className || "");
+          const codeValue = String(children).replace(/\n$/, "");
 
           return !inline && match ? (
             <CodeBlock
@@ -170,55 +215,107 @@ const MarkdownContent = ({ content, darkMode, textColor }: {
             <code
               style={{
                 background: themeVars.codeBg,
-                padding: '2px 6px',
+                padding: "2px 6px",
                 borderRadius: 3,
                 fontSize: 13,
-                fontFamily: 'monospace',
-                color: themeVars.textError
+                fontFamily: "monospace",
+                color: themeVars.textError,
               }}
               {...props}
             >
               {children}
             </code>
-          )
+          );
         },
         p({ children }) {
-          return <p style={{ marginBottom: 8, lineHeight: 1.7, color: textColor }}>{children}</p>
+          return (
+            <p style={{ marginBottom: 8, lineHeight: 1.7, color: textColor }}>
+              {children}
+            </p>
+          );
         },
         pre({ children }) {
-          return <>{children}</>
+          return <>{children}</>;
         },
         h1({ children }) {
-          return <h1 style={{ fontSize: 20, fontWeight: 600, marginTop: 16, marginBottom: 8, color: textColor }}>{children}</h1>
+          return (
+            <h1
+              style={{
+                fontSize: 20,
+                fontWeight: 600,
+                marginTop: 16,
+                marginBottom: 8,
+                color: textColor,
+              }}
+            >
+              {children}
+            </h1>
+          );
         },
         h2({ children }) {
-          return <h2 style={{ fontSize: 18, fontWeight: 600, marginTop: 14, marginBottom: 8, color: textColor }}>{children}</h2>
+          return (
+            <h2
+              style={{
+                fontSize: 18,
+                fontWeight: 600,
+                marginTop: 14,
+                marginBottom: 8,
+                color: textColor,
+              }}
+            >
+              {children}
+            </h2>
+          );
         },
         h3({ children }) {
-          return <h3 style={{ fontSize: 16, fontWeight: 600, marginTop: 12, marginBottom: 6, color: textColor }}>{children}</h3>
+          return (
+            <h3
+              style={{
+                fontSize: 16,
+                fontWeight: 600,
+                marginTop: 12,
+                marginBottom: 6,
+                color: textColor,
+              }}
+            >
+              {children}
+            </h3>
+          );
         },
         ul({ children }) {
-          return <ul style={{ marginLeft: 20, marginBottom: 8, color: textColor }}>{children}</ul>
+          return (
+            <ul style={{ marginLeft: 20, marginBottom: 8, color: textColor }}>
+              {children}
+            </ul>
+          );
         },
         ol({ children }) {
-          return <ol style={{ marginLeft: 20, marginBottom: 8, color: textColor }}>{children}</ol>
+          return (
+            <ol style={{ marginLeft: 20, marginBottom: 8, color: textColor }}>
+              {children}
+            </ol>
+          );
         },
         li({ children }) {
-          return <li style={{ marginBottom: 4, lineHeight: 1.7 }}>{children}</li>
+          return (
+            <li style={{ marginBottom: 4, lineHeight: 1.7 }}>{children}</li>
+          );
         },
         blockquote({ children }) {
           return (
-            <blockquote style={{
-              borderLeft: `4px solid ${themeVars.borderCode}`,
-              paddingLeft: 12,
-              marginLeft: 0,
-              marginBottom: 8,
-              color: themeVars.textQuote,
-              fontStyle: 'italic'
-            }}>
+            <blockquote
+              style={{
+                borderLeft: `4px solid ${themeVars.borderCode}`,
+                paddingLeft: 12,
+                marginLeft: 0,
+                marginBottom: 8,
+                color: themeVars.textQuote,
+                fontStyle: "italic",
+              }}
+            >
               {children}
             </blockquote>
-          )
+          );
         },
         a({ children, href }) {
           return (
@@ -228,681 +325,842 @@ const MarkdownContent = ({ content, darkMode, textColor }: {
               rel="noopener noreferrer"
               style={{
                 color: themeVars.link,
-                textDecoration: 'none'
+                textDecoration: "none",
               }}
-              onMouseEnter={(e) => e.currentTarget.style.textDecoration = 'underline'}
-              onMouseLeave={(e) => e.currentTarget.style.textDecoration = 'none'}
+              onMouseEnter={(e) =>
+                (e.currentTarget.style.textDecoration = "underline")
+              }
+              onMouseLeave={(e) =>
+                (e.currentTarget.style.textDecoration = "none")
+              }
             >
               {children}
             </a>
-          )
+          );
         },
         table({ children }) {
           return (
-            <table style={{
-              width: '100%',
-              borderCollapse: 'collapse',
-              marginBottom: 8,
-              fontSize: 13
-            }}>
+            <table
+              style={{
+                width: "100%",
+                borderCollapse: "collapse",
+                marginBottom: 8,
+                fontSize: 13,
+              }}
+            >
               {children}
             </table>
-          )
+          );
         },
         th({ children }) {
           return (
-            <th style={{
-              border: `1px solid ${themeVars.borderCode}`,
-              padding: '6px 12px',
-              background: themeVars.codeBg,
-              fontWeight: 600,
-              textAlign: 'left'
-            }}>
+            <th
+              style={{
+                border: `1px solid ${themeVars.borderCode}`,
+                padding: "6px 12px",
+                background: themeVars.codeBg,
+                fontWeight: 600,
+                textAlign: "left",
+              }}
+            >
               {children}
             </th>
-          )
+          );
         },
         td({ children }) {
           return (
-            <td style={{
-              border: `1px solid ${themeVars.borderCode}`,
-              padding: '6px 12px'
-            }}>
+            <td
+              style={{
+                border: `1px solid ${themeVars.borderCode}`,
+                padding: "6px 12px",
+              }}
+            >
               {children}
             </td>
-          )
-        }
+          );
+        },
       }}
     >
       {content}
     </ReactMarkdown>
-  )
-}
+  );
+};
 
 /* 系统提示词预设 */
 const SYSTEM_PROMPTS = {
-  'claude-code-expert': {
-    name: 'Claude Code 专家',
+  "claude-code-expert": {
+    name: "Claude Code 专家",
     prompt: `你是 Claude Code 使用专家。可以回答关于 Claude Code 的配置、使用技巧、最佳实践等问题。
-当前用户正在使用 CCMonitor 监控 Claude Code 的对话历史。`
+当前用户正在使用 CCMonitor 监控 Claude Code 的对话历史。`,
   },
-  'general': {
-    name: '通用助手',
-    prompt: '你是一个有帮助的 AI 助手。'
+  general: {
+    name: "通用助手",
+    prompt: "你是一个有帮助的 AI 助手。",
   },
-  'custom': {
-    name: '自定义',
-    prompt: ''
-  }
-}
+  custom: {
+    name: "自定义",
+    prompt: "",
+  },
+};
 
 /* 紧凑模式阈值 */
-const COMPACT_BREAKPOINT = 880
+const COMPACT_BREAKPOINT = 880;
 
 /* 历史消息每页加载条数 */
-const HISTORY_PAGE_SIZE = 50
+const HISTORY_PAGE_SIZE = 50;
 
 /* 引用来源 tab 类型 */
-type PromptSourceTab = 'prompts' | 'realtime' | 'history'
+type PromptSourceTab = "prompts" | "realtime" | "history";
 
 /* 格式化时间 */
 const formatTime = (ts: number) => {
-  const d = new Date(ts)
-  const now = new Date()
-  const isToday = d.toDateString() === now.toDateString()
-  const time = `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
-  if (isToday) return time
-  return `${d.getMonth() + 1}/${d.getDate()} ${time}`
-}
+  const d = new Date(ts);
+  const now = new Date();
+  const isToday = d.toDateString() === now.toDateString();
+  const time = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  if (isToday) return time;
+  return `${d.getMonth() + 1}/${d.getDate()} ${time}`;
+};
 
 /* 提取项目短名称 */
 const getProjectShortName = (project: string) => {
-  const parts = project.split('/')
-  return parts[parts.length - 1] || project
-}
+  const parts = project.split("/");
+  return parts[parts.length - 1] || project;
+};
 
 const ChatView = (props: ChatViewProps) => {
-  const { darkMode, onOpenSettings, initialPrompt, onInitialPromptUsed, realtimeRecords = [] } = props
-  const themeVars = getThemeVars(darkMode)
+  const {
+    darkMode,
+    onOpenSettings,
+    initialPrompt,
+    onInitialPromptUsed,
+    realtimeRecords = [],
+  } = props;
+  const themeVars = getThemeVars(darkMode);
 
   // AI 设置
-  const [aiSettings, setAiSettings] = useState<AIChatSettings | null>(null)
-  const [settingsLoading, setSettingsLoading] = useState(true)
+  const [aiSettings, setAiSettings] = useState<AIChatSettings | null>(null);
+  const [settingsLoading, setSettingsLoading] = useState(true);
 
   // 对话状态
-  const [messages, setMessages] = useState<ChatMessage[]>([])
-  const [textLength, setTextLength] = useState(0)
-  const [isLoading, setIsLoading] = useState(false)
-  const [systemPromptType, setSystemPromptType] = useState<keyof typeof SYSTEM_PROMPTS>('claude-code-expert')
-  const [customSystemPrompt, setCustomSystemPrompt] = useState('')
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-  const [streamingMessage, setStreamingMessage] = useState('')
-  const prevSystemPromptRef = useRef(systemPromptType)
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [textLength, setTextLength] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+  const [systemPromptType, setSystemPromptType] =
+    useState<keyof typeof SYSTEM_PROMPTS>("claude-code-expert");
+  const [customSystemPrompt, setCustomSystemPrompt] = useState("");
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const [streamingMessage, setStreamingMessage] = useState("");
+  const prevSystemPromptRef = useRef(systemPromptType);
 
   // Prompt 选择器
-  const [promptPickerVisible, setPromptPickerVisible] = useState(false)
-  const [commonPrompts, setCommonPrompts] = useState<CommonCommand[]>([])
-  const [promptSearchKeyword, setPromptSearchKeyword] = useState('')
-  const promptSearchRef = useRef<any>(null)
-  const [promptSourceTab, setPromptSourceTab] = useState<PromptSourceTab>('prompts')
+  const [promptPickerVisible, setPromptPickerVisible] = useState(false);
+  const [commonPrompts, setCommonPrompts] = useState<CommonCommand[]>([]);
+  const [promptSearchKeyword, setPromptSearchKeyword] = useState("");
+  const promptSearchRef = useRef<any>(null);
+  const [promptSourceTab, setPromptSourceTab] =
+    useState<PromptSourceTab>("prompts");
 
   // 历史消息相关
-  const [historySessionRecords, setHistorySessionRecords] = useState<ClaudeRecord[]>([])
-  const [historyLoading, setHistoryLoading] = useState(false)
-  const [historyDisplayCount, setHistoryDisplayCount] = useState(HISTORY_PAGE_SIZE)
+  const [historySessionRecords, setHistorySessionRecords] = useState<
+    ClaudeRecord[]
+  >([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyDisplayCount, setHistoryDisplayCount] =
+    useState(HISTORY_PAGE_SIZE);
 
   // 输入框焦点 & 响应式
-  const [inputFocused, setInputFocused] = useState(false)
-  const [isCompact, setIsCompact] = useState(false)
+  const [inputFocused, setInputFocused] = useState(false);
+  const [isCompact, setIsCompact] = useState(false);
 
   // @ 引用弹窗
-  const mentionInputRef = useRef<MentionInputRef>(null)
-  const [mentionPopupVisible, setMentionPopupVisible] = useState(false)
-  const [mentionSourceTab, setMentionSourceTab] = useState<PromptSourceTab>('prompts')
-  const [mentionSearchText, setMentionSearchText] = useState('')
-  const noMatchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const mentionInputRef = useRef<MentionInputRef>(null);
+  const [mentionPopupVisible, setMentionPopupVisible] = useState(false);
+  const [mentionSourceTab, setMentionSourceTab] =
+    useState<PromptSourceTab>("prompts");
+  const [mentionSearchText, setMentionSearchText] = useState("");
+  const noMatchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // 监听窗口宽度变化，决定紧凑模式
   useEffect(() => {
     const checkWidth = () => {
-      setIsCompact(window.innerWidth < COMPACT_BREAKPOINT)
-    }
-    checkWidth()
-    window.addEventListener('resize', checkWidth)
-    return () => window.removeEventListener('resize', checkWidth)
-  }, [])
+      setIsCompact(window.innerWidth < COMPACT_BREAKPOINT);
+    };
+    checkWidth();
+    window.addEventListener("resize", checkWidth);
+    return () => window.removeEventListener("resize", checkWidth);
+  }, []);
 
   // 加载 AI 设置
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        const settings = await window.electronAPI.getAppSettings()
-        setAiSettings(settings.aiChat)
+        const settings = await window.electronAPI.getAppSettings();
+        setAiSettings(settings.aiChat);
       } catch (error) {
-        console.error('加载 AI 设置失败:', error)
+        console.error("加载 AI 设置失败:", error);
       } finally {
-        setSettingsLoading(false)
+        setSettingsLoading(false);
       }
-    }
-    loadSettings()
-  }, [])
+    };
+    loadSettings();
+  }, []);
 
   // 加载常用 Prompt
   useEffect(() => {
     const loadPrompts = async () => {
       try {
-        const prompts = await window.electronAPI.getCommonCommands()
-        setCommonPrompts(prompts)
+        const prompts = await window.electronAPI.getCommonCommands();
+        setCommonPrompts(prompts);
       } catch (error) {
-        console.error('加载常用 Prompt 失败:', error)
+        console.error("加载常用 Prompt 失败:", error);
       }
-    }
-    loadPrompts()
-  }, [])
+    };
+    loadPrompts();
+  }, []);
 
   // 处理外部传入的初始 Prompt
   useEffect(() => {
     if (initialPrompt) {
       /* 延迟执行，确保 MentionInput 的 contentEditable DOM 和 ref 完全就绪 */
       const timer = setTimeout(() => {
-        mentionInputRef.current?.setTextContent(initialPrompt)
-        mentionInputRef.current?.focus()
-        onInitialPromptUsed?.()
-      }, 150)
-      return () => clearTimeout(timer)
+        mentionInputRef.current?.setTextContent(initialPrompt);
+        mentionInputRef.current?.focus();
+        onInitialPromptUsed?.();
+      }, 150);
+      return () => clearTimeout(timer);
     }
-  }, [initialPrompt])
+  }, [initialPrompt]);
 
   // 检查 AI 配置是否完整
   const providerReady = useMemo(() => {
-    if (!aiSettings) return false
-    if (!aiSettings.apiKey) return false
-    if (!aiSettings.apiBaseUrl) return false
-    if (!aiSettings.model) return false
-    return true
-  }, [aiSettings])
+    if (!aiSettings) return false;
+    if (!aiSettings.apiKey) return false;
+    if (!aiSettings.apiBaseUrl) return false;
+    if (!aiSettings.model) return false;
+    return true;
+  }, [aiSettings]);
 
   // 监听系统提示词切换，有对话时提示用户
   useEffect(() => {
-    if (prevSystemPromptRef.current !== systemPromptType && messages.length > 0 && !isLoading) {
+    if (
+      prevSystemPromptRef.current !== systemPromptType &&
+      messages.length > 0 &&
+      !isLoading
+    ) {
       Modal.info({
-        title: '系统提示词已切换',
-        content: '新的系统提示词将应用于后续对话，已有对话不受影响。',
-        okText: '我知道了'
-      })
+        title: "系统提示词已切换",
+        content: "新的系统提示词将应用于后续对话，已有对话不受影响。",
+        okText: "我知道了",
+      });
     }
-    prevSystemPromptRef.current = systemPromptType
-  }, [systemPromptType, messages.length, isLoading])
+    prevSystemPromptRef.current = systemPromptType;
+  }, [systemPromptType, messages.length, isLoading]);
 
   // 当前模型名称
   const currentModelName = useMemo(() => {
-    return aiSettings?.model || ''
-  }, [aiSettings])
+    return aiSettings?.model || "";
+  }, [aiSettings]);
 
   // 搜索过滤后的常用 Prompt
   const filteredPrompts = useMemo(() => {
     const sorted = [...commonPrompts].sort((a, b) => {
-      if (a.pinned && !b.pinned) return -1
-      if (!a.pinned && b.pinned) return 1
-      return b.updatedAt - a.updatedAt
-    })
-    if (!promptSearchKeyword.trim()) return sorted
-    const keyword = promptSearchKeyword.toLowerCase()
-    return sorted.filter(p =>
-      p.name.toLowerCase().includes(keyword) ||
-      p.content.toLowerCase().includes(keyword)
-    )
-  }, [commonPrompts, promptSearchKeyword])
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
+      return b.updatedAt - a.updatedAt;
+    });
+    if (!promptSearchKeyword.trim()) return sorted;
+    const keyword = promptSearchKeyword.toLowerCase();
+    return sorted.filter(
+      (p) =>
+        p.name.toLowerCase().includes(keyword) ||
+        p.content.toLowerCase().includes(keyword),
+    );
+  }, [commonPrompts, promptSearchKeyword]);
 
   // 搜索过滤后的实时消息
   const filteredRealtimeRecords = useMemo(() => {
-    if (!promptSearchKeyword.trim()) return realtimeRecords
-    const keyword = promptSearchKeyword.toLowerCase()
-    return realtimeRecords.filter(r =>
-      r.display.toLowerCase().includes(keyword) ||
-      r.project.toLowerCase().includes(keyword)
-    )
-  }, [realtimeRecords, promptSearchKeyword])
+    if (!promptSearchKeyword.trim()) return realtimeRecords;
+    const keyword = promptSearchKeyword.toLowerCase();
+    return realtimeRecords.filter(
+      (r) =>
+        r.display.toLowerCase().includes(keyword) ||
+        r.project.toLowerCase().includes(keyword),
+    );
+  }, [realtimeRecords, promptSearchKeyword]);
 
   // 搜索过滤后的历史消息记录
   const filteredHistoryRecords = useMemo(() => {
-    if (!promptSearchKeyword.trim()) return historySessionRecords
-    const keyword = promptSearchKeyword.toLowerCase()
-    return historySessionRecords.filter(r =>
-      r.display.toLowerCase().includes(keyword) ||
-      r.project.toLowerCase().includes(keyword)
-    )
-  }, [historySessionRecords, promptSearchKeyword])
+    if (!promptSearchKeyword.trim()) return historySessionRecords;
+    const keyword = promptSearchKeyword.toLowerCase();
+    return historySessionRecords.filter(
+      (r) =>
+        r.display.toLowerCase().includes(keyword) ||
+        r.project.toLowerCase().includes(keyword),
+    );
+  }, [historySessionRecords, promptSearchKeyword]);
 
   // 当前页可见的历史消息
   const visibleHistoryRecords = useMemo(
     () => filteredHistoryRecords.slice(0, historyDisplayCount),
-    [filteredHistoryRecords, historyDisplayCount]
-  )
+    [filteredHistoryRecords, historyDisplayCount],
+  );
 
   // 是否还有更多历史消息
-  const hasMoreHistory = filteredHistoryRecords.length > historyDisplayCount
+  const hasMoreHistory = filteredHistoryRecords.length > historyDisplayCount;
 
   // @ 引用弹窗过滤后的数据
   const mentionFilteredPrompts = useMemo(() => {
     const sorted = [...commonPrompts].sort((a, b) => {
-      if (a.pinned && !b.pinned) return -1
-      if (!a.pinned && b.pinned) return 1
-      return b.updatedAt - a.updatedAt
-    })
-    if (!mentionSearchText.trim()) return sorted
-    const keyword = mentionSearchText.toLowerCase()
-    return sorted.filter(p =>
-      p.name.toLowerCase().includes(keyword) ||
-      p.content.toLowerCase().includes(keyword)
-    )
-  }, [commonPrompts, mentionSearchText])
+      if (a.pinned && !b.pinned) return -1;
+      if (!a.pinned && b.pinned) return 1;
+      return b.updatedAt - a.updatedAt;
+    });
+    if (!mentionSearchText.trim()) return sorted;
+    const keyword = mentionSearchText.toLowerCase();
+    return sorted.filter(
+      (p) =>
+        p.name.toLowerCase().includes(keyword) ||
+        p.content.toLowerCase().includes(keyword),
+    );
+  }, [commonPrompts, mentionSearchText]);
 
   const mentionFilteredRealtime = useMemo(() => {
-    if (!mentionSearchText.trim()) return realtimeRecords
-    const keyword = mentionSearchText.toLowerCase()
-    return realtimeRecords.filter(r =>
-      r.display.toLowerCase().includes(keyword) ||
-      r.project.toLowerCase().includes(keyword)
-    )
-  }, [realtimeRecords, mentionSearchText])
+    if (!mentionSearchText.trim()) return realtimeRecords;
+    const keyword = mentionSearchText.toLowerCase();
+    return realtimeRecords.filter(
+      (r) =>
+        r.display.toLowerCase().includes(keyword) ||
+        r.project.toLowerCase().includes(keyword),
+    );
+  }, [realtimeRecords, mentionSearchText]);
 
   const mentionFilteredHistory = useMemo(() => {
-    if (!mentionSearchText.trim()) return historySessionRecords
-    const keyword = mentionSearchText.toLowerCase()
-    return historySessionRecords.filter(r =>
-      r.display.toLowerCase().includes(keyword) ||
-      r.project.toLowerCase().includes(keyword)
-    )
-  }, [historySessionRecords, mentionSearchText])
+    if (!mentionSearchText.trim()) return historySessionRecords;
+    const keyword = mentionSearchText.toLowerCase();
+    return historySessionRecords.filter(
+      (r) =>
+        r.display.toLowerCase().includes(keyword) ||
+        r.project.toLowerCase().includes(keyword),
+    );
+  }, [historySessionRecords, mentionSearchText]);
 
   /* 是否有任何搜索匹配（用于弹窗内 "无匹配" 提示） */
   const mentionHasAnyResults = useMemo(() => {
-    if (!mentionSearchText.trim()) return true
-    return mentionFilteredPrompts.length > 0 ||
-           mentionFilteredRealtime.length > 0 ||
-           mentionFilteredHistory.length > 0
-  }, [mentionSearchText, mentionFilteredPrompts, mentionFilteredRealtime, mentionFilteredHistory])
+    if (!mentionSearchText.trim()) return true;
+    return (
+      mentionFilteredPrompts.length > 0 ||
+      mentionFilteredRealtime.length > 0 ||
+      mentionFilteredHistory.length > 0
+    );
+  }, [
+    mentionSearchText,
+    mentionFilteredPrompts,
+    mentionFilteredRealtime,
+    mentionFilteredHistory,
+  ]);
 
   /* 构建 MentionPopup 的 Tab 数据 */
-  const mentionPopupTabs: MentionPopupTab[] = useMemo(() => [
-    {
-      key: 'prompts',
-      label: '常用 Prompt',
-      icon: <StarOutlined />,
-      emptyIcon: <StarOutlined />,
-      emptyTitle: '暂无常用 Prompt',
-      emptyDescription: '请先在「常用 Prompt」页面添加',
-      items: mentionFilteredPrompts.slice(0, 20).map(prompt => ({
-        key: `m-${prompt.id}`,
-        title: prompt.name,
-        content: prompt.content,
-        extra: prompt.pinned ? <PushpinFilled style={{ fontSize: 11, color: themeVars.warning }} /> : undefined,
-        mentionData: { id: prompt.id, label: prompt.name, content: prompt.content, type: 'prompt' as const }
-      }))
-    },
-    {
-      key: 'realtime',
-      label: '实时消息',
-      icon: <ThunderboltOutlined />,
-      emptyIcon: <ThunderboltOutlined />,
-      emptyTitle: '暂无实时消息',
-      emptyDescription: '开启监控后，新的对话将出现在这里',
-      items: mentionFilteredRealtime.slice(0, 30).map((record, idx) => ({
-        key: `m-rt-${record.timestamp}-${idx}`,
-        title: getProjectShortName(record.project),
-        content: record.display,
-        extra: <span style={{ fontSize: 11, color: themeVars.textTertiary, fontWeight: 400, marginLeft: 'auto' }}>{formatTime(record.timestamp)}</span>,
-        mentionData: { id: `rt-${record.timestamp}-${idx}`, label: getProjectShortName(record.project), content: record.display, type: 'realtime' as const }
-      }))
-    },
-    {
-      key: 'history',
-      label: '历史消息',
-      icon: <ClockCircleOutlined />,
-      loading: historyLoading,
-      emptyIcon: <ClockCircleOutlined />,
-      emptyTitle: '暂无历史消息',
-      items: mentionFilteredHistory.slice(0, 30).map((record, idx) => ({
-        key: `m-hr-${record.timestamp}-${idx}`,
-        title: getProjectShortName(record.project),
-        content: record.display,
-        extra: <span style={{ fontSize: 11, color: themeVars.textTertiary, fontWeight: 400, marginLeft: 'auto' }}>{formatTime(record.timestamp)}</span>,
-        mentionData: { id: `hr-${record.timestamp}-${idx}`, label: getProjectShortName(record.project), content: record.display, type: 'history' as const }
-      }))
-    }
-  ], [mentionFilteredPrompts, mentionFilteredRealtime, mentionFilteredHistory, historyLoading, themeVars])
+  const mentionPopupTabs: MentionPopupTab[] = useMemo(
+    () => [
+      {
+        key: "prompts",
+        label: "常用 Prompt",
+        icon: <StarOutlined />,
+        emptyIcon: <StarOutlined />,
+        emptyTitle: "暂无常用 Prompt",
+        emptyDescription: "请先在「常用 Prompt」页面添加",
+        items: mentionFilteredPrompts.slice(0, 20).map((prompt) => ({
+          key: `m-${prompt.id}`,
+          title: prompt.name,
+          content: prompt.content,
+          extra: prompt.pinned ? (
+            <PushpinFilled style={{ fontSize: 11, color: themeVars.warning }} />
+          ) : undefined,
+          mentionData: {
+            id: prompt.id,
+            label: prompt.name,
+            content: prompt.content,
+            type: "prompt" as const,
+          },
+        })),
+      },
+      {
+        key: "realtime",
+        label: "实时消息",
+        icon: <ThunderboltOutlined />,
+        emptyIcon: <ThunderboltOutlined />,
+        emptyTitle: "暂无实时消息",
+        emptyDescription: "开启监控后，新的对话将出现在这里",
+        items: mentionFilteredRealtime.slice(0, 30).map((record, idx) => ({
+          key: `m-rt-${record.timestamp}-${idx}`,
+          title: getProjectShortName(record.project),
+          content: record.display,
+          extra: (
+            <span
+              style={{
+                fontSize: 11,
+                color: themeVars.textTertiary,
+                fontWeight: 400,
+                marginLeft: "auto",
+              }}
+            >
+              {formatTime(record.timestamp)}
+            </span>
+          ),
+          mentionData: {
+            id: `rt-${record.timestamp}-${idx}`,
+            label: getProjectShortName(record.project),
+            content: record.display,
+            type: "realtime" as const,
+          },
+        })),
+      },
+      {
+        key: "history",
+        label: "历史消息",
+        icon: <ClockCircleOutlined />,
+        loading: historyLoading,
+        emptyIcon: <ClockCircleOutlined />,
+        emptyTitle: "暂无历史消息",
+        items: mentionFilteredHistory.slice(0, 30).map((record, idx) => ({
+          key: `m-hr-${record.timestamp}-${idx}`,
+          title: getProjectShortName(record.project),
+          content: record.display,
+          extra: (
+            <span
+              style={{
+                fontSize: 11,
+                color: themeVars.textTertiary,
+                fontWeight: 400,
+                marginLeft: "auto",
+              }}
+            >
+              {formatTime(record.timestamp)}
+            </span>
+          ),
+          mentionData: {
+            id: `hr-${record.timestamp}-${idx}`,
+            label: getProjectShortName(record.project),
+            content: record.display,
+            type: "history" as const,
+          },
+        })),
+      },
+    ],
+    [
+      mentionFilteredPrompts,
+      mentionFilteredRealtime,
+      mentionFilteredHistory,
+      historyLoading,
+      themeVars,
+    ],
+  );
 
   // 自动滚动到底部
   const scrollToBottom = useCallback(() => {
     if (messagesEndRef.current) {
-      messagesEndRef.current.scrollTop = messagesEndRef.current.scrollHeight
+      messagesEndRef.current.scrollTop = messagesEndRef.current.scrollHeight;
     }
-  }, [])
+  }, []);
 
   useEffect(() => {
     // 延迟滚动，确保 DOM 渲染完成
     const timer = setTimeout(() => {
-      scrollToBottom()
-    }, 100)
-    return () => clearTimeout(timer)
-  }, [messages, streamingMessage, scrollToBottom])
+      scrollToBottom();
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [messages, streamingMessage, scrollToBottom]);
 
   // 获取当前系统提示词
   const getSystemPrompt = () => {
-    if (systemPromptType === 'custom') {
-      return customSystemPrompt
+    if (systemPromptType === "custom") {
+      return customSystemPrompt;
     }
-    return SYSTEM_PROMPTS[systemPromptType].prompt
-  }
+    return SYSTEM_PROMPTS[systemPromptType].prompt;
+  };
 
   // 发送消息
   const handleSend = async () => {
-    const content = mentionInputRef.current?.getContent()
+    const content = mentionInputRef.current?.getContent();
     // 边界检查：防止空消息和并发请求
-    if (!content || !content.text.trim() || isLoading) return
+    if (!content || !content.text.trim() || isLoading) return;
 
     /* 构建消息文本，引用内容附加在末尾 */
-    let messageText = content.text.trim()
+    let messageText = content.text.trim();
     if (content.mentions.length > 0) {
-      messageText += '\n\n--- 引用内容 ---'
-      content.mentions.forEach(m => {
-        messageText += `\n\n【${m.label}】:\n${m.content}`
-      })
+      messageText += "\n\n--- 引用内容 ---";
+      content.mentions.forEach((m) => {
+        messageText += `\n\n【${m.label}】:\n${m.content}`;
+      });
     }
 
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
-      role: 'user',
+      role: "user",
       content: messageText,
-      timestamp: Date.now()
-    }
+      timestamp: Date.now(),
+    };
 
-    setMessages(prev => [...prev, userMessage])
-    mentionInputRef.current?.clear()
-    setTextLength(0)
-    setIsLoading(true)
-    setStreamingMessage('')
+    setMessages((prev) => [...prev, userMessage]);
 
-    let streamContent = ''
+    // 先设置 loading 状态，再清空输入框
+    setIsLoading(true);
+    setStreamingMessage("");
+
+    // 清空输入框
+    mentionInputRef.current?.clear();
+    setTextLength(0);
+
+    let streamContent = "";
 
     try {
-      const systemPrompt = getSystemPrompt()
+      const systemPrompt = getSystemPrompt();
       const messagesToSend: ChatMessage[] = systemPrompt
         ? [
-            { id: 'system', role: 'system', content: systemPrompt, timestamp: Date.now() },
+            {
+              id: "system",
+              role: "system",
+              content: systemPrompt,
+              timestamp: Date.now(),
+            },
             ...messages,
-            userMessage
+            userMessage,
           ]
-        : [...messages, userMessage]
+        : [...messages, userMessage];
 
       await window.electronAPI.chatStream(
         { messages: messagesToSend },
         (chunk: string) => {
-          streamContent += chunk
-          setStreamingMessage(streamContent)
+          streamContent += chunk;
+          setStreamingMessage(streamContent);
         },
         () => {
-          setMessages(prev => [
+          setMessages((prev) => [
             ...prev,
             {
               id: Date.now().toString(),
-              role: 'assistant',
+              role: "assistant",
               content: streamContent,
-              timestamp: Date.now()
-            }
-          ])
-          setStreamingMessage('')
-          setIsLoading(false)
+              timestamp: Date.now(),
+            },
+          ]);
+          setStreamingMessage("");
+          setIsLoading(false);
           // 发送完成后重新聚焦输入框
-          mentionInputRef.current?.focus()
+          mentionInputRef.current?.focus();
         },
         (error: string) => {
-          message.error(`对话失败: ${error}`)
-          setIsLoading(false)
-          setStreamingMessage('')
+          message.error(`对话失败: ${error}`);
+          setIsLoading(false);
+          setStreamingMessage("");
           // 错误后也重新聚焦输入框
-          mentionInputRef.current?.focus()
-        }
-      )
+          mentionInputRef.current?.focus();
+        },
+      );
     } catch (error) {
-      message.error('发送消息失败')
-      setIsLoading(false)
-      setStreamingMessage('')
+      message.error("发送消息失败");
+      setIsLoading(false);
+      setStreamingMessage("");
     }
-  }
+  };
 
   // 清空对话
   const handleClear = () => {
-    setMessages([])
-    setStreamingMessage('')
-  }
+    setMessages([]);
+    setStreamingMessage("");
+  };
+
+  // 导出对话历史
+  const handleExport = async (format: 'pdf' | 'html' | 'markdown' | 'word') => {
+    if (messages.length === 0 && !streamingMessage) {
+      message.warning("暂无可导出的对话");
+      return;
+    }
+
+    try {
+      // 包含流式消息
+      const exportMessages = [...messages];
+      if (streamingMessage) {
+        exportMessages.push({
+          id: 'streaming',
+          role: 'assistant',
+          content: streamingMessage,
+          timestamp: Date.now(),
+        });
+      }
+
+      const result = await window.electronAPI.exportChatHistory(exportMessages, format);
+
+      if (result.success) {
+        message.success(`导出成功: ${result.filePath}`);
+      } else {
+        message.error(result.error || "导出失败");
+      }
+    } catch (error: any) {
+      message.error("导出失败: " + error.message);
+    }
+  };
 
   // 使用引用内容（追加或替换到输入框，来自"引用"弹窗）
   const handleUseContent = (content: string) => {
-    const currentContent = mentionInputRef.current?.getContent()
+    const currentContent = mentionInputRef.current?.getContent();
     if (currentContent && currentContent.text.trim()) {
-      mentionInputRef.current?.appendText('\n\n' + content)
+      mentionInputRef.current?.appendText("\n\n" + content);
     } else {
-      mentionInputRef.current?.setTextContent(content)
+      mentionInputRef.current?.setTextContent(content);
     }
-    setPromptPickerVisible(false)
-    setPromptSearchKeyword('')
-    mentionInputRef.current?.focus()
-  }
+    setPromptPickerVisible(false);
+    setPromptSearchKeyword("");
+    mentionInputRef.current?.focus();
+  };
 
   /* 清除无匹配自动关闭定时器 */
   const clearNoMatchTimer = useCallback(() => {
     if (noMatchTimerRef.current) {
-      clearTimeout(noMatchTimerRef.current)
-      noMatchTimerRef.current = null
+      clearTimeout(noMatchTimerRef.current);
+      noMatchTimerRef.current = null;
     }
-  }, [])
+  }, []);
 
   /* 组件卸载时清理定时器 */
   useEffect(() => {
     return () => {
       if (noMatchTimerRef.current) {
-        clearTimeout(noMatchTimerRef.current)
+        clearTimeout(noMatchTimerRef.current);
       }
-    }
-  }, [])
+    };
+  }, []);
 
   // @ 引用弹窗相关处理
   const handleMentionTrigger = useCallback(() => {
-    clearNoMatchTimer()
-    setMentionPopupVisible(true)
-    setMentionSourceTab('prompts')
-    setMentionSearchText('')
+    clearNoMatchTimer();
+    setMentionPopupVisible(true);
+    setMentionSourceTab("prompts");
+    setMentionSearchText("");
     /* 刷新常用 Prompt */
-    window.electronAPI.getCommonCommands().then(setCommonPrompts).catch(() => {})
-  }, [clearNoMatchTimer])
+    window.electronAPI
+      .getCommonCommands()
+      .then(setCommonPrompts)
+      .catch(() => {});
+  }, [clearNoMatchTimer]);
 
-  const handleMentionSearchChange = useCallback((searchText: string) => {
-    setMentionSearchText(searchText)
-    clearNoMatchTimer()
+  const handleMentionSearchChange = useCallback(
+    (searchText: string) => {
+      setMentionSearchText(searchText);
+      clearNoMatchTimer();
 
-    /* 搜索文本非空时，检查所有 tab 是否还有匹配结果 */
-    if (searchText.trim()) {
-      const keyword = searchText.toLowerCase()
-      const hasPrompts = commonPrompts.some(p =>
-        p.name.toLowerCase().includes(keyword) ||
-        p.content.toLowerCase().includes(keyword)
-      )
-      const hasRealtime = realtimeRecords.some(r =>
-        r.display.toLowerCase().includes(keyword) ||
-        r.project.toLowerCase().includes(keyword)
-      )
-      const hasHistory = historySessionRecords.some(r =>
-        r.display.toLowerCase().includes(keyword) ||
-        r.project.toLowerCase().includes(keyword)
-      )
+      /* 搜索文本非空时，检查所有 tab 是否还有匹配结果 */
+      if (searchText.trim()) {
+        const keyword = searchText.toLowerCase();
+        const hasPrompts = commonPrompts.some(
+          (p) =>
+            p.name.toLowerCase().includes(keyword) ||
+            p.content.toLowerCase().includes(keyword),
+        );
+        const hasRealtime = realtimeRecords.some(
+          (r) =>
+            r.display.toLowerCase().includes(keyword) ||
+            r.project.toLowerCase().includes(keyword),
+        );
+        const hasHistory = historySessionRecords.some(
+          (r) =>
+            r.display.toLowerCase().includes(keyword) ||
+            r.project.toLowerCase().includes(keyword),
+        );
 
-      if (!hasPrompts && !hasRealtime && !hasHistory) {
-        /*
-         * 所有 tab 均无匹配 — 延迟 1.5s 后自动关闭
-         * 弹窗保持可见，显示 "无匹配" 提示，给用户反应时间
-         * 若在倒计时内出现匹配（用户继续输入/删除），定时器自动取消
-         */
-        noMatchTimerRef.current = setTimeout(() => {
-          mentionInputRef.current?.dismissMention()
-          setMentionPopupVisible(false)
-          setMentionSearchText('')
-          noMatchTimerRef.current = null
-        }, 1500)
-        /* 保持弹窗可见，显示无匹配提示 */
-        setMentionPopupVisible(true)
-        return
+        if (!hasPrompts && !hasRealtime && !hasHistory) {
+          /*
+           * 所有 tab 均无匹配 — 延迟 1.5s 后自动关闭
+           * 弹窗保持可见，显示 "无匹配" 提示，给用户反应时间
+           * 若在倒计时内出现匹配（用户继续输入/删除），定时器自动取消
+           */
+          noMatchTimerRef.current = setTimeout(() => {
+            mentionInputRef.current?.dismissMention();
+            setMentionPopupVisible(false);
+            setMentionSearchText("");
+            noMatchTimerRef.current = null;
+          }, 1500);
+          /* 保持弹窗可见，显示无匹配提示 */
+          setMentionPopupVisible(true);
+          return;
+        }
       }
-    }
 
-    /* 有匹配或搜索文本为空，确保弹窗可见 */
-    setMentionPopupVisible(true)
-  }, [commonPrompts, realtimeRecords, historySessionRecords, clearNoMatchTimer])
+      /* 有匹配或搜索文本为空，确保弹窗可见 */
+      setMentionPopupVisible(true);
+    },
+    [commonPrompts, realtimeRecords, historySessionRecords, clearNoMatchTimer],
+  );
 
   const handleMentionDismiss = useCallback(() => {
-    clearNoMatchTimer()
-    setMentionPopupVisible(false)
-    setMentionSearchText('')
-  }, [clearNoMatchTimer])
+    clearNoMatchTimer();
+    setMentionPopupVisible(false);
+    setMentionSearchText("");
+  }, [clearNoMatchTimer]);
 
-  const handleMentionSelect = useCallback((mention: MentionItem) => {
-    clearNoMatchTimer()
-    mentionInputRef.current?.insertMention(mention)
-    setMentionPopupVisible(false)
-    setMentionSearchText('')
-  }, [clearNoMatchTimer])
+  const handleMentionSelect = useCallback(
+    (mention: MentionItem) => {
+      clearNoMatchTimer();
+      mentionInputRef.current?.insertMention(mention);
+      setMentionPopupVisible(false);
+      setMentionSearchText("");
+    },
+    [clearNoMatchTimer],
+  );
 
-  const handleMentionTabChange = useCallback((tab: PromptSourceTab) => {
-    setMentionSourceTab(tab)
+  const handleMentionTabChange = useCallback(
+    (tab: PromptSourceTab) => {
+      setMentionSourceTab(tab);
 
-    /* 切到历史 tab 时加载记录 */
-    if (tab === 'history' && historySessionRecords.length === 0) {
-      setHistoryLoading(true)
-      window.electronAPI.readHistory()
-        .then(result => {
-          if (result.success && result.records) {
-            const sorted = [...result.records].sort((a, b) => b.timestamp - a.timestamp)
-            setHistorySessionRecords(sorted)
-          }
-        })
-        .catch(() => {})
-        .finally(() => setHistoryLoading(false))
-    }
-  }, [historySessionRecords.length])
+      /* 切到历史 tab 时加载记录 */
+      if (tab === "history" && historySessionRecords.length === 0) {
+        setHistoryLoading(true);
+        window.electronAPI
+          .readHistory()
+          .then((result) => {
+            if (result.success && result.records) {
+              const sorted = [...result.records].sort(
+                (a, b) => b.timestamp - a.timestamp,
+              );
+              setHistorySessionRecords(sorted);
+            }
+          })
+          .catch(() => {})
+          .finally(() => setHistoryLoading(false));
+      }
+    },
+    [historySessionRecords.length],
+  );
 
   // 打开 Prompt 选择器
   const handleOpenPromptPicker = () => {
     /* 关闭 @ 引用弹窗 */
-    setMentionPopupVisible(false)
-    setMentionSearchText('')
+    setMentionPopupVisible(false);
+    setMentionSearchText("");
 
-    setPromptPickerVisible(true)
-    setPromptSearchKeyword('')
-    setPromptSourceTab('prompts')
-    setHistorySessionRecords([])
+    setPromptPickerVisible(true);
+    setPromptSearchKeyword("");
+    setPromptSourceTab("prompts");
+    setHistorySessionRecords([]);
     // 刷新常用 Prompt 列表
-    window.electronAPI.getCommonCommands().then(setCommonPrompts).catch(() => {})
-    setTimeout(() => promptSearchRef.current?.focus(), 100)
-  }
+    window.electronAPI
+      .getCommonCommands()
+      .then(setCommonPrompts)
+      .catch(() => {});
+    setTimeout(() => promptSearchRef.current?.focus(), 100);
+  };
 
   // 切换引用来源 tab
   const handleTabChange = useCallback((tab: PromptSourceTab) => {
-    setPromptSourceTab(tab)
-    setPromptSearchKeyword('')
-    setHistorySessionRecords([])
-    setHistoryDisplayCount(HISTORY_PAGE_SIZE)
+    setPromptSourceTab(tab);
+    setPromptSearchKeyword("");
+    setHistorySessionRecords([]);
+    setHistoryDisplayCount(HISTORY_PAGE_SIZE);
 
     // 切到历史 tab 时加载所有记录（扁平化展示）
-    if (tab === 'history') {
-      setHistoryLoading(true)
-      window.electronAPI.readHistory()
-        .then(result => {
+    if (tab === "history") {
+      setHistoryLoading(true);
+      window.electronAPI
+        .readHistory()
+        .then((result) => {
           if (result.success && result.records) {
             // 按时间倒序排列，最新的在前
-            const sorted = [...result.records].sort((a, b) => b.timestamp - a.timestamp)
-            setHistorySessionRecords(sorted)
+            const sorted = [...result.records].sort(
+              (a, b) => b.timestamp - a.timestamp,
+            );
+            setHistorySessionRecords(sorted);
           }
         })
         .catch(() => {})
-        .finally(() => setHistoryLoading(false))
+        .finally(() => setHistoryLoading(false));
     }
-  }, [])
+  }, []);
 
   // 跳转到设置页
   const handleGoToSettings = () => {
-    onOpenSettings?.('ai-settings')
-  }
+    onOpenSettings?.("ai-settings");
+  };
 
   // 转换消息为 Bubble.List 格式
   const bubbleItems = useMemo(() => {
-    const primaryGradient = themeVars.primaryGradient
-    const bgContainer = themeVars.bgContainer
-    const borderSecondary = themeVars.borderSecondary
-    const textColor = themeVars.text
-    const primaryColor = themeVars.primary
-    const userBgColor = darkMode ? 'rgba(217, 119, 87, 0.12)' : 'rgba(217, 119, 87, 0.06)'
-    const aiBgColor = themeVars.aiBg
+    const primaryGradient = themeVars.primaryGradient;
+    const bgContainer = themeVars.bgContainer;
+    const borderSecondary = themeVars.borderSecondary;
+    const textColor = themeVars.text;
+    const primaryColor = themeVars.primary;
+    const userBgColor = darkMode
+      ? "rgba(217, 119, 87, 0.12)"
+      : "rgba(217, 119, 87, 0.06)";
+    const aiBgColor = themeVars.aiBg;
 
     const items: any[] = messages
-      .filter(msg => msg.role !== 'system')
-      .map(msg => {
-        const isUser = msg.role === 'user'
+      .filter((msg) => msg.role !== "system")
+      .map((msg) => {
+        const isUser = msg.role === "user";
         return {
           key: msg.id,
-          role: isUser ? 'user' : 'ai',
+          role: isUser ? "user" : "ai",
           content: msg.content,
-          placement: isUser ? ('end' as const) : ('start' as const),
-          avatar: <ChatAvatar
-            isUser={isUser}
-            primaryGradient={primaryGradient}
-            aiBgColor={aiBgColor}
-            primaryColor={primaryColor}
-            themeVars={themeVars}
-          />,
-          // AI 消息使用 Markdown 渲染
-          contentRender: !isUser ? (content: string) => (
-            <MarkdownContent
-              content={content}
-              darkMode={darkMode}
-              textColor={textColor}
+          placement: isUser ? ("end" as const) : ("start" as const),
+          avatar: (
+            <ChatAvatar
+              isUser={isUser}
+              primaryGradient={primaryGradient}
+              aiBgColor={aiBgColor}
+              primaryColor={primaryColor}
+              themeVars={themeVars}
             />
-          ) : undefined,
+          ),
+          // AI 消息使用 Markdown 渲染
+          contentRender: !isUser
+            ? (content: string) => (
+                <MarkdownContent
+                  content={content}
+                  darkMode={darkMode}
+                  textColor={textColor}
+                />
+              )
+            : undefined,
           styles: {
             content: {
               background: isUser ? userBgColor : bgContainer,
-              borderRadius: isUser ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-              border: isUser ? 'none' : `1px solid ${borderSecondary}`,
+              borderRadius: isUser
+                ? "16px 16px 4px 16px"
+                : "16px 16px 16px 4px",
+              border: isUser ? "none" : `1px solid ${borderSecondary}`,
               color: textColor,
               fontSize: 14,
               lineHeight: 1.7,
-              whiteSpace: isUser ? ('pre-wrap' as const) : ('normal' as const),
-              wordBreak: 'break-word' as const
-            }
-          }
-        }
-      })
+              whiteSpace: isUser ? ("pre-wrap" as const) : ("normal" as const),
+              wordBreak: "break-word" as const,
+            },
+          },
+        };
+      });
 
     // 添加流式消息（带打字机效果）
     if (streamingMessage) {
       items.push({
-        key: 'streaming',
-        role: 'ai',
+        key: "streaming",
+        role: "ai",
         content: streamingMessage,
-        placement: 'start' as const,
+        placement: "start" as const,
         loading: true,
         // 打字机效果配置
         typing: {
           step: 5,
-          interval: 30
+          interval: 30,
         },
-        avatar: <ChatAvatar
-          isUser={false}
-          primaryGradient={primaryGradient}
-          aiBgColor={aiBgColor}
-          primaryColor={primaryColor}
-          themeVars={themeVars}
-        />,
+        avatar: (
+          <ChatAvatar
+            isUser={false}
+            primaryGradient={primaryGradient}
+            aiBgColor={aiBgColor}
+            primaryColor={primaryColor}
+            themeVars={themeVars}
+          />
+        ),
         // 流式消息也使用 Markdown 渲染
         contentRender: (content: string) => (
           <MarkdownContent
@@ -914,19 +1172,19 @@ const ChatView = (props: ChatViewProps) => {
         styles: {
           content: {
             background: bgContainer,
-            borderRadius: '16px 16px 16px 4px',
+            borderRadius: "16px 16px 16px 4px",
             border: `1px solid ${borderSecondary}`,
             color: textColor,
             fontSize: 14,
             lineHeight: 1.7,
-            whiteSpace: 'normal' as const,
-            wordBreak: 'break-word' as const
-          }
-        }
-      })
+            whiteSpace: "normal" as const,
+            wordBreak: "break-word" as const,
+          },
+        },
+      });
     }
 
-    return items
+    return items;
   }, [
     messages,
     streamingMessage,
@@ -935,113 +1193,125 @@ const ChatView = (props: ChatViewProps) => {
     themeVars.bgContainer,
     themeVars.borderSecondary,
     themeVars.text,
-    themeVars.primary
-  ])
+    themeVars.primary,
+  ]);
 
   // ==================== 渲染 ====================
 
   // 加载中
   if (settingsLoading) {
     return (
-      <div style={{
-        height: '100%',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: themeVars.bgLayout
-      }}>
+      <div
+        style={{
+          height: "100%",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: themeVars.bgLayout,
+        }}
+      >
         <Spin size="large" />
       </div>
-    )
+    );
   }
 
   // 渲染空状态
   const renderEmptyState = () => (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      alignItems: 'center',
-      justifyContent: 'center',
-      height: '100%',
-      padding: 48,
-      gap: 20
-    }}>
-      <div style={{
-        width: 80,
-        height: 80,
-        borderRadius: 20,
-        background: themeVars.primaryGradient,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        boxShadow: `0 8px 24px ${themeVars.primaryShadow}`
-      }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        height: "100%",
+        padding: 48,
+        gap: 20,
+      }}
+    >
+      <div
+        style={{
+          width: 80,
+          height: 80,
+          borderRadius: 20,
+          background: themeVars.primaryGradient,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          boxShadow: `0 8px 24px ${themeVars.primaryShadow}`,
+        }}
+      >
         <RobotOutlined style={{ fontSize: 36, color: themeVars.textWhite }} />
       </div>
 
-      <div style={{ textAlign: 'center' }}>
-        <div style={{
-          fontSize: 18,
-          fontWeight: 600,
-          color: themeVars.text,
-          marginBottom: 8
-        }}>
+      <div style={{ textAlign: "center" }}>
+        <div
+          style={{
+            fontSize: 18,
+            fontWeight: 600,
+            color: themeVars.text,
+            marginBottom: 8,
+          }}
+        >
           开始与 AI 助手对话
         </div>
-        <div style={{
-          fontSize: 13,
-          color: themeVars.textTertiary,
-          maxWidth: 320,
-          lineHeight: 1.6
-        }}>
+        <div
+          style={{
+            fontSize: 13,
+            color: themeVars.textTertiary,
+            maxWidth: 320,
+            lineHeight: 1.6,
+          }}
+        >
           你可以输入任何问题，或点击下方「引用」使用预设的提示词
         </div>
       </div>
 
-      <div style={{
-        display: 'flex',
-        gap: 12,
-        marginTop: 8,
-        flexWrap: 'wrap',
-        justifyContent: 'center'
-      }}>
+      <div
+        style={{
+          display: "flex",
+          gap: 12,
+          marginTop: 8,
+          flexWrap: "wrap",
+          justifyContent: "center",
+        }}
+      >
         {[
-          { icon: <ThunderboltOutlined />, text: '使用技巧' },
-          { icon: <SettingOutlined />, text: '配置指南' },
-          { icon: <ApiOutlined />, text: '最佳实践' }
+          { icon: <ThunderboltOutlined />, text: "使用技巧" },
+          { icon: <SettingOutlined />, text: "配置指南" },
+          { icon: <ApiOutlined />, text: "最佳实践" },
         ].map((item, i) => (
           <div
             key={i}
             onClick={() => {
               mentionInputRef.current?.setTextContent(
                 i === 0
-                  ? 'Claude Code 有哪些实用的使用技巧？'
+                  ? "Claude Code 有哪些实用的使用技巧？"
                   : i === 1
-                    ? '如何配置 Claude Code 的 settings.json？'
-                    : 'Claude Code 的最佳实践有哪些？'
-              )
-              mentionInputRef.current?.focus()
+                    ? "如何配置 Claude Code 的 settings.json？"
+                    : "Claude Code 的最佳实践有哪些？",
+              );
+              mentionInputRef.current?.focus();
             }}
             style={{
-              padding: '8px 16px',
+              padding: "8px 16px",
               borderRadius: 20,
               border: `1px solid ${themeVars.borderSecondary}`,
               background: themeVars.bgContainer,
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
               gap: 6,
               fontSize: 13,
               color: themeVars.textSecondary,
-              transition: 'all 0.2s'
+              transition: "all 0.2s",
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = themeVars.primary
-              e.currentTarget.style.color = themeVars.primary
+              e.currentTarget.style.borderColor = themeVars.primary;
+              e.currentTarget.style.color = themeVars.primary;
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = themeVars.borderSecondary
-              e.currentTarget.style.color = themeVars.textSecondary
+              e.currentTarget.style.borderColor = themeVars.borderSecondary;
+              e.currentTarget.style.color = themeVars.textSecondary;
             }}
           >
             {item.icon}
@@ -1050,77 +1320,109 @@ const ChatView = (props: ChatViewProps) => {
         ))}
       </div>
     </div>
-  )
+  );
 
   // 渲染引导页
   const renderGuidancePage = () => {
     return (
-      <div style={{
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        background: themeVars.bgLayout
-      }}>
+      <div
+        style={{
+          height: "100%",
+          display: "flex",
+          flexDirection: "column",
+          background: themeVars.bgLayout,
+        }}
+      >
         {/* 顶栏 */}
-        <div style={{
-          padding: '10px 24px',
-          background: themeVars.bgContainer,
-          borderBottom: `1px solid ${themeVars.borderSecondary}`,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 12
-        }}>
-          <div style={{
-            width: 28,
-            height: 28,
-            borderRadius: 8,
-            background: themeVars.primaryGradient,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0
-          }}>
-            <RobotOutlined style={{ fontSize: 14, color: themeVars.textWhite }} />
+        <div
+          style={{
+            padding: "10px 24px",
+            background: themeVars.bgContainer,
+            borderBottom: `1px solid ${themeVars.borderSecondary}`,
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+          }}
+        >
+          <div
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: 8,
+              background: themeVars.primaryGradient,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            <RobotOutlined
+              style={{ fontSize: 14, color: themeVars.textWhite }}
+            />
           </div>
           {!isCompact && (
-            <Text strong style={{ color: themeVars.text, fontSize: 15 }}>AI 助手</Text>
+            <Text strong style={{ color: themeVars.text, fontSize: 15 }}>
+              AI 助手
+            </Text>
           )}
         </div>
 
         {/* 引导内容 */}
-        <div style={{
-          flex: 1,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: 48
-        }}>
-          <div style={{
-            textAlign: 'center',
-            maxWidth: 400,
-            padding: '40px 48px',
-            background: themeVars.bgContainer,
-            borderRadius: 16,
-            border: `1px solid ${themeVars.borderSecondary}`
-          }}>
-            <div style={{
-              width: 64,
-              height: 64,
+        <div
+          style={{
+            flex: 1,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: 48,
+          }}
+        >
+          <div
+            style={{
+              textAlign: "center",
+              maxWidth: 400,
+              padding: "40px 48px",
+              background: themeVars.bgContainer,
               borderRadius: 16,
-              background: darkMode ? 'rgba(217, 119, 87, 0.12)' : 'rgba(217, 119, 87, 0.08)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              margin: '0 auto 20px'
-            }}>
+              border: `1px solid ${themeVars.borderSecondary}`,
+            }}
+          >
+            <div
+              style={{
+                width: 64,
+                height: 64,
+                borderRadius: 16,
+                background: darkMode
+                  ? "rgba(217, 119, 87, 0.12)"
+                  : "rgba(217, 119, 87, 0.08)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                margin: "0 auto 20px",
+              }}
+            >
               <ApiOutlined style={{ fontSize: 28, color: themeVars.primary }} />
             </div>
 
-            <div style={{ fontSize: 17, fontWeight: 600, color: themeVars.text, marginBottom: 8 }}>
+            <div
+              style={{
+                fontSize: 17,
+                fontWeight: 600,
+                color: themeVars.text,
+                marginBottom: 8,
+              }}
+            >
               AI 对话尚未配置
             </div>
 
-            <div style={{ fontSize: 13, color: themeVars.textSecondary, lineHeight: 1.6, marginBottom: 20 }}>
+            <div
+              style={{
+                fontSize: 13,
+                color: themeVars.textSecondary,
+                lineHeight: 1.6,
+                marginBottom: 20,
+              }}
+            >
               请先在应用设置中配置 API Key、API 地址和模型名称
             </div>
 
@@ -1135,8 +1437,8 @@ const ChatView = (props: ChatViewProps) => {
           </div>
         </div>
       </div>
-    )
-  }
+    );
+  };
 
   /* 渲染引用内容列表项（通用样式，支持关键词高亮） */
   const renderPickerItem = (
@@ -1145,149 +1447,186 @@ const ChatView = (props: ChatViewProps) => {
     content: string,
     extra?: React.ReactNode,
     onClick?: () => void,
-    keyword?: string
+    keyword?: string,
   ) => (
     <div
       key={key}
       onClick={onClick}
       style={{
-        padding: '10px 14px',
+        padding: "10px 14px",
         borderRadius: 8,
-        cursor: 'pointer',
-        border: '1px solid transparent',
-        background: 'transparent',
-        transition: 'all 0.15s'
+        cursor: "pointer",
+        border: "1px solid transparent",
+        background: "transparent",
+        transition: "all 0.15s",
       }}
       onMouseEnter={(e) => {
-        e.currentTarget.style.background = themeVars.hoverBg
-        e.currentTarget.style.borderColor = themeVars.borderSecondary
+        e.currentTarget.style.background = themeVars.hoverBg;
+        e.currentTarget.style.borderColor = themeVars.borderSecondary;
       }}
       onMouseLeave={(e) => {
-        e.currentTarget.style.background = 'transparent'
-        e.currentTarget.style.borderColor = 'transparent'
+        e.currentTarget.style.background = "transparent";
+        e.currentTarget.style.borderColor = "transparent";
       }}
     >
-      <div style={{
-        fontSize: 13,
-        fontWeight: 500,
-        color: themeVars.text,
-        marginBottom: 4,
-        display: 'flex',
-        alignItems: 'center',
-        gap: 6
-      }}>
-        {keyword ? highlightText(title, keyword, themeVars.primary, darkMode) : title}
+      <div
+        style={{
+          fontSize: 13,
+          fontWeight: 500,
+          color: themeVars.text,
+          marginBottom: 4,
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+        }}
+      >
+        {keyword
+          ? highlightText(title, keyword, themeVars.primary, darkMode)
+          : title}
         {extra}
       </div>
-      <div style={{
-        fontSize: 12,
-        color: themeVars.textTertiary,
-        lineHeight: 1.5,
-        display: '-webkit-box',
-        WebkitLineClamp: 2,
-        WebkitBoxOrient: 'vertical',
-        overflow: 'hidden',
-        whiteSpace: 'pre-wrap',
-        wordBreak: 'break-word'
-      }}>
-        {keyword ? highlightText(content, keyword, themeVars.primary, darkMode) : content}
+      <div
+        style={{
+          fontSize: 12,
+          color: themeVars.textTertiary,
+          lineHeight: 1.5,
+          display: "-webkit-box",
+          WebkitLineClamp: 2,
+          WebkitBoxOrient: "vertical",
+          overflow: "hidden",
+          whiteSpace: "pre-wrap",
+          wordBreak: "break-word",
+        }}
+      >
+        {keyword
+          ? highlightText(content, keyword, themeVars.primary, darkMode)
+          : content}
       </div>
     </div>
-  )
+  );
 
   // 渲染 Prompt 选择器弹窗内容（按 tab 区分）
   const renderPickerContent = () => {
     // ---- 常用 Prompt ----
-    if (promptSourceTab === 'prompts') {
+    if (promptSourceTab === "prompts") {
       if (commonPrompts.length === 0) {
-        return renderPickerEmpty(<StarOutlined />, '暂无常用 Prompt', '请先在「常用 Prompt」页面添加')
+        return renderPickerEmpty(
+          <StarOutlined />,
+          "暂无常用 Prompt",
+          "请先在「常用 Prompt」页面添加",
+        );
       }
       if (filteredPrompts.length === 0) {
-        return renderPickerEmpty(<SearchOutlined />, '未找到匹配的 Prompt')
+        return renderPickerEmpty(<SearchOutlined />, "未找到匹配的 Prompt");
       }
       return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {filteredPrompts.map(prompt =>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          {filteredPrompts.map((prompt) =>
             renderPickerItem(
               prompt.id,
               prompt.name,
               prompt.content,
-              prompt.pinned ? <PushpinFilled style={{ fontSize: 11, color: themeVars.warning }} /> : undefined,
+              prompt.pinned ? (
+                <PushpinFilled
+                  style={{ fontSize: 11, color: themeVars.warning }}
+                />
+              ) : undefined,
               () => handleUseContent(prompt.content),
-              promptSearchKeyword
-            )
+              promptSearchKeyword,
+            ),
           )}
         </div>
-      )
+      );
     }
 
     // ---- 实时消息 ----
-    if (promptSourceTab === 'realtime') {
+    if (promptSourceTab === "realtime") {
       if (realtimeRecords.length === 0) {
-        return renderPickerEmpty(<ThunderboltOutlined />, '暂无实时消息', '开启监控后，新的对话将出现在这里')
+        return renderPickerEmpty(
+          <ThunderboltOutlined />,
+          "暂无实时消息",
+          "开启监控后，新的对话将出现在这里",
+        );
       }
       if (filteredRealtimeRecords.length === 0) {
-        return renderPickerEmpty(<SearchOutlined />, '未找到匹配的消息')
+        return renderPickerEmpty(<SearchOutlined />, "未找到匹配的消息");
       }
       return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           {filteredRealtimeRecords.map((record, idx) =>
             renderPickerItem(
               `rt-${record.timestamp}-${idx}`,
               getProjectShortName(record.project),
               record.display,
-              <span style={{ fontSize: 11, color: themeVars.textTertiary, fontWeight: 400, marginLeft: 'auto' }}>
+              <span
+                style={{
+                  fontSize: 11,
+                  color: themeVars.textTertiary,
+                  fontWeight: 400,
+                  marginLeft: "auto",
+                }}
+              >
                 {formatTime(record.timestamp)}
               </span>,
               () => handleUseContent(record.display),
-              promptSearchKeyword
-            )
+              promptSearchKeyword,
+            ),
           )}
         </div>
-      )
+      );
     }
 
     // ---- 历史消息（扁平化展示每条 prompt） ----
-    if (promptSourceTab === 'history') {
+    if (promptSourceTab === "history") {
       if (historyLoading) {
         return (
-          <div style={{ textAlign: 'center', padding: '40px 0' }}>
+          <div style={{ textAlign: "center", padding: "40px 0" }}>
             <Spin size="default" />
           </div>
-        )
+        );
       }
 
       if (historySessionRecords.length === 0) {
-        return renderPickerEmpty(<ClockCircleOutlined />, '暂无历史消息')
+        return renderPickerEmpty(<ClockCircleOutlined />, "暂无历史消息");
       }
       if (filteredHistoryRecords.length === 0) {
-        return renderPickerEmpty(<SearchOutlined />, '未找到匹配的消息')
+        return renderPickerEmpty(<SearchOutlined />, "未找到匹配的消息");
       }
       return (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           {visibleHistoryRecords.map((record, idx) =>
             renderPickerItem(
               `hr-${record.timestamp}-${idx}`,
               getProjectShortName(record.project),
               record.display,
-              <span style={{ fontSize: 11, color: themeVars.textTertiary, fontWeight: 400, marginLeft: 'auto' }}>
+              <span
+                style={{
+                  fontSize: 11,
+                  color: themeVars.textTertiary,
+                  fontWeight: 400,
+                  marginLeft: "auto",
+                }}
+              >
                 {formatTime(record.timestamp)}
               </span>,
               () => handleUseContent(record.display),
-              promptSearchKeyword
-            )
+              promptSearchKeyword,
+            ),
           )}
 
           {/* 加载更多 / 统计信息 */}
-          <div style={{ textAlign: 'center', padding: '8px 0 4px' }}>
+          <div style={{ textAlign: "center", padding: "8px 0 4px" }}>
             {hasMoreHistory ? (
               <Button
                 type="link"
                 size="small"
-                onClick={() => setHistoryDisplayCount(prev => prev + HISTORY_PAGE_SIZE)}
+                onClick={() =>
+                  setHistoryDisplayCount((prev) => prev + HISTORY_PAGE_SIZE)
+                }
                 style={{ fontSize: 12, color: themeVars.textSecondary }}
               >
-                加载更多（已显示 {visibleHistoryRecords.length} / {filteredHistoryRecords.length} 条）
+                加载更多（已显示 {visibleHistoryRecords.length} /{" "}
+                {filteredHistoryRecords.length} 条）
               </Button>
             ) : (
               <span style={{ fontSize: 11, color: themeVars.textTertiary }}>
@@ -1296,66 +1635,86 @@ const ChatView = (props: ChatViewProps) => {
             )}
           </div>
         </div>
-      )
+      );
     }
 
-    return null
-  }
+    return null;
+  };
 
   // 渲染空状态（选择器内）
-  const renderPickerEmpty = (icon: React.ReactNode, title: string, desc?: string) => (
-    <div style={{
-      textAlign: 'center',
-      padding: '32px 20px',
-      color: themeVars.textTertiary
-    }}>
+  const renderPickerEmpty = (
+    icon: React.ReactNode,
+    title: string,
+    desc?: string,
+  ) => (
+    <div
+      style={{
+        textAlign: "center",
+        padding: "32px 20px",
+        color: themeVars.textTertiary,
+      }}
+    >
       <div style={{ fontSize: 28, marginBottom: 8, opacity: 0.3 }}>{icon}</div>
       <div style={{ fontSize: 13 }}>{title}</div>
       {desc && <div style={{ fontSize: 12, marginTop: 4 }}>{desc}</div>}
     </div>
-  )
+  );
 
   // AI 配置未完成
   if (!providerReady) {
-    return renderGuidancePage()
+    return renderGuidancePage();
   }
 
   // ==================== 正常聊天界面 ====================
   return (
-    <div style={{
-      height: '100%',
-      display: 'flex',
-      flexDirection: 'column',
-      background: themeVars.bgLayout
-    }}>
+    <div
+      style={{
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        background: themeVars.bgLayout,
+      }}
+    >
       {/* 顶部栏 */}
-      <div style={{
-        padding: '10px 24px',
-        background: themeVars.bgContainer,
-        borderBottom: `1px solid ${themeVars.borderSecondary}`,
-        display: 'flex',
-        alignItems: 'center',
-        gap: isCompact ? 8 : 12
-      }}>
+      <div
+        style={{
+          padding: "10px 24px",
+          background: themeVars.bgContainer,
+          borderBottom: `1px solid ${themeVars.borderSecondary}`,
+          display: "flex",
+          alignItems: "center",
+          gap: isCompact ? 8 : 12,
+        }}
+      >
         {/* 标题图标 */}
-        <div style={{
-          width: 28,
-          height: 28,
-          borderRadius: 8,
-          background: themeVars.primaryGradient,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexShrink: 0
-        }}>
+        <div
+          style={{
+            width: 28,
+            height: 28,
+            borderRadius: 8,
+            background: themeVars.primaryGradient,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+          }}
+        >
           <RobotOutlined style={{ fontSize: 14, color: themeVars.textWhite }} />
         </div>
         {/* 紧凑模式下隐藏标题文案 */}
         {!isCompact && (
-          <Text strong style={{ color: themeVars.text, fontSize: 15 }}>AI 助手</Text>
+          <Text strong style={{ color: themeVars.text, fontSize: 15 }}>
+            AI 助手
+          </Text>
         )}
 
-        <div style={{ width: 1, height: 16, background: themeVars.borderSecondary }} />
+        <div
+          style={{
+            width: 1,
+            height: 16,
+            background: themeVars.borderSecondary,
+          }}
+        />
 
         {/* 系统提示词 */}
         <Select
@@ -1366,7 +1725,7 @@ const ChatView = (props: ChatViewProps) => {
           variant="borderless"
           options={Object.entries(SYSTEM_PROMPTS).map(([key, value]) => ({
             label: value.name,
-            value: key
+            value: key,
           }))}
         />
 
@@ -1378,9 +1737,11 @@ const ChatView = (props: ChatViewProps) => {
               fontSize: 11,
               borderRadius: 4,
               color: themeVars.textTertiary,
-              background: darkMode ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)',
-              border: 'none',
-              lineHeight: '20px'
+              background: darkMode
+                ? "rgba(255,255,255,0.06)"
+                : "rgba(0,0,0,0.04)",
+              border: "none",
+              lineHeight: "20px",
             }}
           >
             {currentModelName}
@@ -1389,31 +1750,75 @@ const ChatView = (props: ChatViewProps) => {
 
         <div style={{ flex: 1 }} />
 
-        {/* 清空 */}
-        <Tooltip title="清空对话">
+        {/* 导出按钮（仅在有对话时显示） */}
+        {(messages.length > 0 || streamingMessage) && (
+          <Dropdown
+            menu={{
+              items: [
+                {
+                  key: 'pdf',
+                  label: 'PDF 格式',
+                  onClick: () => handleExport('pdf'),
+                },
+                {
+                  key: 'html',
+                  label: 'HTML 格式',
+                  onClick: () => handleExport('html'),
+                },
+                {
+                  key: 'markdown',
+                  label: 'Markdown 格式',
+                  onClick: () => handleExport('markdown'),
+                },
+                {
+                  key: 'word',
+                  label: 'Word 格式',
+                  onClick: () => handleExport('word'),
+                },
+              ],
+            }}
+            placement="bottomRight"
+          >
+            <Button
+              type="text"
+              icon={<DownloadOutlined />}
+              style={{
+                color: themeVars.textTertiary,
+                width: 32,
+                height: 32,
+                padding: 0,
+                borderRadius: 8,
+              }}
+            />
+          </Dropdown>
+        )}
+
+        {/* 清空按钮（仅在有对话时显示） */}
+        {(messages.length > 0 || streamingMessage) && (
           <Button
             type="text"
             icon={<ClearOutlined />}
             onClick={handleClear}
-            disabled={messages.length === 0 && !streamingMessage}
             style={{
               color: themeVars.textTertiary,
               width: 32,
               height: 32,
               padding: 0,
-              borderRadius: 8
+              borderRadius: 8,
             }}
           />
-        </Tooltip>
+        )}
       </div>
 
       {/* 自定义系统提示词 */}
-      {systemPromptType === 'custom' && (
-        <div style={{
-          padding: '10px 24px',
-          background: themeVars.bgContainer,
-          borderBottom: `1px solid ${themeVars.borderSecondary}`
-        }}>
+      {systemPromptType === "custom" && (
+        <div
+          style={{
+            padding: "10px 24px",
+            background: themeVars.bgContainer,
+            borderBottom: `1px solid ${themeVars.borderSecondary}`,
+          }}
+        >
           <TextArea
             value={customSystemPrompt}
             onChange={(e) => setCustomSystemPrompt(e.target.value)}
@@ -1421,8 +1826,10 @@ const ChatView = (props: ChatViewProps) => {
             autoSize={{ minRows: 2, maxRows: 4 }}
             style={{
               borderRadius: 8,
-              background: darkMode ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.02)',
-              border: `1px solid ${themeVars.borderSecondary}`
+              background: darkMode
+                ? "rgba(255,255,255,0.04)"
+                : "rgba(0,0,0,0.02)",
+              border: `1px solid ${themeVars.borderSecondary}`,
             }}
           />
         </div>
@@ -1433,23 +1840,24 @@ const ChatView = (props: ChatViewProps) => {
         ref={messagesEndRef}
         style={{
           flex: 1,
-          overflow: 'auto',
-          padding: isCompact ? '20px 16px' : '24px 32px'
+          overflow: "auto",
+          padding: isCompact ? "20px 16px" : "24px 32px",
         }}
       >
         {messages.length === 0 && !streamingMessage ? (
           renderEmptyState()
         ) : (
-          <Bubble.List
-            items={bubbleItems}
-            style={{ minHeight: '100%' }}
-          />
+          <Bubble.List items={bubbleItems} style={{ minHeight: "100%" }} />
         )}
       </div>
 
       {/* 输入区域 */}
-      <div style={{ padding: isCompact ? '12px 16px 16px' : '12px 32px 20px', position: 'relative' }}>
-
+      <div
+        style={{
+          padding: isCompact ? "12px 16px 16px" : "12px 32px 20px",
+          position: "relative",
+        }}
+      >
         {/* @ 引用弹窗（浮动在输入框上方） */}
         <MentionPopup
           visible={mentionPopupVisible}
@@ -1464,19 +1872,23 @@ const ChatView = (props: ChatViewProps) => {
           onDismiss={handleMentionDismiss}
         />
 
-        <div style={{
-          border: `1px solid ${inputFocused ? themeVars.primary : themeVars.borderSecondary}`,
-          borderRadius: 12,
-          background: themeVars.bgContainer,
-          transition: 'border-color 0.2s, box-shadow 0.2s',
-          boxShadow: inputFocused ? `0 0 0 2px ${themeVars.primaryShadow}` : 'none',
-          overflow: 'hidden',
-          minHeight: 100
-        }}>
+        <div
+          style={{
+            border: `1px solid ${inputFocused ? themeVars.primary : themeVars.borderSecondary}`,
+            borderRadius: 12,
+            background: themeVars.bgContainer,
+            transition: "border-color 0.2s, box-shadow 0.2s",
+            boxShadow: inputFocused
+              ? `0 0 0 2px ${themeVars.primaryShadow}`
+              : "none",
+            overflow: "hidden",
+            minHeight: 100,
+          }}
+        >
           <MentionInput
             ref={mentionInputRef}
             darkMode={darkMode}
-            disabled={isLoading}
+            disabled={false}
             mentionPopupVisible={mentionPopupVisible}
             placeholder="输入消息，输入 @ 引用内容... (Shift+Enter 换行)"
             onSend={handleSend}
@@ -1489,12 +1901,14 @@ const ChatView = (props: ChatViewProps) => {
           />
 
           {/* 底部操作栏 */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            padding: '4px 8px 8px',
-            gap: 4
-          }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              padding: "4px 8px 8px",
+              gap: 4,
+            }}
+          >
             <Tooltip title="从实时消息、历史消息、常用 Prompt 中选取">
               <Button
                 type="text"
@@ -1506,18 +1920,24 @@ const ChatView = (props: ChatViewProps) => {
                   color: themeVars.textTertiary,
                   borderRadius: 6,
                   fontSize: 13,
-                  height: 28
+                  height: 28,
                 }}
               >
                 {/* 紧凑模式隐藏文案 */}
-                {!isCompact && '引用'}
+                {!isCompact && "引用"}
               </Button>
             </Tooltip>
 
             <div style={{ flex: 1 }} />
 
             {textLength > 0 && (
-              <Text style={{ fontSize: 11, color: themeVars.textTertiary, marginRight: 4 }}>
+              <Text
+                style={{
+                  fontSize: 11,
+                  color: themeVars.textTertiary,
+                  marginRight: 4,
+                }}
+              >
                 {textLength} 字
               </Text>
             )}
@@ -1534,10 +1954,10 @@ const ChatView = (props: ChatViewProps) => {
                 paddingInline: isCompact ? 10 : 14,
                 fontSize: 13,
                 opacity: isLoading ? 0.6 : 1,
-                cursor: isLoading ? 'not-allowed' : 'pointer'
+                cursor: isLoading ? "not-allowed" : "pointer",
               }}
             >
-              {!isCompact && '发送'}
+              {!isCompact && "发送"}
             </Button>
           </div>
         </div>
@@ -1547,31 +1967,35 @@ const ChatView = (props: ChatViewProps) => {
       <ElectronModal
         open={promptPickerVisible}
         onCancel={() => {
-          setPromptPickerVisible(false)
-          setPromptSearchKeyword('')
+          setPromptPickerVisible(false);
+          setPromptSearchKeyword("");
         }}
         footer={null}
         closable={false}
         width={560}
-        style={{ top: '12%' }}
+        style={{ top: "12%" }}
         styles={{ body: { padding: 0 } as React.CSSProperties }}
       >
-        <div style={{ padding: '16px 20px' }}>
+        <div style={{ padding: "16px 20px" }}>
           {/* 标题 + 关闭 */}
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            marginBottom: 12
-          }}>
-            <Text strong style={{ fontSize: 15, color: themeVars.text }}>引用内容</Text>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: 12,
+            }}
+          >
+            <Text strong style={{ fontSize: 15, color: themeVars.text }}>
+              引用内容
+            </Text>
             <Button
               type="text"
               size="small"
               icon={<CloseOutlined />}
               onClick={() => {
-                setPromptPickerVisible(false)
-                setPromptSearchKeyword('')
+                setPromptPickerVisible(false);
+                setPromptSearchKeyword("");
               }}
               style={{ color: themeVars.textTertiary }}
             />
@@ -1582,9 +2006,21 @@ const ChatView = (props: ChatViewProps) => {
             value={promptSourceTab}
             onChange={(val) => handleTabChange(val as PromptSourceTab)}
             options={[
-              { label: '常用 Prompt', value: 'prompts', icon: <StarOutlined /> },
-              { label: '实时消息', value: 'realtime', icon: <ThunderboltOutlined /> },
-              { label: '历史消息', value: 'history', icon: <ClockCircleOutlined /> }
+              {
+                label: "常用 Prompt",
+                value: "prompts",
+                icon: <StarOutlined />,
+              },
+              {
+                label: "实时消息",
+                value: "realtime",
+                icon: <ThunderboltOutlined />,
+              },
+              {
+                label: "历史消息",
+                value: "history",
+                icon: <ClockCircleOutlined />,
+              },
             ]}
             block
             style={{ marginBottom: 12 }}
@@ -1595,23 +2031,29 @@ const ChatView = (props: ChatViewProps) => {
             <Input
               ref={promptSearchRef}
               placeholder={
-                promptSourceTab === 'prompts'
-                  ? '搜索 Prompt...'
-                  : promptSourceTab === 'realtime'
-                    ? '搜索实时消息...'
-                    : '搜索历史消息...'
+                promptSourceTab === "prompts"
+                  ? "搜索 Prompt..."
+                  : promptSourceTab === "realtime"
+                    ? "搜索实时消息..."
+                    : "搜索历史消息..."
               }
               value={promptSearchKeyword}
               onChange={(e) => {
-                setPromptSearchKeyword(e.target.value)
-                setHistoryDisplayCount(HISTORY_PAGE_SIZE)
+                setPromptSearchKeyword(e.target.value);
+                setHistoryDisplayCount(HISTORY_PAGE_SIZE);
               }}
-              prefix={<SearchOutlined style={{ color: themeVars.textTertiary }} />}
+              prefix={
+                <SearchOutlined style={{ color: themeVars.textTertiary }} />
+              }
               suffix={
                 promptSearchKeyword ? (
                   <CloseOutlined
-                    style={{ fontSize: 12, color: themeVars.textTertiary, cursor: 'pointer' }}
-                    onClick={() => setPromptSearchKeyword('')}
+                    style={{
+                      fontSize: 12,
+                      color: themeVars.textTertiary,
+                      cursor: "pointer",
+                    }}
+                    onClick={() => setPromptSearchKeyword("")}
                   />
                 ) : null
               }
@@ -1621,7 +2063,7 @@ const ChatView = (props: ChatViewProps) => {
           </div>
 
           {/* 列表内容 */}
-          <div style={{ maxHeight: 360, overflow: 'auto' }}>
+          <div style={{ maxHeight: 360, overflow: "auto" }}>
             {renderPickerContent()}
           </div>
         </div>
@@ -1635,23 +2077,23 @@ const ChatView = (props: ChatViewProps) => {
           padding: 1px 8px;
           margin: 0 2px;
           border-radius: 4px;
-          background: ${darkMode ? 'rgba(217, 119, 87, 0.15)' : 'rgba(217, 119, 87, 0.08)'};
+          background: ${darkMode ? "rgba(217, 119, 87, 0.15)" : "rgba(217, 119, 87, 0.08)"};
           color: ${themeVars.primaryLight};
           font-size: 13px;
           line-height: 1.6;
           cursor: default;
           user-select: none;
           vertical-align: baseline;
-          border: 1px solid ${darkMode ? 'rgba(217, 119, 87, 0.3)' : 'rgba(217, 119, 87, 0.2)'};
+          border: 1px solid ${darkMode ? "rgba(217, 119, 87, 0.3)" : "rgba(217, 119, 87, 0.2)"};
           font-weight: 500;
           white-space: nowrap;
         }
         .mention-tag:hover {
-          background: ${darkMode ? 'rgba(217, 119, 87, 0.25)' : 'rgba(217, 119, 87, 0.15)'};
+          background: ${darkMode ? "rgba(217, 119, 87, 0.25)" : "rgba(217, 119, 87, 0.15)"};
         }
       `}</style>
     </div>
-  )
-}
+  );
+};
 
-export default ChatView
+export default ChatView;

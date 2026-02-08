@@ -3214,3 +3214,567 @@ function add(a, b) {
     }
   },
 );
+
+// ========== 导出 AI 对话历史 ==========
+ipcMain.handle(
+  "export-chat-history",
+  async (
+    _,
+    request: {
+      messages: Array<{ role: string; content: string; timestamp: number }>;
+      format: "pdf" | "html" | "markdown" | "word";
+    },
+  ): Promise<{ success: boolean; filePath?: string; error?: string }> => {
+    try {
+      const { messages, format } = request;
+
+      // 过滤掉系统消息
+      const chatMessages = messages.filter((msg) => msg.role !== "system");
+
+      if (chatMessages.length === 0) {
+        return { success: false, error: "没有可导出的对话" };
+      }
+
+      // 选择保存路径
+      const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+      const extensions: Record<typeof format, string> = {
+        pdf: "pdf",
+        html: "html",
+        markdown: "md",
+        word: "docx",
+      };
+
+      const result = await dialog.showSaveDialog({
+        title: "导出对话历史",
+        defaultPath: `Claude-Chat-${timestamp}.${extensions[format]}`,
+        filters: [
+          { name: "导出文件", extensions: [extensions[format]] },
+          { name: "所有文件", extensions: ["*"] },
+        ],
+      });
+
+      if (result.canceled || !result.filePath) {
+        return { success: false, error: "用户取消操作" };
+      }
+
+      const filePath = result.filePath;
+
+      // 根据格式生成内容
+      if (format === "markdown") {
+        const mdContent = generateMarkdown(chatMessages);
+        fs.writeFileSync(filePath, mdContent, "utf-8");
+      } else if (format === "html") {
+        const htmlContent = generateHTML(chatMessages);
+        fs.writeFileSync(filePath, htmlContent, "utf-8");
+      } else if (format === "pdf") {
+        // 生成 HTML 然后转换为 PDF
+        const htmlContent = generateHTML(chatMessages);
+        const tempHtmlPath = path.join(
+          app.getPath("temp"),
+          `chat-${Date.now()}.html`,
+        );
+        fs.writeFileSync(tempHtmlPath, htmlContent, "utf-8");
+
+        // 使用 Electron 的打印功能生成 PDF
+        const win = new BrowserWindow({ show: false });
+        await win.loadFile(tempHtmlPath);
+        const pdfData = await win.webContents.printToPDF({
+          printBackground: true,
+          margins: {
+            top: 0.5,
+            bottom: 0.5,
+            left: 0.5,
+            right: 0.5,
+          },
+        });
+        fs.writeFileSync(filePath, pdfData);
+        win.close();
+
+        // 清理临时文件
+        fs.unlinkSync(tempHtmlPath);
+      } else if (format === "word") {
+        // 对于 Word 格式,生成简单的 HTML (可以被 Word 打开)
+        const htmlContent = generateHTML(chatMessages);
+        fs.writeFileSync(filePath, htmlContent, "utf-8");
+      }
+
+      return { success: true, filePath };
+    } catch (error: any) {
+      console.error("导出对话历史失败:", error);
+      return { success: false, error: error.message || "导出失败" };
+    }
+  },
+);
+
+// 生成 Markdown 格式
+function generateMarkdown(
+  messages: Array<{ role: string; content: string; timestamp: number }>,
+): string {
+  const lines: string[] = [];
+
+  lines.push("# AI 对话历史");
+  lines.push("");
+  lines.push(`导出时间: ${new Date().toLocaleString("zh-CN")}`);
+  lines.push("");
+  lines.push("---");
+  lines.push("");
+
+  messages.forEach((msg, index) => {
+    const role = msg.role === "user" ? "👤 用户" : "🤖 AI 助手";
+    const time = new Date(msg.timestamp).toLocaleString("zh-CN");
+
+    lines.push(`## ${role}`);
+    lines.push("");
+    lines.push(`*时间: ${time}*`);
+    lines.push("");
+    lines.push(msg.content);
+    lines.push("");
+
+    if (index < messages.length - 1) {
+      lines.push("---");
+      lines.push("");
+    }
+  });
+
+  return lines.join("\n");
+}
+
+// 生成 HTML 格式
+function generateHTML(
+  messages: Array<{ role: string; content: string; timestamp: number }>,
+): string {
+  const escapeHtml = (text: string) =>
+    text
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+
+  /**
+   * 基于正则的语法高亮器
+   * 将代码文本中的 token 包裹在对应的 <span> 中以实现语法着色
+   */
+  const highlightCode = (code: string, language: string): string => {
+    /* 通用关键字集合（覆盖 JS/TS/Python/Java/Go/Rust/C 等主流语言） */
+    const keywordSets: Record<string, string[]> = {
+      javascript: [
+        'abstract','arguments','async','await','break','case','catch','class','const',
+        'continue','debugger','default','delete','do','else','enum','export','extends',
+        'false','finally','for','from','function','if','implements','import','in',
+        'instanceof','interface','let','new','null','of','package','private','protected',
+        'public','return','static','super','switch','this','throw','true','try','typeof',
+        'undefined','var','void','while','with','yield',
+      ],
+      typescript: [
+        'abstract','any','as','async','await','boolean','break','case','catch','class',
+        'const','constructor','continue','debugger','declare','default','delete','do',
+        'else','enum','export','extends','false','finally','for','from','function','get',
+        'if','implements','import','in','infer','instanceof','interface','is','keyof',
+        'let','module','namespace','never','new','null','number','object','of','package',
+        'private','protected','public','readonly','return','set','static','string','super',
+        'switch','symbol','this','throw','true','try','type','typeof','undefined','unique',
+        'unknown','var','void','while','with','yield',
+      ],
+      python: [
+        'False','None','True','and','as','assert','async','await','break','class',
+        'continue','def','del','elif','else','except','finally','for','from','global',
+        'if','import','in','is','lambda','nonlocal','not','or','pass','raise','return',
+        'try','while','with','yield','self','print',
+      ],
+      java: [
+        'abstract','assert','boolean','break','byte','case','catch','char','class',
+        'const','continue','default','do','double','else','enum','extends','final',
+        'finally','float','for','goto','if','implements','import','instanceof','int',
+        'interface','long','native','new','null','package','private','protected','public',
+        'return','short','static','strictfp','super','switch','synchronized','this',
+        'throw','throws','transient','try','void','volatile','while','true','false',
+      ],
+      go: [
+        'break','case','chan','const','continue','default','defer','else','fallthrough',
+        'for','func','go','goto','if','import','interface','map','package','range',
+        'return','select','struct','switch','type','var','true','false','nil',
+      ],
+      rust: [
+        'as','async','await','break','const','continue','crate','dyn','else','enum',
+        'extern','false','fn','for','if','impl','in','let','loop','match','mod','move',
+        'mut','pub','ref','return','self','Self','static','struct','super','trait','true',
+        'type','unsafe','use','where','while',
+      ],
+      c: [
+        'auto','break','case','char','const','continue','default','do','double','else',
+        'enum','extern','float','for','goto','if','inline','int','long','register',
+        'restrict','return','short','signed','sizeof','static','struct','switch','typedef',
+        'union','unsigned','void','volatile','while','NULL','true','false',
+      ],
+      cpp: [
+        'alignas','alignof','and','and_eq','asm','auto','bitand','bitor','bool','break',
+        'case','catch','char','char8_t','char16_t','char32_t','class','compl','concept',
+        'const','consteval','constexpr','constinit','const_cast','continue','co_await',
+        'co_return','co_yield','decltype','default','delete','do','double','dynamic_cast',
+        'else','enum','explicit','export','extern','false','float','for','friend','goto',
+        'if','inline','int','long','mutable','namespace','new','noexcept','not','not_eq',
+        'nullptr','operator','or','or_eq','private','protected','public','register',
+        'reinterpret_cast','requires','return','short','signed','sizeof','static',
+        'static_assert','static_cast','struct','switch','template','this','thread_local',
+        'throw','true','try','typedef','typeid','typename','union','unsigned','using',
+        'virtual','void','volatile','wchar_t','while','xor','xor_eq',
+      ],
+      ruby: [
+        'BEGIN','END','alias','and','begin','break','case','class','def','defined?',
+        'do','else','elsif','end','ensure','false','for','if','in','module','next',
+        'nil','not','or','redo','rescue','retry','return','self','super','then','true',
+        'undef','unless','until','when','while','yield',
+      ],
+      swift: [
+        'associatedtype','class','deinit','enum','extension','fileprivate','func','import',
+        'init','inout','internal','let','open','operator','private','protocol','public',
+        'rethrows','static','struct','subscript','typealias','var','break','case',
+        'continue','default','defer','do','else','fallthrough','for','guard','if','in',
+        'repeat','return','switch','where','while','as','catch','false','is','nil',
+        'super','self','Self','throw','throws','true','try','async','await',
+      ],
+      sql: [
+        'SELECT','FROM','WHERE','INSERT','INTO','VALUES','UPDATE','SET','DELETE','DROP',
+        'CREATE','TABLE','ALTER','ADD','COLUMN','INDEX','VIEW','AND','OR','NOT','NULL',
+        'IS','IN','BETWEEN','LIKE','ORDER','BY','GROUP','HAVING','JOIN','INNER','LEFT',
+        'RIGHT','OUTER','ON','AS','DISTINCT','COUNT','SUM','AVG','MIN','MAX','LIMIT',
+        'OFFSET','UNION','ALL','EXISTS','CASE','WHEN','THEN','ELSE','END','PRIMARY',
+        'KEY','FOREIGN','REFERENCES','CONSTRAINT','DEFAULT','CHECK','UNIQUE',
+        'select','from','where','insert','into','values','update','set','delete','drop',
+        'create','table','alter','add','column','index','view','and','or','not','null',
+        'is','in','between','like','order','by','group','having','join','inner','left',
+        'right','outer','on','as','distinct','count','sum','avg','min','max','limit',
+        'offset','union','all','exists','case','when','then','else','end','primary',
+        'key','foreign','references','constraint','default','check','unique',
+      ],
+      shell: [
+        'if','then','else','elif','fi','case','esac','for','while','until','do','done',
+        'in','function','select','time','coproc','echo','read','exit','return','export',
+        'local','declare','typeset','readonly','unset','shift','set','source','alias',
+      ],
+      bash: [
+        'if','then','else','elif','fi','case','esac','for','while','until','do','done',
+        'in','function','select','time','coproc','echo','read','exit','return','export',
+        'local','declare','typeset','readonly','unset','shift','set','source','alias',
+      ],
+    };
+
+    /* 根据语言选择关键字，回退到 JS/TS 通用关键字 */
+    const lang = language.toLowerCase();
+    const keywords = keywordSets[lang] || keywordSets['javascript'] || [];
+    const keywordSet = new Set(keywords);
+
+    /* 是否区分大小写（SQL 不区分） */
+    const caseSensitive = lang !== 'sql';
+
+    /**
+     * 分词+高亮核心逻辑
+     * 按优先级匹配：注释 > 字符串 > 数字 > 关键字/标识符 > 运算符 > 其他
+     */
+    const tokens: string[] = [];
+    let i = 0;
+
+    while (i < code.length) {
+      /* ---- 多行注释 ---- */
+      if (code[i] === '/' && code[i + 1] === '*') {
+        let end = code.indexOf('*/', i + 2);
+        if (end === -1) end = code.length;
+        else end += 2;
+        tokens.push(`<span class="hl-comment">${code.slice(i, end)}</span>`);
+        i = end;
+        continue;
+      }
+
+      /* ---- 单行注释 // ---- */
+      if (code[i] === '/' && code[i + 1] === '/') {
+        let end = code.indexOf('\n', i);
+        if (end === -1) end = code.length;
+        tokens.push(`<span class="hl-comment">${code.slice(i, end)}</span>`);
+        i = end;
+        continue;
+      }
+
+      /* ---- Python/Shell # 注释 ---- */
+      if (code[i] === '#' && ['python', 'ruby', 'shell', 'bash', 'yaml', 'yml'].includes(lang)) {
+        let end = code.indexOf('\n', i);
+        if (end === -1) end = code.length;
+        tokens.push(`<span class="hl-comment">${code.slice(i, end)}</span>`);
+        i = end;
+        continue;
+      }
+
+      /* ---- SQL -- 注释 ---- */
+      if (code[i] === '-' && code[i + 1] === '-' && lang === 'sql') {
+        let end = code.indexOf('\n', i);
+        if (end === -1) end = code.length;
+        tokens.push(`<span class="hl-comment">${code.slice(i, end)}</span>`);
+        i = end;
+        continue;
+      }
+
+      /* ---- 模板字符串 ---- */
+      if (code[i] === '`' && ['javascript', 'typescript', 'js', 'ts', 'jsx', 'tsx'].includes(lang)) {
+        let j = i + 1;
+        while (j < code.length) {
+          if (code[j] === '\\') { j += 2; continue; }
+          if (code[j] === '`') { j++; break; }
+          j++;
+        }
+        tokens.push(`<span class="hl-string">${code.slice(i, j)}</span>`);
+        i = j;
+        continue;
+      }
+
+      /* ---- 字符串 (双引号 / 单引号) ---- */
+      if (code[i] === '"' || code[i] === "'") {
+        const quote = code[i];
+        let j = i + 1;
+        while (j < code.length) {
+          if (code[j] === '\\') { j += 2; continue; }
+          if (code[j] === quote) { j++; break; }
+          if (code[j] === '\n') { j++; break; }
+          j++;
+        }
+        tokens.push(`<span class="hl-string">${code.slice(i, j)}</span>`);
+        i = j;
+        continue;
+      }
+
+      /* ---- Python 三引号字符串 ---- */
+      if ((code.slice(i, i + 3) === '"""' || code.slice(i, i + 3) === "'''") && ['python'].includes(lang)) {
+        const triple = code.slice(i, i + 3);
+        let j = i + 3;
+        const end = code.indexOf(triple, j);
+        if (end === -1) j = code.length;
+        else j = end + 3;
+        tokens.push(`<span class="hl-string">${code.slice(i, j)}</span>`);
+        i = j;
+        continue;
+      }
+
+      /* ---- 数字 ---- */
+      if (/[0-9]/.test(code[i]) && (i === 0 || !/[a-zA-Z_$]/.test(code[i - 1]))) {
+        let j = i;
+        /* 十六进制 / 二进制 / 八进制 */
+        if (code[i] === '0' && code[i + 1] && /[xXbBoO]/.test(code[i + 1])) {
+          j += 2;
+          while (j < code.length && /[0-9a-fA-F_]/.test(code[j])) j++;
+        } else {
+          while (j < code.length && /[0-9._eE]/.test(code[j])) j++;
+        }
+        /* 后缀 n (BigInt)、f/F/L (C/Java) */
+        if (j < code.length && /[nfFlLuU]/.test(code[j])) j++;
+        tokens.push(`<span class="hl-number">${code.slice(i, j)}</span>`);
+        i = j;
+        continue;
+      }
+
+      /* ---- 标识符 / 关键字 ---- */
+      if (/[a-zA-Z_$@]/.test(code[i])) {
+        let j = i;
+        while (j < code.length && /[a-zA-Z0-9_$?]/.test(code[j])) j++;
+        const word = code.slice(i, j);
+        const isKeyword = caseSensitive ? keywordSet.has(word) : keywordSet.has(word.toLowerCase()) || keywordSet.has(word);
+
+        if (isKeyword) {
+          tokens.push(`<span class="hl-keyword">${word}</span>`);
+        } else {
+          /* 检查是否为函数调用（后面紧跟括号） */
+          let k = j;
+          while (k < code.length && code[k] === ' ') k++;
+          if (k < code.length && code[k] === '(') {
+            tokens.push(`<span class="hl-function">${word}</span>`);
+          } else {
+            tokens.push(word);
+          }
+        }
+        i = j;
+        continue;
+      }
+
+      /* ---- 运算符 ---- */
+      if (/[+\-*/%=<>!&|^~?:.]/.test(code[i])) {
+        let j = i;
+        while (j < code.length && /[+\-*/%=<>!&|^~?:.]/.test(code[j]) && j - i < 3) j++;
+        tokens.push(`<span class="hl-operator">${code.slice(i, j)}</span>`);
+        i = j;
+        continue;
+      }
+
+      /* ---- 其余字符原样输出 ---- */
+      tokens.push(code[i]);
+      i++;
+    }
+
+    return tokens.join('');
+  };
+
+  const formatContent = (content: string) => {
+    // 简单的 Markdown 转 HTML (支持代码块)
+    let html = escapeHtml(content);
+
+    // 代码块 - 使用语言标记并添加语言标签，并应用语法高亮
+    html = html.replace(
+      /```(\w+)?\n([\s\S]*?)```/g,
+      (_, lang, code) => {
+        const language = lang || 'text';
+        const langDisplay = language.toUpperCase();
+        const highlightedCode = highlightCode(code, language);
+        return `<pre data-lang="${langDisplay}"><code class="language-${language}">${highlightedCode}</code></pre>`;
+      },
+    );
+
+    // 行内代码
+    html = html.replace(/`([^`]+)`/g, "<code class='inline-code'>$1</code>");
+
+    // 换行 (但不要破坏 pre 标签内的换行)
+    html = html.replace(/\n(?![^<]*<\/pre>)/g, "<br>");
+
+    return html;
+  };
+
+  const messageHtml = messages
+    .map((msg) => {
+      const isUser = msg.role === "user";
+      const role = isUser ? "👤 用户" : "🤖 AI 助手";
+      const time = new Date(msg.timestamp).toLocaleString("zh-CN");
+      const bgColor = isUser ? "#f0f4f8" : "#ffffff";
+      const borderColor = isUser ? "#d97757" : "#e0e0e0";
+
+      return `
+      <div class="message ${isUser ? "user" : "assistant"}" style="
+        margin-bottom: 20px;
+        padding: 15px 20px;
+        border-left: 4px solid ${borderColor};
+        background: ${bgColor};
+        border-radius: 8px;
+      ">
+        <div class="role" style="
+          font-weight: 600;
+          font-size: 14px;
+          color: #333;
+          margin-bottom: 8px;
+        ">${role}</div>
+        <div class="time" style="
+          font-size: 12px;
+          color: #666;
+          margin-bottom: 12px;
+        ">${time}</div>
+        <div class="content" style="
+          line-height: 1.7;
+          color: #333;
+          font-size: 14px;
+        ">${formatContent(msg.content)}</div>
+      </div>
+    `;
+    })
+    .join("");
+
+  return `
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 对话历史</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      line-height: 1.6;
+      color: #333;
+      background: #f9fafb;
+      padding: 40px 20px;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      padding: 40px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    h1 {
+      font-size: 28px;
+      font-weight: 700;
+      color: #1a1a1a;
+      margin-bottom: 12px;
+    }
+    .export-info {
+      font-size: 13px;
+      color: #666;
+      margin-bottom: 30px;
+      padding-bottom: 20px;
+      border-bottom: 2px solid #e0e0e0;
+    }
+    .inline-code {
+      background: #f0f0f0;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: "SF Mono", "Fira Code", "Consolas", "Monaco", "Courier New", monospace;
+      font-size: 0.9em;
+      color: #d97757;
+      border: 1px solid #e0e0e0;
+    }
+    pre {
+      background: #1e1e2e;
+      padding: 40px 20px 16px 20px;
+      border-radius: 8px;
+      overflow-x: auto;
+      margin: 12px 0;
+      border: 1px solid #313244;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      position: relative;
+    }
+    pre code {
+      color: #cdd6f4;
+      background: none;
+      padding: 0;
+      font-family: "SF Mono", "Fira Code", "Consolas", "Monaco", "Courier New", monospace;
+      font-size: 13px;
+      line-height: 1.65;
+      display: block;
+      white-space: pre;
+      word-wrap: normal;
+      tab-size: 2;
+    }
+
+    /* 语法高亮样式 - Catppuccin Mocha 风格 */
+    .hl-keyword { color: #cba6f7; font-weight: 600; }
+    .hl-string { color: #a6e3a1; }
+    .hl-number { color: #fab387; }
+    .hl-comment { color: #6c7086; font-style: italic; }
+    .hl-function { color: #89b4fa; }
+    .hl-operator { color: #89dceb; }
+
+    /* 代码块语言标签 */
+    pre::before {
+      content: attr(data-lang);
+      position: absolute;
+      top: 10px;
+      right: 14px;
+      font-size: 11px;
+      color: #6c7086;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      font-weight: 600;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🤖 AI 对话历史</h1>
+    <div class="export-info">导出时间: ${new Date().toLocaleString("zh-CN")}</div>
+    ${messageHtml}
+  </div>
+</body>
+</html>
+  `.trim();
+}
+

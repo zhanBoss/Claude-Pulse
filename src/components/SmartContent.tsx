@@ -251,29 +251,44 @@ function SmartContent({
           <span
             key={index}
             style={{
-              background: themeVars.infoLight,
-              color: themeVars.info,
-              padding: "2px 8px",
-              borderRadius: 4,
-              fontSize: "0.95em",
+              background: darkMode
+                ? "rgba(217, 119, 87, 0.15)"
+                : "rgba(217, 119, 87, 0.1)",
+              color: themeVars.primary,
+              padding: "3px 10px",
+              borderRadius: 6,
+              fontSize: "13px",
               fontWeight: 500,
               cursor: "pointer",
-              border: `1px solid ${themeVars.infoBorder}`,
+              border: `1px solid ${darkMode ? "rgba(217, 119, 87, 0.3)" : "rgba(217, 119, 87, 0.25)"}`,
               display: "inline-block",
               transition: "all 0.2s",
-              marginRight: 4,
+              marginRight: 6,
+              verticalAlign: "middle",
             }}
             onClick={(e) => {
               e.stopPropagation();
               onImageClick(imageNumber);
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.background = themeVars.infoHover;
-              e.currentTarget.style.borderColor = themeVars.infoDark;
+              e.currentTarget.style.background = darkMode
+                ? "rgba(217, 119, 87, 0.25)"
+                : "rgba(217, 119, 87, 0.18)";
+              e.currentTarget.style.borderColor = darkMode
+                ? "rgba(217, 119, 87, 0.5)"
+                : "rgba(217, 119, 87, 0.4)";
+              e.currentTarget.style.transform = "translateY(-1px)";
+              e.currentTarget.style.boxShadow = `0 2px 8px ${darkMode ? "rgba(217, 119, 87, 0.2)" : "rgba(217, 119, 87, 0.15)"}`;
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.background = themeVars.infoLight;
-              e.currentTarget.style.borderColor = themeVars.infoBorder;
+              e.currentTarget.style.background = darkMode
+                ? "rgba(217, 119, 87, 0.15)"
+                : "rgba(217, 119, 87, 0.1)";
+              e.currentTarget.style.borderColor = darkMode
+                ? "rgba(217, 119, 87, 0.3)"
+                : "rgba(217, 119, 87, 0.25)";
+              e.currentTarget.style.transform = "translateY(0)";
+              e.currentTarget.style.boxShadow = "none";
             }}
             title={`点击预览图片 #${imageNumber}`}
           >

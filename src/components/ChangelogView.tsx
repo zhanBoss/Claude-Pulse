@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Timeline, Card, Tag, Space, Collapse } from 'antd'
+import { Timeline, Card, Tag, Space } from 'antd'
 import { ClockCircleOutlined, RocketOutlined, BugOutlined, ToolOutlined, FileTextOutlined, DownOutlined } from '@ant-design/icons'
 import { getThemeVars } from '../theme'
 
@@ -34,6 +34,9 @@ const changelog: VersionData[] = [
       { type: 'feat', description: '设置页面导航栏优化：默认收起只显示图标，hover 展开' },
       { type: 'feat', description: '导航栏收起状态下图标居中显示，激活项右上角显示高亮点' },
       { type: 'feat', description: 'MentionPopup 添加完整键盘导航支持，支持上下键选择' },
+      { type: 'feat', description: '导出对话代码块支持语法高亮，采用 Catppuccin Mocha 配色方案' },
+      { type: 'feat', description: '代码块语法高亮支持 10+ 编程语言（JS/TS/Python/Java/Go/Rust/C/C++/SQL 等）' },
+      { type: 'refactor', description: '移除导出和清空按钮的冗余 Tooltip，简化界面交互' },
       { type: 'refactor', description: '重构 AI 配置架构：拆分对话与总结功能，独立配置' },
       { type: 'refactor', description: '统一颜色系统，移除所有硬编码颜色，使用主题变量' },
       { type: 'refactor', description: '优化设置页面导航交互体验，改进滚动和高亮逻辑' },
