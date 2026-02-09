@@ -1,5 +1,5 @@
-import { useState, useEffect, useMemo } from 'react'
-import { Card, Statistic, Space, Typography, Spin, Empty, Tag, Button, message } from 'antd'
+import { useState, useEffect, useMemo, useCallback } from 'react'
+import { Card, Statistic, Space, Typography, Spin, Empty, Tag, Button, message, Checkbox, Modal } from 'antd'
 import {
   ThunderboltOutlined,
   DollarOutlined,
@@ -7,7 +7,9 @@ import {
   ToolOutlined,
   FolderOutlined,
   ReloadOutlined,
-  BarChartOutlined
+  BarChartOutlined,
+  SwapOutlined,
+  CloseOutlined
 } from '@ant-design/icons'
 import {
   BarChart,
@@ -20,7 +22,12 @@ import {
   PieChart,
   Pie,
   Cell,
-  Legend
+  Legend,
+  RadarChart,
+  PolarGrid,
+  PolarAngleAxis,
+  PolarRadiusAxis,
+  Radar
 } from 'recharts'
 import { SessionMetadata } from '../types'
 import { getThemeVars } from '../theme'
@@ -50,6 +57,8 @@ const StatisticsView = (props: StatisticsViewProps) => {
   const themeVars = getThemeVars(darkMode)
   const [sessions, setSessions] = useState<SessionMetadata[]>([])
   const [loading, setLoading] = useState(true)
+  const [selectedProjects, setSelectedProjects] = useState<Set<string>>(new Set())
+  const [compareVisible, setCompareVisible] = useState(false)
 
   useEffect(() => {
     loadData()
@@ -152,6 +161,69 @@ const StatisticsView = (props: StatisticsViewProps) => {
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => b.count - a.count)
   }, [sessions])
+
+  /* 项目对比: 切换选中 */
+  const toggleProjectSelect = useCallback((project: string) => {
+    setSelectedProjects(prev => {
+      const next = new Set(prev)
+      if (next.has(project)) {
+        next.delete(project)
+      } else {
+        if (next.size >= 5) {
+          message.warning('最多选择 5 个项目进行对比')
+          return prev
+        }
+        next.add(project)
+      }
+      return next
+    })
+  }, [])
+
+  /* 项目对比: 雷达图数据 */
+  const compareRadarData = useMemo(() => {
+    if (selectedProjects.size < 2) return []
+    const selected = projectStats.filter(p => selectedProjects.has(p.project))
+    if (selected.length < 2) return []
+
+    /* 归一化指标以便在雷达图中展示 */
+    const maxTokens = Math.max(...selected.map(s => s.totalTokens)) || 1
+    const maxCost = Math.max(...selected.map(s => s.totalCost)) || 1
+    const maxSessions = Math.max(...selected.map(s => s.sessionCount)) || 1
+    const maxTools = Math.max(...selected.map(s => s.toolUseCount)) || 1
+    const maxAvgTokens = Math.max(...selected.map(s => s.sessionCount > 0 ? s.totalTokens / s.sessionCount : 0)) || 1
+
+    const metrics = ['会话数', 'Token 总量', '成本', '工具调用', '单会话均Token']
+
+    return metrics.map((metric, idx) => {
+      const entry: Record<string, string | number> = { metric }
+      for (const p of selected) {
+        const avgTokens = p.sessionCount > 0 ? p.totalTokens / p.sessionCount : 0
+        const values = [
+          p.sessionCount / maxSessions * 100,
+          p.totalTokens / maxTokens * 100,
+          p.totalCost / maxCost * 100,
+          p.toolUseCount / maxTools * 100,
+          avgTokens / maxAvgTokens * 100
+        ]
+        entry[p.projectName] = Math.round(values[idx])
+      }
+      return entry
+    })
+  }, [selectedProjects, projectStats])
+
+  /* 项目对比: 柱状图数据 */
+  const compareBarData = useMemo(() => {
+    if (selectedProjects.size < 2) return []
+    return projectStats
+      .filter(p => selectedProjects.has(p.project))
+      .map(p => ({
+        name: p.projectName.length > 15 ? p.projectName.slice(0, 15) + '...' : p.projectName,
+        tokens: p.totalTokens,
+        cost: Number(p.totalCost.toFixed(4)),
+        sessions: p.sessionCount,
+        tools: p.toolUseCount
+      }))
+  }, [selectedProjects, projectStats])
 
   // 项目 Token 使用量柱状图数据
   const projectChartData = useMemo(() => {
@@ -463,6 +535,32 @@ const StatisticsView = (props: StatisticsViewProps) => {
               <Space>
                 <FolderOutlined />
                 <Text style={{ fontSize: 13 }}>项目详细统计</Text>
+                {selectedProjects.size > 0 && (
+                  <Tag color="blue">{selectedProjects.size} 个已选</Tag>
+                )}
+              </Space>
+            }
+            extra={
+              <Space>
+                {selectedProjects.size >= 2 && (
+                  <Button
+                    type="primary"
+                    size="small"
+                    icon={<SwapOutlined />}
+                    onClick={() => setCompareVisible(true)}
+                  >
+                    对比 ({selectedProjects.size})
+                  </Button>
+                )}
+                {selectedProjects.size > 0 && (
+                  <Button
+                    size="small"
+                    icon={<CloseOutlined />}
+                    onClick={() => setSelectedProjects(new Set())}
+                  >
+                    清除
+                  </Button>
+                )}
               </Space>
             }
           >
@@ -471,7 +569,7 @@ const StatisticsView = (props: StatisticsViewProps) => {
               <div
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr',
+                  gridTemplateColumns: '32px 2fr 1fr 1fr 1fr 1fr',
                   gap: 8,
                   padding: '6px 12px',
                   borderBottom: `1px solid ${themeVars.border}`,
@@ -480,6 +578,7 @@ const StatisticsView = (props: StatisticsViewProps) => {
                   color: themeVars.textSecondary
                 }}
               >
+                <div />
                 <div>项目</div>
                 <div style={{ textAlign: 'right' }}>会话数</div>
                 <div style={{ textAlign: 'right' }}>Token</div>
@@ -493,14 +592,22 @@ const StatisticsView = (props: StatisticsViewProps) => {
                   key={stat.project}
                   style={{
                     display: 'grid',
-                    gridTemplateColumns: '2fr 1fr 1fr 1fr 1fr',
+                    gridTemplateColumns: '32px 2fr 1fr 1fr 1fr 1fr',
                     gap: 8,
                     padding: '6px 12px',
                     borderRadius: 4,
                     fontSize: 12,
-                    background: themeVars.bgSection
+                    background: selectedProjects.has(stat.project)
+                      ? darkMode ? 'rgba(22, 119, 255, 0.1)' : 'rgba(22, 119, 255, 0.04)'
+                      : themeVars.bgSection,
+                    cursor: 'pointer',
+                    transition: 'background 0.2s'
                   }}
+                  onClick={() => toggleProjectSelect(stat.project)}
                 >
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <Checkbox checked={selectedProjects.has(stat.project)} />
+                  </div>
                   <div style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {stat.projectName}
                   </div>
@@ -520,6 +627,165 @@ const StatisticsView = (props: StatisticsViewProps) => {
               ))}
             </div>
           </Card>
+
+          {/* 项目对比弹窗 */}
+          <Modal
+            title={
+              <Space>
+                <SwapOutlined />
+                <span>项目对比</span>
+                <Tag color="blue">{selectedProjects.size} 个项目</Tag>
+              </Space>
+            }
+            open={compareVisible}
+            onCancel={() => setCompareVisible(false)}
+            width={900}
+            footer={[
+              <Button key="close" type="primary" onClick={() => setCompareVisible(false)}>
+                关闭
+              </Button>
+            ]}
+          >
+            {compareBarData.length >= 2 ? (
+              <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+                {/* 雷达图对比 */}
+                <Card size="small" title={<Text style={{ fontSize: 13 }}>综合能力雷达图</Text>}>
+                  <ResponsiveContainer width="100%" height={350}>
+                    <RadarChart data={compareRadarData}>
+                      <PolarGrid stroke={themeVars.borderSecondary} />
+                      <PolarAngleAxis
+                        dataKey="metric"
+                        tick={{ fontSize: 12, fill: themeVars.text }}
+                      />
+                      <PolarRadiusAxis
+                        domain={[0, 100]}
+                        tick={{ fontSize: 10, fill: themeVars.textTertiary }}
+                      />
+                      {compareBarData.map((p, idx) => (
+                        <Radar
+                          key={p.name}
+                          name={p.name}
+                          dataKey={p.name}
+                          stroke={CHART_COLORS[idx % CHART_COLORS.length]}
+                          fill={CHART_COLORS[idx % CHART_COLORS.length]}
+                          fillOpacity={0.15}
+                          strokeWidth={2}
+                        />
+                      ))}
+                      <Legend wrapperStyle={{ fontSize: 12 }} />
+                      <RechartsTooltip
+                        contentStyle={{
+                          background: themeVars.bgContainer,
+                          border: `1px solid ${themeVars.border}`,
+                          borderRadius: 6,
+                          fontSize: 12
+                        }}
+                        formatter={(value: number) => [`${value}%`, '']}
+                      />
+                    </RadarChart>
+                  </ResponsiveContainer>
+                </Card>
+
+                {/* Token 对比柱状图 */}
+                <Card size="small" title={<Text style={{ fontSize: 13 }}>Token 使用量对比</Text>}>
+                  <ResponsiveContainer width="100%" height={250}>
+                    <BarChart data={compareBarData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke={themeVars.borderSecondary} />
+                      <XAxis dataKey="name" tick={{ fontSize: 11, fill: themeVars.textSecondary }} />
+                      <YAxis tick={{ fontSize: 11, fill: themeVars.textSecondary }} />
+                      <RechartsTooltip
+                        contentStyle={{
+                          background: themeVars.bgContainer,
+                          border: `1px solid ${themeVars.border}`,
+                          borderRadius: 6,
+                          fontSize: 12
+                        }}
+                      />
+                      <Bar dataKey="tokens" name="Tokens" fill="#1677ff" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </Card>
+
+                {/* 数据对比表格 */}
+                <Card size="small" title={<Text style={{ fontSize: 13 }}>详细数据对比</Text>}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {/* 表头 */}
+                    <div
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: `120px repeat(${compareBarData.length}, 1fr)`,
+                        gap: 8,
+                        padding: '8px 12px',
+                        borderBottom: `1px solid ${themeVars.border}`,
+                        fontSize: 12,
+                        fontWeight: 600,
+                        color: themeVars.textSecondary
+                      }}
+                    >
+                      <div>指标</div>
+                      {compareBarData.map((p, idx) => (
+                        <div key={p.name} style={{ textAlign: 'center', color: CHART_COLORS[idx % CHART_COLORS.length] }}>
+                          {p.name}
+                        </div>
+                      ))}
+                    </div>
+                    {/* 行 */}
+                    {[
+                      { label: '会话数', key: 'sessions' as const },
+                      { label: 'Token 总量', key: 'tokens' as const },
+                      { label: '成本 (USD)', key: 'cost' as const },
+                      { label: '工具调用', key: 'tools' as const }
+                    ].map(row => {
+                      const values = compareBarData.map(d => d[row.key] as number)
+                      const maxVal = Math.max(...values)
+                      return (
+                        <div
+                          key={row.label}
+                          style={{
+                            display: 'grid',
+                            gridTemplateColumns: `120px repeat(${compareBarData.length}, 1fr)`,
+                            gap: 8,
+                            padding: '6px 12px',
+                            fontSize: 12,
+                            background: themeVars.bgSection,
+                            borderRadius: 4
+                          }}
+                        >
+                          <div style={{ fontWeight: 500 }}>{row.label}</div>
+                          {compareBarData.map((d, idx) => {
+                            const val = d[row.key] as number
+                            const isMax = val === maxVal
+                            return (
+                              <div
+                                key={d.name}
+                                style={{
+                                  textAlign: 'center',
+                                  fontWeight: isMax ? 600 : 400,
+                                  color: isMax ? CHART_COLORS[idx % CHART_COLORS.length] : themeVars.text
+                                }}
+                              >
+                                {row.key === 'cost' ? `$${val.toFixed(4)}` : val.toLocaleString()}
+                                {isMax && compareBarData.length > 1 && (
+                                  <Tag
+                                    color="gold"
+                                    style={{ fontSize: 10, marginLeft: 4, padding: '0 4px', lineHeight: '16px' }}
+                                  >
+                                    MAX
+                                  </Tag>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </Card>
+              </Space>
+            ) : (
+              <Empty description="请至少选择 2 个项目" />
+            )}
+          </Modal>
         </Space>
       </div>
     </div>
