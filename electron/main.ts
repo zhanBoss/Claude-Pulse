@@ -16,6 +16,16 @@ let mainWindow: BrowserWindow | null = null
 let historyWatcher: fs.FSWatcher | null = null
 let lastFileSize = 0
 
+/* 元数据缓存：避免重复解析大量JSONL文件 */
+interface MetadataCache {
+  sessions: any[]
+  historyFileSize: number
+  sessionFileSizes: Map<string, number>
+  lastUpdated: number
+}
+let metadataCache: MetadataCache | null = null
+const CACHE_TTL_MS = 30000 // 30秒缓存有效期
+
 // 应用内部缓存目录（用于图片缓存等，替代用户自定义 savePath）
 const APP_CACHE_DIR = path.join(app.getPath('userData'), 'cache')
 
@@ -636,9 +646,15 @@ function startHistoryMonitor() {
   const stats = fs.statSync(HISTORY_FILE)
   lastFileSize = stats.size
 
+  /* 去抖动定时器，避免短时间内多次触发文件读取 */
+  let debounceTimer: NodeJS.Timeout | null = null
+
   historyWatcher = fs.watch(HISTORY_FILE, (eventType: string) => {
     if (eventType === 'change') {
-      readNewLines()
+      if (debounceTimer) clearTimeout(debounceTimer)
+      debounceTimer = setTimeout(() => {
+        readNewLines()
+      }, 200)
     }
   })
 }
@@ -757,6 +773,16 @@ ipcMain.handle('read-history-metadata', async () => {
   try {
     if (!fs.existsSync(HISTORY_FILE)) {
       return { success: true, sessions: [] }
+    }
+
+    /* 检查缓存是否有效 */
+    const currentStats = fs.statSync(HISTORY_FILE)
+    if (
+      metadataCache &&
+      metadataCache.historyFileSize === currentStats.size &&
+      Date.now() - metadataCache.lastUpdated < CACHE_TTL_MS
+    ) {
+      return { success: true, sessions: metadataCache.sessions }
     }
 
     const content = fs.readFileSync(HISTORY_FILE, 'utf-8')
@@ -969,6 +995,14 @@ ipcMain.handle('read-history-metadata', async () => {
     console.log(
       `[History Metadata] 从 history.jsonl 聚合了 ${enrichedSessions.length} 个会话，已提取 Token 和工具调用信息`
     )
+
+    /* 更新缓存 */
+    metadataCache = {
+      sessions: enrichedSessions,
+      historyFileSize: currentStats.size,
+      sessionFileSizes: new Map(),
+      lastUpdated: Date.now()
+    }
 
     return { success: true, sessions: enrichedSessions }
   } catch (error) {
