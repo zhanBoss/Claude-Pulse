@@ -14,7 +14,8 @@ import {
   Pagination,
   Input,
   Image,
-  Tooltip
+  Tooltip,
+  Collapse
 } from 'antd'
 import {
   FolderOpenOutlined,
@@ -32,7 +33,9 @@ import {
   FileImageOutlined,
   ToolOutlined,
   ThunderboltOutlined,
-  WarningOutlined
+  WarningOutlined,
+  BarChartOutlined,
+  DollarOutlined
 } from '@ant-design/icons'
 import Highlighter from 'react-highlight-words'
 import ReactMarkdown from 'react-markdown'
@@ -250,6 +253,42 @@ function HistoryViewer({ onOpenSettings, darkMode, onSendToChat }: HistoryViewer
     const endIndex = startIndex + pageSize
     return groupedRecords.slice(startIndex, endIndex)
   }, [groupedRecords, currentPage, pageSize])
+
+  // 项目级别 Token 统计
+  const projectStats = useMemo(() => {
+    const statsMap = new Map<
+      string,
+      {
+        project: string
+        projectName: string
+        sessionCount: number
+        totalTokens: number
+        totalCost: number
+        toolUseCount: number
+      }
+    >()
+
+    for (const group of groupedRecords) {
+      const existing = statsMap.get(group.project)
+      if (existing) {
+        existing.sessionCount += 1
+        existing.totalTokens += group.total_tokens || 0
+        existing.totalCost += group.total_cost_usd || 0
+        existing.toolUseCount += group.tool_use_count || 0
+      } else {
+        statsMap.set(group.project, {
+          project: group.project,
+          projectName: getProjectName(group.project),
+          sessionCount: 1,
+          totalTokens: group.total_tokens || 0,
+          totalCost: group.total_cost_usd || 0,
+          toolUseCount: group.tool_use_count || 0
+        })
+      }
+    }
+
+    return Array.from(statsMap.values()).sort((a, b) => b.totalTokens - a.totalTokens)
+  }, [groupedRecords])
 
   // 当筛选条件变化时，重置到第一页
   useEffect(() => {
@@ -722,6 +761,86 @@ function HistoryViewer({ onOpenSettings, darkMode, onSendToChat }: HistoryViewer
               />
             </Space>
           </Card>
+
+          {/* 项目级别统计 */}
+          {!loading && projectStats.length > 0 && (
+            <Collapse
+              size="small"
+              items={[
+                {
+                  key: 'project-stats',
+                  label: (
+                    <Space>
+                      <BarChartOutlined />
+                      <Text style={{ fontSize: 13 }}>
+                        项目统计（{projectStats.length} 个项目）
+                      </Text>
+                      <Text type="secondary" style={{ fontSize: 11 }}>
+                        总 Token: {projectStats.reduce((s, p) => s + p.totalTokens, 0).toLocaleString()}
+                        {' | '}总成本: ${projectStats.reduce((s, p) => s + p.totalCost, 0).toFixed(4)}
+                      </Text>
+                    </Space>
+                  ),
+                  children: (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {projectStats.map(stat => (
+                        <div
+                          key={stat.project}
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            padding: '6px 12px',
+                            borderRadius: 6,
+                            background: themeVars.bgSection,
+                            border: `1px solid ${themeVars.borderSecondary}`
+                          }}
+                        >
+                          <Space>
+                            <Tag color="blue" style={{ fontSize: 11 }}>
+                              {stat.projectName}
+                            </Tag>
+                            <Text type="secondary" style={{ fontSize: 11 }}>
+                              {stat.sessionCount} 个会话
+                            </Text>
+                          </Space>
+                          <Space size={4}>
+                            {stat.totalTokens > 0 && (
+                              <Tag
+                                icon={<ThunderboltOutlined />}
+                                color="blue"
+                                style={{ fontSize: 11 }}
+                              >
+                                {stat.totalTokens.toLocaleString()} tokens
+                              </Tag>
+                            )}
+                            {stat.totalCost > 0 && (
+                              <Tag
+                                icon={<DollarOutlined />}
+                                color="green"
+                                style={{ fontSize: 11 }}
+                              >
+                                ${stat.totalCost.toFixed(4)}
+                              </Tag>
+                            )}
+                            {stat.toolUseCount > 0 && (
+                              <Tag
+                                icon={<ToolOutlined />}
+                                color="purple"
+                                style={{ fontSize: 11 }}
+                              >
+                                工具 ×{stat.toolUseCount}
+                              </Tag>
+                            )}
+                          </Space>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                }
+              ]}
+            />
+          )}
 
           {/* Session 列表 */}
           {loading ? (
