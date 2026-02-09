@@ -3,6 +3,7 @@ import {
   ThunderboltOutlined,
   ClockCircleOutlined,
   BarChartOutlined,
+  EditOutlined,
   StarOutlined,
   CommentOutlined,
   SettingOutlined,
@@ -41,6 +42,11 @@ const Sidebar = (props: SidebarProps) => {
       key: 'statistics',
       icon: <BarChartOutlined />,
       label: '使用统计'
+    },
+    {
+      key: 'recent-edits',
+      icon: <EditOutlined />,
+      label: '最近编辑'
     },
     {
       key: 'prompts',

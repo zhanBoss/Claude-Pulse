@@ -8,6 +8,7 @@ import HistoryViewer from './components/HistoryViewer'
 import CommonPrompts from './components/CommonPrompts'
 import ChatView from './components/ChatView'
 import StatisticsView from './components/StatisticsView'
+import RecentEditsView from './components/RecentEditsView'
 import SettingsView from './components/SettingsView'
 import AboutView from './components/AboutView'
 import ChangelogView from './components/ChangelogView'
@@ -17,7 +18,7 @@ import { ClaudeRecord } from './types'
 import { lightTheme, darkTheme, getThemeVars } from './theme'
 import 'antd/dist/reset.css'
 
-type Route = 'realtime' | 'history' | 'statistics' | 'prompts' | 'chat' | 'settings' | 'changelog' | 'about'
+type Route = 'realtime' | 'history' | 'statistics' | 'recent-edits' | 'prompts' | 'chat' | 'settings' | 'changelog' | 'about'
 
 function App() {
   const [isClaudeInstalled, setIsClaudeInstalled] = useState<boolean>(false)
@@ -198,6 +199,8 @@ function App() {
         )
       case 'statistics':
         return <StatisticsView darkMode={darkMode} />
+      case 'recent-edits':
+        return <RecentEditsView darkMode={darkMode} />
       case 'prompts':
         return (
           <CommonPrompts
