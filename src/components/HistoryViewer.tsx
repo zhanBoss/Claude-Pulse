@@ -29,7 +29,10 @@ import {
   ExclamationCircleOutlined,
   CloseOutlined,
   CommentOutlined,
-  FileImageOutlined
+  FileImageOutlined,
+  ToolOutlined,
+  ThunderboltOutlined,
+  WarningOutlined
 } from '@ant-design/icons'
 import Highlighter from 'react-highlight-words'
 import ReactMarkdown from 'react-markdown'
@@ -63,6 +66,12 @@ interface GroupedRecord {
   records: ClaudeRecord[]
   latestTimestamp: number
   recordCount: number
+  // 统计信息
+  total_tokens?: number
+  total_cost_usd?: number
+  has_tool_use?: boolean
+  has_errors?: boolean
+  tool_use_count?: number
 }
 
 type DateRange = 'all' | '1d' | '7d' | '30d' | 'custom'
@@ -222,7 +231,13 @@ function HistoryViewer({ onOpenSettings, darkMode, onSendToChat }: HistoryViewer
         project: session.project,
         records: [], // 暂时为空，点击时才加载
         latestTimestamp: session.latestTimestamp,
-        recordCount: session.recordCount
+        recordCount: session.recordCount,
+        // 保留统计信息
+        total_tokens: session.total_tokens,
+        total_cost_usd: session.total_cost_usd,
+        has_tool_use: session.has_tool_use,
+        has_errors: session.has_errors,
+        tool_use_count: session.tool_use_count
       }))
       .sort((a, b) => b.latestTimestamp - a.latestTimestamp) // 按时间降序排序，最新的在前面
   }, [searchedSessions])
@@ -769,9 +784,30 @@ function HistoryViewer({ onOpenSettings, darkMode, onSendToChat }: HistoryViewer
                         <Text type="secondary" style={{ fontSize: 12 }}>
                           {formatTime(group.latestTimestamp)}
                         </Text>
-                        <Text type="secondary" style={{ fontSize: 12 }}>
-                          {group.recordCount} 条对话
-                        </Text>
+                        <Space wrap size={4}>
+                          <Text type="secondary" style={{ fontSize: 12 }}>
+                            {group.recordCount} 条对话
+                          </Text>
+                          {group.total_tokens && (
+                            <Tag
+                              icon={<ThunderboltOutlined />}
+                              color="blue"
+                              style={{ fontSize: 11 }}
+                            >
+                              {group.total_tokens.toLocaleString()} tokens
+                            </Tag>
+                          )}
+                          {group.has_tool_use && (
+                            <Tag icon={<ToolOutlined />} color="purple" style={{ fontSize: 11 }}>
+                              工具调用 {group.tool_use_count && `×${group.tool_use_count}`}
+                            </Tag>
+                          )}
+                          {group.has_errors && (
+                            <Tag icon={<WarningOutlined />} color="red" style={{ fontSize: 11 }}>
+                              有错误
+                            </Tag>
+                          )}
+                        </Space>
                         <Button
                           type="link"
                           size="small"
