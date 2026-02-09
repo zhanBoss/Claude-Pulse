@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { diffLines, Change } from 'diff'
+import Editor from '@monaco-editor/react'
 import {
   Card,
   Tag,
@@ -12,7 +13,8 @@ import {
   Input,
   Modal,
   List,
-  Tooltip
+  Tooltip,
+  Switch
 } from 'antd'
 import {
   FileOutlined,
@@ -29,6 +31,7 @@ import {
 } from '@ant-design/icons'
 import { FileEditSnapshot } from '../types'
 import { getThemeVars } from '../theme'
+import { getMonacoLanguage } from '../utils/codeDetector'
 import ConversationDetailModal from './ConversationDetailModal'
 import dayjs from 'dayjs'
 
@@ -57,6 +60,7 @@ const RecentEditsView = (props: RecentEditsViewProps) => {
   const [currentFileContent, setCurrentFileContent] = useState<string | null>(null)
   const [diffResult, setDiffResult] = useState<Change[]>([])
   const [diffLoading, setDiffLoading] = useState(false)
+  const [previewWrap, setPreviewWrap] = useState(false)
 
   // 完整对话弹窗
   const [conversationModalVisible, setConversationModalVisible] = useState(false)
@@ -536,6 +540,15 @@ const RecentEditsView = (props: RecentEditsViewProps) => {
           } as React.CSSProperties
         }}
       >
+        {/* 折行开关 */}
+        {!previewLoading && !diffLoading && (
+          <div style={{ marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+            <Space size={4}>
+              <Text type="secondary" style={{ fontSize: 12 }}>折行</Text>
+              <Switch size="small" checked={previewWrap} onChange={setPreviewWrap} />
+            </Space>
+          </div>
+        )}
         {previewLoading || diffLoading ? (
           <div style={{ textAlign: 'center', padding: 40 }}>
             <Spin size="large" tip="加载中..." />
@@ -580,8 +593,8 @@ const RecentEditsView = (props: RecentEditsViewProps) => {
                     padding: '0 8px',
                     background: color,
                     color: textColor,
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-all',
+                    whiteSpace: previewWrap ? 'pre-wrap' : 'pre',
+                    wordBreak: previewWrap ? 'break-word' : 'normal',
                     borderLeft: part.added
                       ? '3px solid #2ea043'
                       : part.removed
@@ -602,24 +615,30 @@ const RecentEditsView = (props: RecentEditsViewProps) => {
             )}
           </div>
         ) : (
-          <pre
-            style={{
-              background: darkMode ? '#1e1e1e' : '#f6f8fa',
-              padding: 16,
-              borderRadius: 8,
+          <Editor
+            height="500px"
+            language={getMonacoLanguage(previewFilePath, previewContent)}
+            value={previewContent || '// 文件内容为空'}
+            theme={darkMode ? 'vs-dark' : 'light'}
+            options={{
+              readOnly: true,
+              minimap: { enabled: false },
               fontSize: 12,
-              fontFamily: 'Fira Code, Consolas, Monaco, monospace',
-              lineHeight: 1.6,
-              overflow: 'auto',
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-all',
-              color: darkMode ? '#d4d4d4' : '#24292e',
-              border: `1px solid ${themeVars.borderSecondary}`,
-              maxHeight: 500
+              lineNumbers: 'on',
+              scrollBeyondLastLine: false,
+              wordWrap: previewWrap ? 'on' : 'off',
+              wrappingIndent: 'indent',
+              automaticLayout: true,
+              domReadOnly: true,
+              renderLineHighlight: 'none',
+              overviewRulerLanes: 0,
+              hideCursorInOverviewRuler: true,
+              scrollbar: {
+                verticalScrollbarSize: 8,
+                horizontalScrollbarSize: 8
+              }
             }}
-          >
-            {previewContent || '// 文件内容为空'}
-          </pre>
+          />
         )}
       </Modal>
 

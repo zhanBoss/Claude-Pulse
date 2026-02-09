@@ -35,7 +35,7 @@ import {
 } from '@ant-design/icons'
 import ReactMarkdown from 'react-markdown'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
+import { vscDarkPlus, prism } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import ElectronModal, { getElectronModalConfig } from './ElectronModal'
 import { SessionMetadata } from '../types'
 import dayjs, { Dayjs } from 'dayjs'
@@ -387,10 +387,10 @@ const HistoryViewer = (props: HistoryViewerProps) => {
           const match = /language-(\w+)/.exec(className || '')
           return !inline && match ? (
             <SyntaxHighlighter
-              style={vscDarkPlus}
+              style={darkMode ? vscDarkPlus : prism}
               language={match[1]}
               PreTag="div"
-              customStyle={{ margin: 0, borderRadius: 6, fontSize: 13 }}
+              customStyle={{ margin: 0, borderRadius: 6, fontSize: 13, background: themeVars.bgCode }}
               {...codeProps}
             >
               {String(children).replace(/\n$/, '')}

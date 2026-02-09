@@ -2,7 +2,7 @@ import { Typography } from 'antd'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
+import { vscDarkPlus, prism } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { getThemeVars } from '../theme'
 
 const { Text } = Typography
@@ -22,143 +22,41 @@ interface SmartContentProps {
  * 智能内容渲染组件
  *
  * 功能：
- * 1. 自动检测代码片段并语法高亮
- * 2. 自动检测 JSON 并格式化
- * 3. 自动检测链接并支持点击跳转
- * 4. 支持 Markdown 渲染
+ * 1. 自动检测链接并支持点击跳转
+ * 2. 支持 Pasted text / Image 占位符交互
+ * 3. 支持 Markdown 渲染（含内嵌代码块高亮）
+ * 4. 列表视图中 prompt 统一以纯文本展示，不做代码块自动检测
  */
-function SmartContent({
-  content,
-  darkMode,
-  maxLines,
-  onClick,
-  onPastedTextClick,
-  hasPastedContents,
-  onImageClick,
-  images
-}: SmartContentProps) {
+const SmartContent = (props: SmartContentProps) => {
+  const {
+    content,
+    darkMode,
+    maxLines,
+    onClick,
+    onPastedTextClick,
+    hasPastedContents,
+    onImageClick,
+    images
+  } = props
+
   const themeVars = getThemeVars(darkMode)
 
-  // 检测内容类型
-  const detectContentType = (text: string): 'code' | 'json' | 'markdown' | 'text' => {
+  // 检测是否为 Markdown 内容
+  const isMarkdown = (text: string): boolean => {
     const trimmed = text.trim()
-
-    // 检测 JSON
-    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
-      try {
-        JSON.parse(trimmed)
-        return 'json'
-      } catch (e) {
-        // 不是有效的 JSON
-      }
-    }
-
-    // 检测代码特征
-    const codePatterns = [
-      /^(function|const|let|var|class|def|import|export|interface|type)\s/m,
-      /^(public|private|protected)\s+(class|function|static)/m,
-      /^\s*(if|for|while|switch)\s*\(/m,
-      /=>\s*{/,
-      /\{\s*\n.*:\s*.+\n.*\}/s // 对象字面量
-    ]
-
-    if (codePatterns.some(pattern => pattern.test(trimmed))) {
-      return 'code'
-    }
-
-    // 检测 Markdown 特征
     const markdownPatterns = [
       /^#{1,6}\s+.+$/m, // 标题
       /^\*\*.*\*\*$/m, // 粗体
-      /^\*.*\*$/m, // 斜体
       /^\[.+\]\(.+\)$/m, // 链接
       /^```/m, // 代码块
       /^[-*+]\s+/m // 列表
     ]
-
-    if (markdownPatterns.some(pattern => pattern.test(trimmed))) {
-      return 'markdown'
-    }
-
-    return 'text'
-  }
-
-  // 检测编程语言
-  const detectLanguage = (text: string): string => {
-    const trimmed = text.trim()
-
-    // JSON
-    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
-      try {
-        JSON.parse(trimmed)
-        return 'json'
-      } catch (e) {
-        // 继续检测其他语言
-      }
-    }
-
-    // JavaScript/TypeScript
-    if (/\b(function|const|let|var|=>|import.*from|export)\b/.test(text)) {
-      if (/\b(interface|type|enum|namespace|as\s+\w+)\b/.test(text)) {
-        return 'typescript'
-      }
-      return 'javascript'
-    }
-
-    // Python
-    if (/\b(def|class|import|from|print|if __name__)\b/.test(text)) {
-      return 'python'
-    }
-
-    // Java
-    if (/\b(public|private|protected)\s+(class|interface|static|void)\b/.test(text)) {
-      return 'java'
-    }
-
-    // C/C++
-    if (/#include|int main\(|std::/.test(text)) {
-      return 'cpp'
-    }
-
-    // Go
-    if (/\bfunc\s+\w+\(|package\s+\w+/.test(text)) {
-      return 'go'
-    }
-
-    // Rust
-    if (/\b(fn|let mut|impl|trait|pub)\b/.test(text)) {
-      return 'rust'
-    }
-
-    // SQL
-    if (/\b(SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|FROM|WHERE|JOIN)\b/i.test(text)) {
-      return 'sql'
-    }
-
-    // HTML
-    if (/<\/?[a-z][\s\S]*>/i.test(text)) {
-      return 'html'
-    }
-
-    // CSS
-    if (/\{[^}]*:[^}]*\}/.test(text) && /\.([\w-]+)\s*\{/.test(text)) {
-      return 'css'
-    }
-
-    // Shell
-    if (/^(#!\/bin\/|npm|yarn|git|cd|ls|mkdir|rm)\s/.test(text)) {
-      return 'bash'
-    }
-
-    return 'text'
+    return markdownPatterns.some(pattern => pattern.test(trimmed))
   }
 
   // 检测并渲染链接、Pasted text 占位符和 Image 占位符
   const renderTextWithLinks = (text: string) => {
-    // URL 正则表达式
     const urlRegex = /(https?:\/\/[^\s]+)/g
-    // Pasted text 占位符正则：[Pasted text #N] 或 [Pasted text #N +X lines]
-    // Image 占位符正则：[Image #N]
 
     // 合并三个正则，按出现顺序分割
     const combinedRegex =
@@ -288,82 +186,26 @@ function SmartContent({
     })
   }
 
-  // 渲染代码块
-  const renderCodeBlock = (code: string, language: string) => {
-    const lines = code.split('\n')
-    const shouldTruncate = maxLines && lines.length > maxLines
-
-    return (
-      <div
-        style={{
-          position: 'relative',
-          cursor: shouldTruncate && onClick ? 'pointer' : 'default'
-        }}
-        onClick={shouldTruncate && onClick ? onClick : undefined}
-      >
-        <SyntaxHighlighter
-          language={language}
-          style={vscDarkPlus}
-          customStyle={{
-            margin: 0,
-            borderRadius: 6,
-            fontSize: 13,
-            maxHeight: shouldTruncate ? `${maxLines * 1.5}em` : undefined,
-            overflow: shouldTruncate ? 'hidden' : 'auto'
-          }}
-          wrapLongLines={true}
-        >
-          {shouldTruncate ? lines.slice(0, maxLines).join('\n') : code}
-        </SyntaxHighlighter>
-        {shouldTruncate && (
-          <div
-            style={{
-              position: 'absolute',
-              bottom: 0,
-              left: 0,
-              right: 0,
-              height: 40,
-              background: `linear-gradient(transparent, ${themeVars.codeBg})`,
-              display: 'flex',
-              alignItems: 'flex-end',
-              justifyContent: 'center',
-              paddingBottom: 8
-            }}
-          >
-            <Text
-              style={{
-                fontSize: 12,
-                color: themeVars.primary,
-                cursor: 'pointer'
-              }}
-            >
-              点击查看完整内容...
-            </Text>
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  // 渲染 Markdown
+  // 渲染 Markdown（仅用于明确的 Markdown 内容，内嵌代码块仍支持高亮）
   const renderMarkdown = (text: string) => {
     return (
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
-          code({ node, inline, className, children, ...props }: any) {
+          code({ node, inline, className, children, ...codeProps }: any) {
             const match = /language-(\w+)/.exec(className || '')
             return !inline && match ? (
               <SyntaxHighlighter
-                style={vscDarkPlus}
+                style={darkMode ? vscDarkPlus : prism}
                 language={match[1]}
                 PreTag="div"
                 customStyle={{
                   margin: 0,
                   borderRadius: 6,
-                  fontSize: 13
+                  fontSize: 13,
+                  background: themeVars.bgCode
                 }}
-                {...props}
+                {...codeProps}
               >
                 {String(children).replace(/\n$/, '')}
               </SyntaxHighlighter>
@@ -376,7 +218,7 @@ function SmartContent({
                   fontSize: 12,
                   fontFamily: 'monospace'
                 }}
-                {...props}
+                {...codeProps}
               >
                 {children}
               </code>
@@ -418,7 +260,7 @@ function SmartContent({
     )
   }
 
-  // 渲染普通文本（带链接检测）
+  // 渲染纯文本（带链接和占位符检测）
   const renderPlainText = (text: string) => {
     const lines = text.split('\n')
     const shouldTruncate = maxLines && lines.length > maxLines
@@ -453,15 +295,8 @@ function SmartContent({
     )
   }
 
-  // 主渲染逻辑
-  const contentType = detectContentType(content)
-
-  if (contentType === 'code' || contentType === 'json') {
-    const language = detectLanguage(content)
-    return renderCodeBlock(content, language)
-  }
-
-  if (contentType === 'markdown') {
+  /* 主渲染逻辑：列表视图中统一以纯文本展示 prompt，Markdown 内容保留格式化渲染 */
+  if (isMarkdown(content)) {
     return renderMarkdown(content)
   }
 

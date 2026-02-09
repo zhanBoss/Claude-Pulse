@@ -1,6 +1,8 @@
-import { Modal, Spin, Alert, Typography, Divider, Tag, Space, Button, message, Tooltip, Collapse, Segmented, Empty } from 'antd'
+import { Modal, Spin, Alert, Typography, Divider, Tag, Space, Button, message, Tooltip, Collapse, Segmented, Empty, Switch, theme as antdTheme } from 'antd'
 import { useEffect, useState, useCallback, useMemo } from 'react'
+import Editor from '@monaco-editor/react'
 import { FullConversation, FullMessage, MessageContent, MessageSubType } from '../types'
+import { getMonacoLanguage } from '../utils/codeDetector'
 import {
   CopyOutlined,
   ToolOutlined,
@@ -45,6 +47,10 @@ interface ConversationRound {
 const ConversationDetailModal = (props: ConversationDetailModalProps) => {
   const { visible, sessionId, project, onClose } = props
 
+  /* 通过 antd token 检测暗色模式 */
+  const { token } = antdTheme.useToken()
+  const isDark = token.colorBgContainer !== '#ffffff'
+
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [conversation, setConversation] = useState<FullConversation | null>(null)
@@ -58,6 +64,7 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
   const [filePreviewContent, setFilePreviewContent] = useState('')
   const [filePreviewPath, setFilePreviewPath] = useState('')
   const [filePreviewLoading, setFilePreviewLoading] = useState(false)
+  const [filePreviewWrap, setFilePreviewWrap] = useState(false)
 
   /* 工具流程展开状态 */
   const [expandedToolIds, setExpandedToolIds] = useState<Set<string>>(new Set())
@@ -761,22 +768,42 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
           <Button key="close" type="primary" onClick={() => { setFilePreviewVisible(false); setFilePreviewContent(''); setFilePreviewPath('') }}>关闭</Button>
         ]}
       >
-        <div style={{ marginBottom: 8 }}>
-          <Text type="secondary" style={{ fontSize: 12 }}>
+        <div style={{ marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Text type="secondary" style={{ fontSize: 12, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             <FolderOutlined style={{ marginRight: 4 }} />{filePreviewPath}
           </Text>
+          <Space size={4} style={{ flexShrink: 0 }}>
+            <Text type="secondary" style={{ fontSize: 12 }}>折行</Text>
+            <Switch size="small" checked={filePreviewWrap} onChange={setFilePreviewWrap} />
+          </Space>
         </div>
         {filePreviewLoading ? (
           <div style={{ textAlign: 'center', padding: 40 }}><Spin size="large" /></div>
         ) : (
-          <pre style={{
-            background: '#f6f8fa', padding: 16, borderRadius: 8, fontSize: 12,
-            fontFamily: 'Fira Code, Consolas, Monaco, monospace', lineHeight: 1.6,
-            overflow: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-all',
-            maxHeight: 500, border: '1px solid #e8e8e8'
-          }}>
-            {filePreviewContent || '// 文件内容为空'}
-          </pre>
+          <Editor
+            height="500px"
+            language={getMonacoLanguage(filePreviewPath, filePreviewContent)}
+            value={filePreviewContent || '// 文件内容为空'}
+            theme={isDark ? 'vs-dark' : 'light'}
+            options={{
+              readOnly: true,
+              minimap: { enabled: false },
+              fontSize: 12,
+              lineNumbers: 'on',
+              scrollBeyondLastLine: false,
+              wordWrap: filePreviewWrap ? 'on' : 'off',
+              wrappingIndent: 'indent',
+              automaticLayout: true,
+              domReadOnly: true,
+              renderLineHighlight: 'none',
+              overviewRulerLanes: 0,
+              hideCursorInOverviewRuler: true,
+              scrollbar: {
+                verticalScrollbarSize: 8,
+                horizontalScrollbarSize: 8
+              }
+            }}
+          />
         )}
       </Modal>
     </Modal>

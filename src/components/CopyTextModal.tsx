@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react'
-import { Typography, Tag, Button, message } from 'antd'
+import { Typography, Tag, Button, message, Space, Switch } from 'antd'
 import { CopyOutlined } from '@ant-design/icons'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
+import { vscDarkPlus, prism } from 'react-syntax-highlighter/dist/esm/styles/prism'
+import Editor from '@monaco-editor/react'
 import ReactMarkdown from 'react-markdown'
 import ElectronModal from './ElectronModal'
 import { getThemeVars } from '../theme'
 import { formatPastedContentsForModal } from '../utils/promptFormatter'
-import { isCode, detectLanguage } from '../utils/codeDetector'
+import { isCode, detectLanguage, getMonacoLanguage } from '../utils/codeDetector'
 import crypto from 'crypto-js'
 
 const { Text } = Typography
@@ -31,6 +32,7 @@ interface CopyTextModalProps {
 function CopyTextModal({ visible, onClose, content, darkMode, zIndex = 1003 }: CopyTextModalProps) {
   const themeVars = getThemeVars(darkMode)
 
+  const [codeWrap, setCodeWrap] = useState(false)
   const [formattedContent, setFormattedContent] = useState<Record<string, string>>({})
   const [formatting, setFormatting] = useState(false)
 
@@ -86,22 +88,37 @@ function CopyTextModal({ visible, onClose, content, darkMode, zIndex = 1003 }: C
   }
 
   // 渲染原始内容
-  const renderOriginalContent = (itemContent: string, language: string, isCodeContent: boolean) => {
+  const renderOriginalContent = (itemContent: string, isCodeContent: boolean) => {
     if (isCodeContent) {
+      /* 计算编辑器高度：基于内容行数，最小 150px，最大 400px */
+      const lineCount = itemContent.split('\n').length
+      const editorHeight = Math.min(Math.max(lineCount * 19, 150), 400)
+
       return (
-        <SyntaxHighlighter
-          language={language}
-          style={vscDarkPlus}
-          customStyle={{
-            margin: 0,
-            borderRadius: 8,
+        <Editor
+          height={`${editorHeight}px`}
+          language={getMonacoLanguage('', itemContent)}
+          value={itemContent}
+          theme={darkMode ? 'vs-dark' : 'light'}
+          options={{
+            readOnly: true,
+            minimap: { enabled: false },
             fontSize: 13,
-            lineHeight: 1.6
+            lineNumbers: 'on',
+            scrollBeyondLastLine: false,
+            wordWrap: codeWrap ? 'on' : 'off',
+            wrappingIndent: 'indent',
+            automaticLayout: true,
+            domReadOnly: true,
+            renderLineHighlight: 'none',
+            overviewRulerLanes: 0,
+            hideCursorInOverviewRuler: true,
+            scrollbar: {
+              verticalScrollbarSize: 8,
+              horizontalScrollbarSize: 8
+            }
           }}
-          showLineNumbers
-        >
-          {itemContent}
-        </SyntaxHighlighter>
+        />
       )
     }
 
@@ -142,13 +159,14 @@ function CopyTextModal({ visible, onClose, content, darkMode, zIndex = 1003 }: C
             const match = /language-(\w+)/.exec(className || '')
             return !inline && match ? (
               <SyntaxHighlighter
-                style={vscDarkPlus}
+                style={darkMode ? vscDarkPlus : prism}
                 language={match[1]}
                 PreTag="div"
                 customStyle={{
                   margin: '8px 0',
                   borderRadius: 6,
-                  fontSize: 13
+                  fontSize: 13,
+                  background: themeVars.bgCode
                 }}
                 {...props}
               >
@@ -285,19 +303,27 @@ function CopyTextModal({ visible, onClose, content, darkMode, zIndex = 1003 }: C
                     </Tag>
                   )}
                 </div>
-                <Button
-                  type="text"
-                  size="small"
-                  icon={<CopyOutlined />}
-                  onClick={() => handleCopy(itemContent, formattedItemContent)}
-                >
-                  复制
-                </Button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {!shouldRenderFormatted && isCodeContent && (
+                    <Space size={4}>
+                      <Text type="secondary" style={{ fontSize: 12 }}>折行</Text>
+                      <Switch size="small" checked={codeWrap} onChange={setCodeWrap} />
+                    </Space>
+                  )}
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<CopyOutlined />}
+                    onClick={() => handleCopy(itemContent, formattedItemContent)}
+                  >
+                    复制
+                  </Button>
+                </div>
               </div>
 
               {shouldRenderFormatted
                 ? renderFormattedContent(formattedItemContent)
-                : renderOriginalContent(itemContent, language, isCodeContent)}
+                : renderOriginalContent(itemContent, isCodeContent)}
             </div>
           )
         })}

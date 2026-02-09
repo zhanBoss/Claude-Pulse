@@ -4,7 +4,7 @@ import { CopyOutlined, RobotOutlined, FileTextOutlined, ReloadOutlined } from '@
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
+import { vscDarkPlus, prism } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import ElectronModal from './ElectronModal'
 import { getThemeVars } from '../theme'
 import crypto from 'crypto-js'
@@ -153,13 +153,14 @@ function FormattedPromptModal({
               const match = /language-(\w+)/.exec(className || '')
               return !inline && match ? (
                 <SyntaxHighlighter
-                  style={vscDarkPlus}
+                  style={darkMode ? vscDarkPlus : prism}
                   language={match[1]}
                   PreTag="div"
                   customStyle={{
                     margin: '12px 0',
                     borderRadius: 6,
-                    fontSize: 13
+                    fontSize: 13,
+                    background: themeVars.bgCode
                   }}
                   showLineNumbers
                   {...props}

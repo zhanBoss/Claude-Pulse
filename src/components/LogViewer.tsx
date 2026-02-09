@@ -29,7 +29,7 @@ import {
 import Highlighter from 'react-highlight-words'
 import ReactMarkdown from 'react-markdown'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
+import { vscDarkPlus, prism } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { ClaudeRecord } from '../types'
 import { getThemeVars } from '../theme'
 import { replacePastedContents } from '../utils/promptFormatter'
@@ -897,13 +897,14 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
                 const match = /language-(\w+)/.exec(className || '')
                 return !inline && match ? (
                   <SyntaxHighlighter
-                    style={vscDarkPlus}
+                    style={darkMode ? vscDarkPlus : prism}
                     language={match[1]}
                     PreTag="div"
                     customStyle={{
                       margin: 0,
                       borderRadius: 6,
-                      fontSize: 13
+                      fontSize: 13,
+                      background: themeVars.bgCode
                     }}
                     {...props}
                   >
