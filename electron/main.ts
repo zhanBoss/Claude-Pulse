@@ -851,6 +851,10 @@ ipcMain.handle('read-history-metadata', async () => {
         const toolErrorsMap = new Map<string, number>()
         /* 用于匹配 tool_use id -> tool name */
         const toolIdToName = new Map<string, string>()
+        /* 工具耗时追踪: tool_use_id -> { name, timestamp } */
+        const pendingToolCalls = new Map<string, { name: string; timestamp: number }>()
+        /* 每个工具的总耗时和调用次数 */
+        const toolDurationMap = new Map<string, { totalMs: number; count: number }>()
 
         for (const sessionLine of sessionLines) {
           try {
@@ -885,6 +889,10 @@ ipcMain.handle('read-history-metadata', async () => {
                     // 记录 tool_use id -> name 映射
                     if (c.id) {
                       toolIdToName.set(c.id, c.name)
+                      // 记录工具调用时间戳用于耗时计算
+                      if (entry.timestamp) {
+                        pendingToolCalls.set(c.id, { name: c.name, timestamp: entry.timestamp })
+                      }
                     }
                   }
                 }
@@ -905,6 +913,21 @@ ipcMain.handle('read-history-metadata', async () => {
                     const toolName = toolIdToName.get(c.tool_use_id) || 'unknown'
                     toolErrorsMap.set(toolName, (toolErrorsMap.get(toolName) || 0) + 1)
                   }
+                  // 计算工具耗时
+                  if (c.tool_use_id && entry.timestamp) {
+                    const pending = pendingToolCalls.get(c.tool_use_id)
+                    if (pending) {
+                      const durationMs = entry.timestamp - pending.timestamp
+                      if (durationMs >= 0 && durationMs < 600000) {
+                        // 合理范围内（< 10 分钟）
+                        const existing = toolDurationMap.get(pending.name) || { totalMs: 0, count: 0 }
+                        existing.totalMs += durationMs
+                        existing.count += 1
+                        toolDurationMap.set(pending.name, existing)
+                      }
+                      pendingToolCalls.delete(c.tool_use_id)
+                    }
+                  }
                 }
               }
             }
@@ -916,6 +939,12 @@ ipcMain.handle('read-history-metadata', async () => {
         // 转换工具使用统计为对象
         const toolUsage = toolUsageMap.size > 0 ? Object.fromEntries(toolUsageMap) : undefined
         const toolErrors = toolErrorsMap.size > 0 ? Object.fromEntries(toolErrorsMap) : undefined
+        // 转换工具平均耗时 { "Read": 150, "Bash": 3200 } (ms)
+        const toolAvgDuration: Record<string, number> = {}
+        for (const [name, dur] of toolDurationMap) {
+          toolAvgDuration[name] = Math.round(dur.totalMs / dur.count)
+        }
+        const toolDuration = Object.keys(toolAvgDuration).length > 0 ? toolAvgDuration : undefined
 
         return {
           ...session,
@@ -925,7 +954,8 @@ ipcMain.handle('read-history-metadata', async () => {
           has_errors: hasErrors || undefined,
           tool_use_count: toolUseCount > 0 ? toolUseCount : undefined,
           tool_usage: toolUsage,
-          tool_errors: toolErrors
+          tool_errors: toolErrors,
+          tool_avg_duration: toolDuration
         }
       } catch (err) {
         console.error(`提取会话 ${session.sessionId} 的元数据失败:`, err)

@@ -96,6 +96,7 @@ export interface SessionMetadata {
   tool_use_count?: number
   tool_usage?: Record<string, number> // { "Read": 5, "Write": 3, "Bash": 2 }
   tool_errors?: Record<string, number> // { "Bash": 2, "Write": 1 } 各工具错误次数
+  tool_avg_duration?: Record<string, number> // { "Read": 150, "Bash": 3200 } 各工具平均耗时(ms)
 }
 
 // 项目级别统计数据

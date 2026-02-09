@@ -9,7 +9,8 @@ import {
   ReloadOutlined,
   BarChartOutlined,
   SwapOutlined,
-  CloseOutlined
+  CloseOutlined,
+  ClockCircleOutlined
 } from '@ant-design/icons'
 import {
   BarChart,
@@ -32,7 +33,14 @@ import {
 import { SessionMetadata } from '../types'
 import { getThemeVars } from '../theme'
 
-const { Text, Title } = Typography
+const { Text } = Typography
+
+/* 格式化毫秒为可读时间 */
+const formatDuration = (ms: number): string => {
+  if (ms < 1000) return `${ms}ms`
+  if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`
+  return `${(ms / 60000).toFixed(1)}m`
+}
 
 interface StatisticsViewProps {
   darkMode: boolean
@@ -251,6 +259,31 @@ const StatisticsView = (props: StatisticsViewProps) => {
         return { name, total, success, errors, successRate }
       })
       .sort((a, b) => b.total - a.total)
+  }, [sessions])
+
+  /* 工具平均耗时统计 */
+  const toolDurationStats = useMemo(() => {
+    const durationMap = new Map<string, { totalMs: number; count: number }>()
+
+    for (const s of sessions) {
+      if (s.tool_avg_duration && s.tool_usage) {
+        for (const [tool, avgMs] of Object.entries(s.tool_avg_duration)) {
+          const callCount = s.tool_usage[tool] || 1
+          const existing = durationMap.get(tool) || { totalMs: 0, count: 0 }
+          existing.totalMs += avgMs * callCount
+          existing.count += callCount
+          durationMap.set(tool, existing)
+        }
+      }
+    }
+
+    return Array.from(durationMap.entries())
+      .map(([name, dur]) => ({
+        name,
+        avgMs: Math.round(dur.totalMs / dur.count),
+        count: dur.count
+      }))
+      .sort((a, b) => b.avgMs - a.avgMs)
   }, [sessions])
 
   // 项目 Token 使用量柱状图数据
@@ -629,6 +662,72 @@ const StatisticsView = (props: StatisticsViewProps) => {
                     </div>
                   </div>
                 ))}
+              </div>
+            </Card>
+          )}
+
+          {/* 工具平均耗时 */}
+          {toolDurationStats.length > 0 && (
+            <Card
+              size="small"
+              title={
+                <Space>
+                  <ClockCircleOutlined />
+                  <Text style={{ fontSize: 13 }}>工具平均耗时</Text>
+                </Space>
+              }
+            >
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {toolDurationStats.slice(0, 15).map((tool, index) => {
+                  const maxMs = toolDurationStats[0]?.avgMs || 1
+                  const percentage = (tool.avgMs / maxMs) * 100
+                  const color = tool.avgMs > 10000 ? '#f5222d' : tool.avgMs > 3000 ? '#faad14' : '#52c41a'
+                  return (
+                    <div
+                      key={tool.name}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 12
+                      }}
+                    >
+                      <Text
+                        style={{
+                          width: 140,
+                          fontSize: 12,
+                          fontFamily: 'monospace'
+                        }}
+                      >
+                        {tool.name}
+                      </Text>
+                      <div
+                        style={{
+                          flex: 1,
+                          height: 16,
+                          background: themeVars.bgSection,
+                          borderRadius: 4,
+                          overflow: 'hidden'
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: `${percentage}%`,
+                            height: '100%',
+                            background: color,
+                            borderRadius: 4,
+                            transition: 'width 0.3s ease'
+                          }}
+                        />
+                      </div>
+                      <Tag style={{ fontSize: 11, minWidth: 70, textAlign: 'center' }}>
+                        {formatDuration(tool.avgMs)}
+                      </Tag>
+                      <Text type="secondary" style={{ fontSize: 11, minWidth: 50, textAlign: 'right' }}>
+                        {tool.count} 次
+                      </Text>
+                    </div>
+                  )
+                })}
               </div>
             </Card>
           )}
