@@ -2,6 +2,7 @@ import { Menu } from 'antd'
 import {
   ThunderboltOutlined,
   ClockCircleOutlined,
+  BarChartOutlined,
   StarOutlined,
   CommentOutlined,
   SettingOutlined,
@@ -35,6 +36,11 @@ const Sidebar = (props: SidebarProps) => {
       key: 'history',
       icon: <ClockCircleOutlined />,
       label: '历史记录'
+    },
+    {
+      key: 'statistics',
+      icon: <BarChartOutlined />,
+      label: '使用统计'
     },
     {
       key: 'prompts',
