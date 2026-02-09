@@ -34,11 +34,25 @@ export interface MessageContent {
   content?: string | any[]
 }
 
+// 消息子类型
+export type MessageSubType =
+  | 'user'
+  | 'assistant'
+  | 'system'
+  | 'summary'
+  | 'file-history-snapshot'
+  | 'queue-operation'
+  | 'hook'
+  | 'microcompaction-boundary'
+  | string
+
 // 完整对话消息
 export interface FullMessage {
   role: 'user' | 'assistant'
   content: MessageContent[]
   timestamp: number
+  // 消息子类型
+  subType?: MessageSubType
   // Token 和成本信息
   model?: string
   usage?: TokenUsage

@@ -1053,9 +1053,18 @@ ipcMain.handle('read-full-conversation', async (_, sessionId: string, project: s
       try {
         const entry = JSON.parse(line)
 
+        // 获取消息子类型
+        const entryType = entry.type || 'unknown'
+
         // 检查错误
         if (entry.error) {
           hasErrors = true
+        }
+
+        // 跳过非消息类型（如 file-history-snapshot、queue-operation）
+        // 但仍记录它们存在
+        if (entryType === 'file-history-snapshot' || entryType === 'queue-operation') {
+          continue
         }
 
         // 提取用户消息
@@ -1074,7 +1083,8 @@ ipcMain.handle('read-full-conversation', async (_, sessionId: string, project: s
           messages.push({
             role: entry.message.role,
             content: messageContent,
-            timestamp: entry.timestamp || Date.now()
+            timestamp: entry.timestamp || Date.now(),
+            subType: entryType
           })
         }
 
@@ -1112,6 +1122,7 @@ ipcMain.handle('read-full-conversation', async (_, sessionId: string, project: s
             role: entry.response.role,
             content: responseContent,
             timestamp: entry.timestamp || Date.now(),
+            subType: entryType,
             model,
             usage,
             cost_usd: messageCost > 0 ? messageCost : undefined,

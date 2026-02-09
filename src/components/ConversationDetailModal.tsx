@@ -1,7 +1,7 @@
 import { Modal, Spin, Alert, Typography, Divider, Tag, Space, Button, message } from 'antd'
 import { useEffect, useState } from 'react'
-import { FullConversation, MessageContent } from '../types'
-import { CopyOutlined, ToolOutlined, FileImageOutlined } from '@ant-design/icons'
+import { FullConversation, MessageContent, MessageSubType } from '../types'
+import { CopyOutlined, ToolOutlined, FileImageOutlined, TagOutlined } from '@ant-design/icons'
 
 const { Text, Paragraph } = Typography
 
@@ -52,6 +52,27 @@ const ConversationDetailModal = ({
     } else {
       message.error('复制失败')
     }
+  }
+
+  // 渲染消息子类型标签
+  const renderSubTypeTag = (subType?: MessageSubType) => {
+    if (!subType || subType === 'user' || subType === 'assistant') return null
+
+    const subTypeConfig: Record<string, { color: string; label: string }> = {
+      system: { color: 'orange', label: '系统消息' },
+      summary: { color: 'cyan', label: '上下文摘要' },
+      hook: { color: 'magenta', label: 'Hook' },
+      'microcompaction-boundary': { color: 'geekblue', label: '压缩边界' },
+      'queue-operation': { color: 'lime', label: '队列操作' }
+    }
+
+    const config = subTypeConfig[subType] || { color: 'default', label: subType }
+
+    return (
+      <Tag icon={<TagOutlined />} color={config.color} style={{ fontSize: 11 }}>
+        {config.label}
+      </Tag>
+    )
   }
 
   const renderContent = (content: MessageContent[]) => {
@@ -229,10 +250,11 @@ const ConversationDetailModal = ({
 
           {conversation.messages.map((msg, index) => (
             <div key={index} className="mb-6">
-              <div className="flex items-center gap-2 mb-2">
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
                 <Tag color={msg.role === 'user' ? 'blue' : 'green'}>
                   {msg.role === 'user' ? '用户' : 'AI 助手'}
                 </Tag>
+                {renderSubTypeTag(msg.subType)}
                 <Text type="secondary" className="text-xs">
                   {new Date(msg.timestamp).toLocaleString('zh-CN')}
                 </Text>
