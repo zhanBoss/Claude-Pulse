@@ -278,6 +278,12 @@ function HistoryViewer({ onOpenSettings, darkMode, onSendToChat }: HistoryViewer
     return groupedRecords.slice(startIndex, endIndex)
   }, [groupedRecords, currentPage, pageSize])
 
+  const getProjectName = (projectPath: string) => {
+    if (!projectPath) return '未知项目'
+    const parts = projectPath.split('/')
+    return parts[parts.length - 1]
+  }
+
   // 项目级别 Token 统计
   const projectStats = useMemo(() => {
     const statsMap = new Map<
@@ -326,12 +332,6 @@ function HistoryViewer({ onOpenSettings, darkMode, onSendToChat }: HistoryViewer
       setPageSize(newPageSize)
       setCurrentPage(1) // 改变每页条数时重置到第一页
     }
-  }
-
-  const getProjectName = (projectPath: string) => {
-    if (!projectPath) return '未知项目'
-    const parts = projectPath.split('/')
-    return parts[parts.length - 1]
   }
 
   const formatTime = (timestamp: number) => {
