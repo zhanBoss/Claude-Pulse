@@ -46,7 +46,7 @@ const CODE_PATTERNS = [
   // 模板字符串
   /`[\s\S]*?\${[\s\S]*?}[\s\S]*?`/,
   // 正则表达式字面量
-  /\/[^/\n]+\/[gimuy]*/,
+  /\/[^/\n]+\/[gimuy]*/
 ]
 
 /**
@@ -87,7 +87,8 @@ const analyzeCodeFeatures = (content: string): CodeFeatures => {
   const hasSpecialChars = (content.match(/[()[\]<>{}=]/g) || []).length
 
   // 运算符数量（避免与自然语言混淆）
-  const hasOperators = (content.match(/[+\-*/%&|^~!]=?|===?|!==?|<=?|>=?|&&|\|\||<<|>>/g) || []).length
+  const hasOperators = (content.match(/[+\-*/%&|^~!]=?|===?|!==?|<=?|>=?|&&|\|\||<<|>>/g) || [])
+    .length
 
   // 引号数量（成对出现）
   const hasQuotes = (content.match(/["'`]/g) || []).length

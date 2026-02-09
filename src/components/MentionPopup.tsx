@@ -85,10 +85,7 @@ const MentionPopup = (props: MentionPopupProps) => {
   )
 
   /* 当前可见的项列表 */
-  const visibleItems = useMemo(
-    () => (currentTab?.items || []).slice(0, 30),
-    [currentTab]
-  )
+  const visibleItems = useMemo(() => (currentTab?.items || []).slice(0, 30), [currentTab])
 
   /* 当 tab 或搜索结果变化时重置选中索引 */
   useEffect(() => {
@@ -172,7 +169,7 @@ const MentionPopup = (props: MentionPopupProps) => {
     return (
       <div
         key={item.key}
-        ref={(el) => {
+        ref={el => {
           if (el) {
             itemRefs.current.set(index, el)
           } else {
@@ -190,29 +187,33 @@ const MentionPopup = (props: MentionPopupProps) => {
           transition: 'all 0.15s'
         }}
       >
-        <div style={{
-          fontSize: 13,
-          fontWeight: 500,
-          color: themeVars.text,
-          marginBottom: 4,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6
-        }}>
+        <div
+          style={{
+            fontSize: 13,
+            fontWeight: 500,
+            color: themeVars.text,
+            marginBottom: 4,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6
+          }}
+        >
           {highlightText(item.title, searchText, themeVars.primary, darkMode)}
           {item.extra}
         </div>
-        <div style={{
-          fontSize: 12,
-          color: themeVars.textTertiary,
-          lineHeight: 1.5,
-          display: '-webkit-box',
-          WebkitLineClamp: 2,
-          WebkitBoxOrient: 'vertical',
-          overflow: 'hidden',
-          whiteSpace: 'pre-wrap',
-          wordBreak: 'break-word'
-        }}>
+        <div
+          style={{
+            fontSize: 12,
+            color: themeVars.textTertiary,
+            lineHeight: 1.5,
+            display: '-webkit-box',
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: 'vertical',
+            overflow: 'hidden',
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word'
+          }}
+        >
           {highlightText(item.content, searchText, themeVars.primary, darkMode)}
         </div>
       </div>
@@ -221,11 +222,13 @@ const MentionPopup = (props: MentionPopupProps) => {
 
   /* ---- 渲染空状态 ---- */
   const renderEmpty = (icon: React.ReactNode, title: string, desc?: string) => (
-    <div style={{
-      textAlign: 'center',
-      padding: '32px 20px',
-      color: themeVars.textTertiary
-    }}>
+    <div
+      style={{
+        textAlign: 'center',
+        padding: '32px 20px',
+        color: themeVars.textTertiary
+      }}
+    >
       <div style={{ fontSize: 28, marginBottom: 8, opacity: 0.3 }}>{icon}</div>
       <div style={{ fontSize: 13 }}>{title}</div>
       {desc && <div style={{ fontSize: 12, marginTop: 4 }}>{desc}</div>}
@@ -280,40 +283,44 @@ const MentionPopup = (props: MentionPopupProps) => {
         background: themeVars.bgContainer,
         border: `1px solid ${themeVars.borderSecondary}`,
         borderRadius: 12,
-        boxShadow: darkMode
-          ? '0 -4px 24px rgba(0,0,0,0.3)'
-          : '0 -4px 24px rgba(0,0,0,0.1)',
+        boxShadow: darkMode ? '0 -4px 24px rgba(0,0,0,0.3)' : '0 -4px 24px rgba(0,0,0,0.1)',
         zIndex: 100,
         overflow: 'hidden',
         outline: 'none',
         ...style
       }}
-      onMouseDown={(e) => e.preventDefault()}
+      onMouseDown={e => e.preventDefault()}
     >
       <div style={{ padding: '12px 16px' }}>
         {/* 标题 + 关闭 */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          marginBottom: 10
-        }}>
-          <Text style={{ fontSize: 13, fontWeight: 600, color: themeVars.text }}>
-            选择引用内容
-          </Text>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginBottom: 10
+          }}
+        >
+          <Text style={{ fontSize: 13, fontWeight: 600, color: themeVars.text }}>选择引用内容</Text>
           <Button
             type="text"
             size="small"
             icon={<CloseOutlined />}
             onClick={onDismiss}
-            style={{ color: themeVars.textTertiary, width: 24, height: 24, padding: 0, borderRadius: '50%' }}
+            style={{
+              color: themeVars.textTertiary,
+              width: 24,
+              height: 24,
+              padding: 0,
+              borderRadius: '50%'
+            }}
           />
         </div>
 
         {/* 来源 Tab */}
         <Segmented
           value={activeTab}
-          onChange={(val) => {
+          onChange={val => {
             onTabChange(val as string)
             // Tab 切换后，立即重新聚焦到弹窗容器，确保键盘导航继续生效
             setTimeout(() => {
@@ -328,14 +335,16 @@ const MentionPopup = (props: MentionPopupProps) => {
 
         {/* 搜索提示 */}
         {searchText && (
-          <div style={{
-            fontSize: 12,
-            color: themeVars.textTertiary,
-            marginBottom: 8,
-            padding: '4px 8px',
-            borderRadius: 4,
-            background: darkMode ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.02)'
-          }}>
+          <div
+            style={{
+              fontSize: 12,
+              color: themeVars.textTertiary,
+              marginBottom: 8,
+              padding: '4px 8px',
+              borderRadius: 4,
+              background: darkMode ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.02)'
+            }}
+          >
             搜索: <span style={{ color: themeVars.primary, fontWeight: 500 }}>{searchText}</span>
           </div>
         )}
@@ -347,15 +356,17 @@ const MentionPopup = (props: MentionPopupProps) => {
 
         {/* 所有 tab 均无匹配时的提示 */}
         {!hasAnyResults && searchText.trim() && (
-          <div style={{
-            textAlign: 'center',
-            padding: '10px 12px',
-            fontSize: 12,
-            color: themeVars.textTertiary,
-            borderTop: `1px solid ${themeVars.borderSecondary}`,
-            marginTop: 4,
-            lineHeight: 1.6
-          }}>
+          <div
+            style={{
+              textAlign: 'center',
+              padding: '10px 12px',
+              fontSize: 12,
+              color: themeVars.textTertiary,
+              borderTop: `1px solid ${themeVars.borderSecondary}`,
+              marginTop: 4,
+              lineHeight: 1.6
+            }}
+          >
             <span style={{ color: themeVars.textSecondary }}>未找到匹配内容</span>
             <span style={{ margin: '0 4px' }}>·</span>
             <span>即将作为普通文本处理</span>

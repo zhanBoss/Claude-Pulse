@@ -1,6 +1,13 @@
 import { useState } from 'react'
 import { Timeline, Card, Tag, Space } from 'antd'
-import { ClockCircleOutlined, RocketOutlined, BugOutlined, ToolOutlined, FileTextOutlined, DownOutlined } from '@ant-design/icons'
+import {
+  ClockCircleOutlined,
+  RocketOutlined,
+  BugOutlined,
+  ToolOutlined,
+  FileTextOutlined,
+  DownOutlined
+} from '@ant-design/icons'
 import { getThemeVars } from '../theme'
 
 interface ChangelogViewProps {
@@ -30,7 +37,10 @@ const changelog: VersionData[] = [
       { type: 'refactor', description: '重新生成按钮 UI 优化：位于消息气泡右侧外部，不遮挡内容' },
       { type: 'refactor', description: '按钮默认隐藏，hover 消息时显示，简洁的图标设计' },
       { type: 'refactor', description: '平滑的淡入淡出动画效果，距离消息气泡仅 4px' },
-      { type: 'feat', description: 'AI 对话功能全面升级：支持 Markdown 渲染、打字机效果、代码块复制' },
+      {
+        type: 'feat',
+        description: 'AI 对话功能全面升级：支持 Markdown 渲染、打字机效果、代码块复制'
+      },
       { type: 'feat', description: '添加 @ 引用输入框功能，支持引用历史对话内容到 AI 助手' },
       { type: 'feat', description: '支持将对话内容发送到 AI 助手，实现上下文对话' },
       { type: 'feat', description: '添加图片复制到剪贴板功能，抽取可复用的图片组件' },
@@ -42,7 +52,10 @@ const changelog: VersionData[] = [
       { type: 'feat', description: '导航栏收起状态下图标居中显示，激活项右上角显示高亮点' },
       { type: 'feat', description: 'MentionPopup 添加完整键盘导航支持，支持上下键选择' },
       { type: 'feat', description: '导出对话代码块支持语法高亮，采用 Catppuccin Mocha 配色方案' },
-      { type: 'feat', description: '代码块语法高亮支持 10+ 编程语言（JS/TS/Python/Java/Go/Rust/C/C++/SQL 等）' },
+      {
+        type: 'feat',
+        description: '代码块语法高亮支持 10+ 编程语言（JS/TS/Python/Java/Go/Rust/C/C++/SQL 等）'
+      },
       { type: 'refactor', description: '移除导出和清空按钮的冗余 Tooltip，简化界面交互' },
       { type: 'refactor', description: '重构 AI 配置架构：拆分对话与总结功能，独立配置' },
       { type: 'refactor', description: '统一颜色系统，移除所有硬编码颜色，使用主题变量' },
@@ -103,9 +116,18 @@ const changelog: VersionData[] = [
     version: '1.4.1',
     date: '2026-02-03',
     changes: [
-      { type: 'fix', description: '修复 TypeScript 编译错误，添加 downlevelIteration 支持 Map/Set 迭代' },
-      { type: 'fix', description: '添加 esModuleInterop 和 allowSyntheticDefaultImports 支持模块导入' },
-      { type: 'fix', description: '为 Electron 主进程创建独立的 TypeScript 配置 (tsconfig.electron.json)' },
+      {
+        type: 'fix',
+        description: '修复 TypeScript 编译错误，添加 downlevelIteration 支持 Map/Set 迭代'
+      },
+      {
+        type: 'fix',
+        description: '添加 esModuleInterop 和 allowSyntheticDefaultImports 支持模块导入'
+      },
+      {
+        type: 'fix',
+        description: '为 Electron 主进程创建独立的 TypeScript 配置 (tsconfig.electron.json)'
+      },
       { type: 'fix', description: '修复 global.processedImages 类型声明问题' }
     ]
   },
@@ -229,33 +251,43 @@ const ChangelogView = ({ darkMode }: ChangelogViewProps) => {
   }
 
   return (
-    <div style={{
-      height: '100%',
-      overflow: 'auto',
-      background: themeVars.bgLayout
-    }}>
-      <div style={{
-        maxWidth: 900,
-        margin: '0 auto',
-        padding: '24px 20px'
-      }}>
+    <div
+      style={{
+        height: '100%',
+        overflow: 'auto',
+        background: themeVars.bgLayout
+      }}
+    >
+      <div
+        style={{
+          maxWidth: 900,
+          margin: '0 auto',
+          padding: '24px 20px'
+        }}
+      >
         {/* 页面标题 */}
-        <div style={{
-          marginBottom: 24,
-          textAlign: 'center'
-        }}>
-          <h1 style={{
-            fontSize: 28,
-            fontWeight: 700,
-            color: themeVars.text,
-            marginBottom: 6
-          }}>
+        <div
+          style={{
+            marginBottom: 24,
+            textAlign: 'center'
+          }}
+        >
+          <h1
+            style={{
+              fontSize: 28,
+              fontWeight: 700,
+              color: themeVars.text,
+              marginBottom: 6
+            }}
+          >
             更新日志
           </h1>
-          <p style={{
-            fontSize: 13,
-            color: themeVars.textSecondary
-          }}>
+          <p
+            style={{
+              fontSize: 13,
+              color: themeVars.textSecondary
+            }}
+          >
             记录 CCMonitor 的版本演进历程
           </p>
         </div>
@@ -288,9 +320,7 @@ const ChangelogView = ({ darkMode }: ChangelogViewProps) => {
                     onClick={() => {
                       const key = index.toString()
                       setExpandedKeys(prev =>
-                        prev.includes(key)
-                          ? prev.filter(k => k !== key)
-                          : [...prev, key]
+                        prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
                       )
                     }}
                     style={{
@@ -306,21 +336,27 @@ const ChangelogView = ({ darkMode }: ChangelogViewProps) => {
                     }}
                   >
                     <Space size={12}>
-                      <span style={{
-                        fontSize: 20,
-                        fontWeight: 700,
-                        color: isLatest ? themeVars.primary : themeVars.text,
-                        fontFamily: 'Fira Code, monospace'
-                      }}>
+                      <span
+                        style={{
+                          fontSize: 20,
+                          fontWeight: 700,
+                          color: isLatest ? themeVars.primary : themeVars.text,
+                          fontFamily: 'Fira Code, monospace'
+                        }}
+                      >
                         v{version.version}
                       </span>
                       {isLatest && (
-                        <Tag color="blue" style={{ margin: 0 }}>最新</Tag>
+                        <Tag color="blue" style={{ margin: 0 }}>
+                          最新
+                        </Tag>
                       )}
-                      <span style={{
-                        fontSize: 13,
-                        color: themeVars.textTertiary
-                      }}>
+                      <span
+                        style={{
+                          fontSize: 13,
+                          color: themeVars.textTertiary
+                        }}
+                      >
                         {version.date}
                       </span>
                     </Space>
@@ -380,9 +416,7 @@ const ChangelogView = ({ darkMode }: ChangelogViewProps) => {
                               lineHeight: 1.8
                             }}
                           >
-                            <div style={{ flexShrink: 0 }}>
-                              {getTypeIcon(change.type)}
-                            </div>
+                            <div style={{ flexShrink: 0 }}>{getTypeIcon(change.type)}</div>
                             <Tag
                               color={getTypeColor(change.type)}
                               style={{
@@ -395,9 +429,7 @@ const ChangelogView = ({ darkMode }: ChangelogViewProps) => {
                             >
                               {getTypeLabel(change.type)}
                             </Tag>
-                            <span style={{ flex: 1 }}>
-                              {change.description}
-                            </span>
+                            <span style={{ flex: 1 }}>{change.description}</span>
                           </div>
                         ))}
                       </Space>

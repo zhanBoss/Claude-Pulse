@@ -53,6 +53,7 @@ gh auth login
 ```
 
 **为什么需要 gh CLI?**
+
 - 可以直接从命令行上传文件到 GitHub Release
 - 无需手动在网页上传大文件
 - 支持自动化脚本
@@ -105,6 +106,7 @@ pnpm run dev  # 启动开发服务器测试
 #### 1.2 配置 Token 到环境变量
 
 **临时配置 (当前终端会话有效)**:
+
 ```bash
 export GH_TOKEN=ghp_your_token_here
 ```
@@ -156,6 +158,7 @@ gh repo view zhanBoss/Claude-Code-Monitor
 - **修订号 (Patch)**: 向下兼容的问题修正 (例: 1.0.0 → 1.0.1)
 
 **示例**:
+
 - 修复了几个 Bug → 1.7.0 → 1.7.1
 - 新增了新功能 → 1.7.0 → 1.8.0
 - 重大架构调整 → 1.7.0 → 2.0.0
@@ -187,20 +190,24 @@ nano CHANGELOG.md
 ## [1.8.0] - 2026-02-08
 
 ### ✨ 新功能
+
 - 添加了 XXX 功能
 - 支持 YYY 特性
 
 ### 🎯 改进
+
 - 优化了 AAA 性能
 - 改进了 BBB 体验
 
 ### 🐛 修复
+
 - 修复了 CCC 问题
 - 解决了 DDD 崩溃
 
 ---
 
 ## [1.7.0] - 2026-02-08
+
 ...
 ```
 
@@ -232,6 +239,7 @@ git push origin main
 ```
 
 **提交信息规范**:
+
 - `feat:` - 新功能
 - `fix:` - Bug 修复
 - `docs:` - 文档更新
@@ -257,6 +265,7 @@ git push origin --tags
 ```
 
 **为什么需要标签?**
+
 - GitHub Release 基于 Git 标签创建
 - 标签标记了代码的特定版本
 - 用户可以下载特定版本的源代码
@@ -277,6 +286,7 @@ pnpm run build:prod
 ```
 
 **构建产物位置**:
+
 ```
 release/
 ├── CCMonitor-1.8.0-arm64.dmg          # macOS 安装镜像 (95MB)
@@ -329,6 +339,7 @@ gh release view v1.8.0 --repo zhanBoss/Claude-Code-Monitor
 如果 gh CLI 不可用,可以手动创建:
 
 1. **访问 Release 页面**:
+
    ```
    https://github.com/zhanBoss/Claude-Code-Monitor/releases/new
    ```
@@ -366,6 +377,7 @@ gh release view v1.8.0 --repo zhanBoss/Claude-Code-Monitor
 ```
 
 **`--clobber` 参数说明**:
+
 - 如果文件已存在,会覆盖旧文件
 - 不加此参数,上传同名文件会报错
 
@@ -383,6 +395,7 @@ gh release view v1.8.0 --repo zhanBoss/Claude-Code-Monitor --web
 ```
 
 **验证清单**:
+
 - ✅ Release 标记为 "Latest"
 - ✅ 包含 3 个文件 (dmg, zip, yml)
 - ✅ 文件大小正确 (dmg ~95MB, zip ~91MB)
@@ -398,6 +411,7 @@ gh release view v1.8.0 --repo zhanBoss/Claude-Code-Monitor --web
 **原因**: 未安装 GitHub CLI
 
 **解决**:
+
 ```bash
 # macOS
 brew install gh
@@ -411,6 +425,7 @@ gh --version
 **原因**: 网络问题或认证失败
 
 **解决**:
+
 ```bash
 # 重新登录
 gh auth logout
@@ -423,6 +438,7 @@ gh auth login
 ### Q3: `git push` 被拒绝
 
 **错误信息**:
+
 ```
 ! [rejected]        main -> main (fetch first)
 ```
@@ -430,6 +446,7 @@ gh auth login
 **原因**: 远程仓库有新提交
 
 **解决**:
+
 ```bash
 # 拉取远程更新
 git pull origin main
@@ -443,6 +460,7 @@ git push origin main
 **原因**: 未安装 pnpm
 
 **解决**:
+
 ```bash
 # 安装 pnpm
 npm install -g pnpm
@@ -457,11 +475,13 @@ pnpm install
 ### Q5: 构建失败 - 依赖错误
 
 **错误信息**:
+
 ```
 Error: Cannot find module 'xxx'
 ```
 
 **解决**:
+
 ```bash
 # 清理依赖
 rm -rf node_modules pnpm-lock.yaml
@@ -476,11 +496,13 @@ pnpm run build:prod
 ### Q6: 上传文件失败 - 文件太大
 
 **错误信息**:
+
 ```
 HTTP 413: Request Entity Too Large
 ```
 
 **解决**:
+
 - GitHub Release 单个文件限制 2GB
 - 我们的文件 ~95MB,不会超限
 - 如果确实超限,考虑压缩或分割文件
@@ -488,11 +510,13 @@ HTTP 413: Request Entity Too Large
 ### Q7: 标签已存在
 
 **错误信息**:
+
 ```
 fatal: tag 'v1.8.0' already exists
 ```
 
 **解决**:
+
 ```bash
 # 删除本地标签
 git tag -d v1.8.0
@@ -508,6 +532,7 @@ git push origin v1.8.0
 ### Q8: Release 已存在
 
 **错误信息**:
+
 ```
 release already exists
 ```
@@ -515,6 +540,7 @@ release already exists
 **解决**:
 
 **方法 1: 更新现有 Release**
+
 ```bash
 # 只上传新文件,不创建新 Release
 gh release upload v1.8.0 \
@@ -524,6 +550,7 @@ gh release upload v1.8.0 \
 ```
 
 **方法 2: 删除并重新创建**
+
 ```bash
 # 删除 Release (保留标签)
 gh release delete v1.8.0 --repo zhanBoss/Claude-Code-Monitor --yes
@@ -535,6 +562,7 @@ gh release create v1.8.0 ...
 ### Q9: 权限被拒绝
 
 **错误信息**:
+
 ```
 HTTP 403: Forbidden
 ```
@@ -542,6 +570,7 @@ HTTP 403: Forbidden
 **原因**: GitHub Token 权限不足或未登录
 
 **解决**:
+
 ```bash
 # 检查登录状态
 gh auth status
@@ -555,6 +584,7 @@ gh auth login
 ### Q10: 构建产物找不到
 
 **错误信息**:
+
 ```
 file not found: release/CCMonitor-1.8.0-arm64.dmg
 ```
@@ -562,6 +592,7 @@ file not found: release/CCMonitor-1.8.0-arm64.dmg
 **原因**: 构建失败或版本号不匹配
 
 **解决**:
+
 ```bash
 # 检查构建是否成功
 ls -lh release/

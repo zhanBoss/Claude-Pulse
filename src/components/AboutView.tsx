@@ -1,10 +1,5 @@
 import { Card, Space, Typography, Divider, Button } from 'antd'
-import {
-  InfoCircleOutlined,
-  GithubOutlined,
-  HeartOutlined,
-  CodeOutlined
-} from '@ant-design/icons'
+import { InfoCircleOutlined, GithubOutlined, HeartOutlined, CodeOutlined } from '@ant-design/icons'
 import { getThemeVars } from '../theme'
 
 const { Text, Link } = Typography
@@ -17,36 +12,48 @@ function AboutView({ darkMode }: AboutViewProps) {
   const themeVars = getThemeVars(darkMode)
 
   return (
-    <div style={{
-      height: '100%',
-      display: 'flex',
-      flexDirection: 'column',
-      backgroundColor: themeVars.bgLayout
-    }}>
-      {/* 顶部标题栏 - 可拖动 */}
-      <div style={{
-        padding: '16px',
-        borderBottom: `1px solid ${themeVars.borderSecondary}`,
-        background: themeVars.bgSection,
+    <div
+      style={{
+        height: '100%',
         display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        flexShrink: 0,
-        WebkitAppRegion: 'drag'
-      } as React.CSSProperties}>
-        <Text strong style={{ fontSize: 16 }}>关于</Text>
+        flexDirection: 'column',
+        backgroundColor: themeVars.bgLayout
+      }}
+    >
+      {/* 顶部标题栏 - 可拖动 */}
+      <div
+        style={
+          {
+            padding: '16px',
+            borderBottom: `1px solid ${themeVars.borderSecondary}`,
+            background: themeVars.bgSection,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexShrink: 0,
+            WebkitAppRegion: 'drag'
+          } as React.CSSProperties
+        }
+      >
+        <Text strong style={{ fontSize: 16 }}>
+          关于
+        </Text>
       </div>
 
       {/* 内容区域 */}
-      <div style={{
-        flex: 1,
-        overflow: 'auto',
-        padding: '24px'
-      }}>
-        <div style={{
-          maxWidth: 800,
-          margin: '0 auto'
-        }}>
+      <div
+        style={{
+          flex: 1,
+          overflow: 'auto',
+          padding: '24px'
+        }}
+      >
+        <div
+          style={{
+            maxWidth: 800,
+            margin: '0 auto'
+          }}
+        >
           <Space direction="vertical" size="large" style={{ width: '100%' }}>
             {/* 应用信息卡片 */}
             <Card
@@ -57,17 +64,19 @@ function AboutView({ darkMode }: AboutViewProps) {
             >
               <Space direction="vertical" size="middle" style={{ width: '100%' }}>
                 <div style={{ textAlign: 'center', padding: '24px 0' }}>
-                  <div style={{
-                    background: themeVars.primaryGradient,
-                    width: 80,
-                    height: 80,
-                    borderRadius: '50%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    margin: '0 auto 24px',
-                    boxShadow: `0 8px 16px ${themeVars.primaryShadow}`
-                  }}>
+                  <div
+                    style={{
+                      background: themeVars.primaryGradient,
+                      width: 80,
+                      height: 80,
+                      borderRadius: '50%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      margin: '0 auto 24px',
+                      boxShadow: `0 8px 16px ${themeVars.primaryShadow}`
+                    }}
+                  >
                     <InfoCircleOutlined style={{ fontSize: 40, color: themeVars.bgContainer }} />
                   </div>
                   <Text strong style={{ fontSize: 24, display: 'block', marginBottom: 8 }}>
@@ -201,7 +210,10 @@ function AboutView({ darkMode }: AboutViewProps) {
                 </div>
                 <div>
                   <Text type="secondary">问题反馈: </Text>
-                  <Link href="https://github.com/zhanBoss/Claude-Code-Monitor/issues" target="_blank">
+                  <Link
+                    href="https://github.com/zhanBoss/Claude-Code-Monitor/issues"
+                    target="_blank"
+                  >
                     GitHub Issues
                   </Link>
                 </div>

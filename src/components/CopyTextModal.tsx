@@ -28,13 +28,7 @@ interface CopyTextModalProps {
  * - 自动尝试 AI 格式化（失败时显示原始内容）
  * - 支持多个 Copy Text 的展示
  */
-function CopyTextModal({
-  visible,
-  onClose,
-  content,
-  darkMode,
-  zIndex = 1003
-}: CopyTextModalProps) {
+function CopyTextModal({ visible, onClose, content, darkMode, zIndex = 1003 }: CopyTextModalProps) {
   const themeVars = getThemeVars(darkMode)
 
   const [formattedContent, setFormattedContent] = useState<Record<string, string>>({})
@@ -112,17 +106,19 @@ function CopyTextModal({
     }
 
     return (
-      <div style={{
-        padding: '12px',
-        background: themeVars.bgElevated,
-        borderRadius: 8,
-        whiteSpace: 'pre-wrap',
-        wordBreak: 'break-word',
-        fontSize: 13,
-        lineHeight: 1.6,
-        color: themeVars.text,
-        fontFamily: 'monospace'
-      }}>
+      <div
+        style={{
+          padding: '12px',
+          background: themeVars.bgElevated,
+          borderRadius: 8,
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+          fontSize: 13,
+          lineHeight: 1.6,
+          color: themeVars.text,
+          fontFamily: 'monospace'
+        }}
+      >
         {itemContent}
       </div>
     )
@@ -175,12 +171,28 @@ function CopyTextModal({
             )
           },
           h1: ({ children }) => (
-            <h1 style={{ color: themeVars.text, marginTop: 24, marginBottom: 16, borderBottom: `2px solid ${themeVars.border}`, paddingBottom: 8 }}>
+            <h1
+              style={{
+                color: themeVars.text,
+                marginTop: 24,
+                marginBottom: 16,
+                borderBottom: `2px solid ${themeVars.border}`,
+                paddingBottom: 8
+              }}
+            >
               {children}
             </h1>
           ),
           h2: ({ children }) => (
-            <h2 style={{ color: themeVars.text, marginTop: 20, marginBottom: 12, borderBottom: `1px solid ${themeVars.border}`, paddingBottom: 6 }}>
+            <h2
+              style={{
+                color: themeVars.text,
+                marginTop: 20,
+                marginBottom: 12,
+                borderBottom: `1px solid ${themeVars.border}`,
+                paddingBottom: 6
+              }}
+            >
               {children}
             </h2>
           ),
@@ -196,9 +208,7 @@ function CopyTextModal({
           ol: ({ children }) => (
             <ol style={{ color: themeVars.text, marginBottom: 12, paddingLeft: 24 }}>{children}</ol>
           ),
-          li: ({ children }) => (
-            <li style={{ marginBottom: 6 }}>{children}</li>
-          ),
+          li: ({ children }) => <li style={{ marginBottom: 6 }}>{children}</li>,
           a: ({ href, children }) => (
             <a
               href={href}
@@ -257,12 +267,14 @@ function CopyTextModal({
 
           return (
             <div key={key}>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                marginBottom: 8
-              }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: 8
+                }}
+              >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <Text strong style={{ fontSize: 14, color: themeVars.textSecondary }}>
                     {key}:
@@ -283,11 +295,9 @@ function CopyTextModal({
                 </Button>
               </div>
 
-              {shouldRenderFormatted ? (
-                renderFormattedContent(formattedItemContent)
-              ) : (
-                renderOriginalContent(itemContent, language, isCodeContent)
-              )}
+              {shouldRenderFormatted
+                ? renderFormattedContent(formattedItemContent)
+                : renderOriginalContent(itemContent, language, isCodeContent)}
             </div>
           )
         })}

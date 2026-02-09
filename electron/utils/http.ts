@@ -9,7 +9,7 @@ import { WebContents } from 'electron'
 interface RequestOptions extends RequestInit {
   url: string
   timeout?: number
-  webContents?: WebContents  // 可选,用于将日志发送到渲染进程 DevTools
+  webContents?: WebContents // 可选,用于将日志发送到渲染进程 DevTools
 }
 
 /**
@@ -17,7 +17,7 @@ interface RequestOptions extends RequestInit {
  */
 const generateCurlCommand = (url: string, options: RequestInit): string => {
   const method = options.method || 'GET'
-  const headers = options.headers as Record<string, string> || {}
+  const headers = (options.headers as Record<string, string>) || {}
 
   let curl = `curl -X ${method} '${url}'`
 
@@ -28,9 +28,7 @@ const generateCurlCommand = (url: string, options: RequestInit): string => {
 
   // 添加请求体
   if (options.body) {
-    const body = typeof options.body === 'string'
-      ? options.body
-      : JSON.stringify(options.body)
+    const body = typeof options.body === 'string' ? options.body : JSON.stringify(options.body)
 
     // 转义单引号
     const escapedBody = body.replace(/'/g, "'\\''")
@@ -57,12 +55,16 @@ export const request = async <T = any>(options: RequestOptions): Promise<T> => {
 
   // 如果提供了 webContents,也发送到渲染进程
   if (webContents && !webContents.isDestroyed()) {
-    webContents.executeJavaScript(`
+    webContents
+      .executeJavaScript(
+        `
       console.log('%c[HTTP Request] cURL Command:', 'color: #4CAF50; font-weight: bold');
       console.log(\`${curlCommand.replace(/`/g, '\\`')}\`);
-    `).catch(() => {
-      // 忽略错误,可能是 webContents 已销毁
-    })
+    `
+      )
+      .catch(() => {
+        // 忽略错误,可能是 webContents 已销毁
+      })
   }
 
   // 如果没有传入 signal 且设置了 timeout,创建 AbortController
@@ -89,9 +91,13 @@ export const request = async <T = any>(options: RequestOptions): Promise<T> => {
     // 同时发送到渲染进程
     if (webContents && !webContents.isDestroyed()) {
       const statusColor = response.ok ? '#4CAF50' : '#F44336'
-      webContents.executeJavaScript(`
+      webContents
+        .executeJavaScript(
+          `
         console.log('%c${statusMsg}', 'color: ${statusColor}; font-weight: bold');
-      `).catch(() => {})
+      `
+        )
+        .catch(() => {})
     }
 
     // 如果响应不成功,抛出错误
@@ -110,9 +116,13 @@ export const request = async <T = any>(options: RequestOptions): Promise<T> => {
 
     // 发送错误到渲染进程
     if (webContents && !webContents.isDestroyed()) {
-      webContents.executeJavaScript(`
+      webContents
+        .executeJavaScript(
+          `
         console.error('%c[HTTP Error]', 'color: #F44336; font-weight: bold', ${JSON.stringify(String(error))});
-      `).catch(() => {})
+      `
+        )
+        .catch(() => {})
     }
 
     throw error

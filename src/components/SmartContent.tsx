@@ -1,21 +1,21 @@
-import { Typography } from "antd";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
-import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism";
-import { getThemeVars } from "../theme";
+import { Typography } from 'antd'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
+import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
+import { getThemeVars } from '../theme'
 
-const { Text } = Typography;
+const { Text } = Typography
 
 interface SmartContentProps {
-  content: string;
-  darkMode: boolean;
-  maxLines?: number; // 最大显示行数，超过则截断
-  onClick?: () => void; // 点击事件（用于展开）
-  onPastedTextClick?: (pastedTextKey: string) => void; // 点击 Pasted text 占位符的回调
-  hasPastedContents?: boolean; // 是否有粘贴内容（用于判断是否显示可点击样式）
-  onImageClick?: (imageNumber: number) => void; // 点击 Image 占位符的回调
-  images?: string[]; // 图片路径数组
+  content: string
+  darkMode: boolean
+  maxLines?: number // 最大显示行数，超过则截断
+  onClick?: () => void // 点击事件（用于展开）
+  onPastedTextClick?: (pastedTextKey: string) => void // 点击 Pasted text 占位符的回调
+  hasPastedContents?: boolean // 是否有粘贴内容（用于判断是否显示可点击样式）
+  onImageClick?: (imageNumber: number) => void // 点击 Image 占位符的回调
+  images?: string[] // 图片路径数组
 }
 
 /**
@@ -35,21 +35,19 @@ function SmartContent({
   onPastedTextClick,
   hasPastedContents,
   onImageClick,
-  images,
+  images
 }: SmartContentProps) {
-  const themeVars = getThemeVars(darkMode);
+  const themeVars = getThemeVars(darkMode)
 
   // 检测内容类型
-  const detectContentType = (
-    text: string,
-  ): "code" | "json" | "markdown" | "text" => {
-    const trimmed = text.trim();
+  const detectContentType = (text: string): 'code' | 'json' | 'markdown' | 'text' => {
+    const trimmed = text.trim()
 
     // 检测 JSON
-    if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
       try {
-        JSON.parse(trimmed);
-        return "json";
+        JSON.parse(trimmed)
+        return 'json'
       } catch (e) {
         // 不是有效的 JSON
       }
@@ -61,11 +59,11 @@ function SmartContent({
       /^(public|private|protected)\s+(class|function|static)/m,
       /^\s*(if|for|while|switch)\s*\(/m,
       /=>\s*{/,
-      /\{\s*\n.*:\s*.+\n.*\}/s, // 对象字面量
-    ];
+      /\{\s*\n.*:\s*.+\n.*\}/s // 对象字面量
+    ]
 
-    if (codePatterns.some((pattern) => pattern.test(trimmed))) {
-      return "code";
+    if (codePatterns.some(pattern => pattern.test(trimmed))) {
+      return 'code'
     }
 
     // 检测 Markdown 特征
@@ -75,25 +73,25 @@ function SmartContent({
       /^\*.*\*$/m, // 斜体
       /^\[.+\]\(.+\)$/m, // 链接
       /^```/m, // 代码块
-      /^[-*+]\s+/m, // 列表
-    ];
+      /^[-*+]\s+/m // 列表
+    ]
 
-    if (markdownPatterns.some((pattern) => pattern.test(trimmed))) {
-      return "markdown";
+    if (markdownPatterns.some(pattern => pattern.test(trimmed))) {
+      return 'markdown'
     }
 
-    return "text";
-  };
+    return 'text'
+  }
 
   // 检测编程语言
   const detectLanguage = (text: string): string => {
-    const trimmed = text.trim();
+    const trimmed = text.trim()
 
     // JSON
-    if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+    if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
       try {
-        JSON.parse(trimmed);
-        return "json";
+        JSON.parse(trimmed)
+        return 'json'
       } catch (e) {
         // 继续检测其他语言
       }
@@ -102,78 +100,70 @@ function SmartContent({
     // JavaScript/TypeScript
     if (/\b(function|const|let|var|=>|import.*from|export)\b/.test(text)) {
       if (/\b(interface|type|enum|namespace|as\s+\w+)\b/.test(text)) {
-        return "typescript";
+        return 'typescript'
       }
-      return "javascript";
+      return 'javascript'
     }
 
     // Python
     if (/\b(def|class|import|from|print|if __name__)\b/.test(text)) {
-      return "python";
+      return 'python'
     }
 
     // Java
-    if (
-      /\b(public|private|protected)\s+(class|interface|static|void)\b/.test(
-        text,
-      )
-    ) {
-      return "java";
+    if (/\b(public|private|protected)\s+(class|interface|static|void)\b/.test(text)) {
+      return 'java'
     }
 
     // C/C++
     if (/#include|int main\(|std::/.test(text)) {
-      return "cpp";
+      return 'cpp'
     }
 
     // Go
     if (/\bfunc\s+\w+\(|package\s+\w+/.test(text)) {
-      return "go";
+      return 'go'
     }
 
     // Rust
     if (/\b(fn|let mut|impl|trait|pub)\b/.test(text)) {
-      return "rust";
+      return 'rust'
     }
 
     // SQL
-    if (
-      /\b(SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|FROM|WHERE|JOIN)\b/i.test(
-        text,
-      )
-    ) {
-      return "sql";
+    if (/\b(SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|FROM|WHERE|JOIN)\b/i.test(text)) {
+      return 'sql'
     }
 
     // HTML
     if (/<\/?[a-z][\s\S]*>/i.test(text)) {
-      return "html";
+      return 'html'
     }
 
     // CSS
     if (/\{[^}]*:[^}]*\}/.test(text) && /\.([\w-]+)\s*\{/.test(text)) {
-      return "css";
+      return 'css'
     }
 
     // Shell
     if (/^(#!\/bin\/|npm|yarn|git|cd|ls|mkdir|rm)\s/.test(text)) {
-      return "bash";
+      return 'bash'
     }
 
-    return "text";
-  };
+    return 'text'
+  }
 
   // 检测并渲染链接、Pasted text 占位符和 Image 占位符
   const renderTextWithLinks = (text: string) => {
     // URL 正则表达式
-    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const urlRegex = /(https?:\/\/[^\s]+)/g
     // Pasted text 占位符正则：[Pasted text #N] 或 [Pasted text #N +X lines]
     // Image 占位符正则：[Image #N]
 
     // 合并三个正则，按出现顺序分割
     const combinedRegex =
-      /(https?:\/\/[^\s]+|\[Pasted text #\d+(?:\s+\+\d+\s+lines)?\]|\[Image #\d+\])/g;
-    const parts = text.split(combinedRegex);
+      /(https?:\/\/[^\s]+|\[Pasted text #\d+(?:\s+\+\d+\s+lines)?\]|\[Image #\d+\])/g
+    const parts = text.split(combinedRegex)
 
     return parts.map((part, index) => {
       // 检查是否为 URL
@@ -186,28 +176,26 @@ function SmartContent({
             rel="noopener noreferrer"
             style={{
               color: themeVars.primary,
-              textDecoration: "underline",
-              cursor: "pointer",
+              textDecoration: 'underline',
+              cursor: 'pointer'
             }}
-            onClick={(e) => {
-              e.stopPropagation();
-              window.electronAPI.openExternal(part);
-              e.preventDefault();
+            onClick={e => {
+              e.stopPropagation()
+              window.electronAPI.openExternal(part)
+              e.preventDefault()
             }}
           >
             {part}
           </a>
-        );
+        )
       }
 
       // 检查是否为 Pasted text 占位符
-      const pastedTextMatch = part.match(
-        /\[Pasted text #(\d+)(?:\s+\+(\d+)\s+lines)?\]/,
-      );
+      const pastedTextMatch = part.match(/\[Pasted text #(\d+)(?:\s+\+(\d+)\s+lines)?\]/)
       if (pastedTextMatch && hasPastedContents && onPastedTextClick) {
-        const pastedTextNumber = pastedTextMatch[1];
-        const linesCount = pastedTextMatch[2];
-        const pastedTextKey = `Pasted text #${pastedTextNumber}`;
+        const pastedTextNumber = pastedTextMatch[1]
+        const linesCount = pastedTextMatch[2]
+        const pastedTextKey = `Pasted text #${pastedTextNumber}`
 
         return (
           <span
@@ -215,103 +203,101 @@ function SmartContent({
             style={{
               background: `${themeVars.primary}15`,
               color: themeVars.primary,
-              padding: "2px 6px",
+              padding: '2px 6px',
               borderRadius: 4,
-              fontSize: "0.95em",
+              fontSize: '0.95em',
               fontWeight: 500,
-              cursor: "pointer",
+              cursor: 'pointer',
               border: `1px solid ${themeVars.primary}30`,
-              display: "inline-block",
-              transition: "all 0.2s",
+              display: 'inline-block',
+              transition: 'all 0.2s'
             }}
-            onClick={(e) => {
-              e.stopPropagation();
-              onPastedTextClick(pastedTextKey);
+            onClick={e => {
+              e.stopPropagation()
+              onPastedTextClick(pastedTextKey)
             }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = `${themeVars.primary}25`;
-              e.currentTarget.style.borderColor = `${themeVars.primary}60`;
+            onMouseEnter={e => {
+              e.currentTarget.style.background = `${themeVars.primary}25`
+              e.currentTarget.style.borderColor = `${themeVars.primary}60`
             }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = `${themeVars.primary}15`;
-              e.currentTarget.style.borderColor = `${themeVars.primary}30`;
+            onMouseLeave={e => {
+              e.currentTarget.style.background = `${themeVars.primary}15`
+              e.currentTarget.style.borderColor = `${themeVars.primary}30`
             }}
-            title={`点击查看 Copy Text 内容${linesCount ? ` (${linesCount} 行)` : ""}`}
+            title={`点击查看 Copy Text 内容${linesCount ? ` (${linesCount} 行)` : ''}`}
           >
             {part}
           </span>
-        );
+        )
       }
 
       // 检查是否为 Image 占位符
-      const imageMatch = part.match(/\[Image #(\d+)\]/);
+      const imageMatch = part.match(/\[Image #(\d+)\]/)
       if (imageMatch && images && images.length > 0 && onImageClick) {
-        const imageNumber = parseInt(imageMatch[1]);
+        const imageNumber = parseInt(imageMatch[1])
 
         return (
           <span
             key={index}
             style={{
-              background: darkMode
-                ? "rgba(217, 119, 87, 0.15)"
-                : "rgba(217, 119, 87, 0.1)",
+              background: darkMode ? 'rgba(217, 119, 87, 0.15)' : 'rgba(217, 119, 87, 0.1)',
               color: themeVars.primary,
-              padding: "3px 10px",
+              padding: '3px 10px',
               borderRadius: 6,
-              fontSize: "13px",
+              fontSize: '13px',
               fontWeight: 500,
-              cursor: "pointer",
-              border: `1px solid ${darkMode ? "rgba(217, 119, 87, 0.3)" : "rgba(217, 119, 87, 0.25)"}`,
-              display: "inline-block",
-              transition: "all 0.2s",
+              cursor: 'pointer',
+              border: `1px solid ${darkMode ? 'rgba(217, 119, 87, 0.3)' : 'rgba(217, 119, 87, 0.25)'}`,
+              display: 'inline-block',
+              transition: 'all 0.2s',
               marginRight: 6,
-              verticalAlign: "middle",
+              verticalAlign: 'middle'
             }}
-            onClick={(e) => {
-              e.stopPropagation();
-              onImageClick(imageNumber);
+            onClick={e => {
+              e.stopPropagation()
+              onImageClick(imageNumber)
             }}
-            onMouseEnter={(e) => {
+            onMouseEnter={e => {
               e.currentTarget.style.background = darkMode
-                ? "rgba(217, 119, 87, 0.25)"
-                : "rgba(217, 119, 87, 0.18)";
+                ? 'rgba(217, 119, 87, 0.25)'
+                : 'rgba(217, 119, 87, 0.18)'
               e.currentTarget.style.borderColor = darkMode
-                ? "rgba(217, 119, 87, 0.5)"
-                : "rgba(217, 119, 87, 0.4)";
-              e.currentTarget.style.transform = "translateY(-1px)";
-              e.currentTarget.style.boxShadow = `0 2px 8px ${darkMode ? "rgba(217, 119, 87, 0.2)" : "rgba(217, 119, 87, 0.15)"}`;
+                ? 'rgba(217, 119, 87, 0.5)'
+                : 'rgba(217, 119, 87, 0.4)'
+              e.currentTarget.style.transform = 'translateY(-1px)'
+              e.currentTarget.style.boxShadow = `0 2px 8px ${darkMode ? 'rgba(217, 119, 87, 0.2)' : 'rgba(217, 119, 87, 0.15)'}`
             }}
-            onMouseLeave={(e) => {
+            onMouseLeave={e => {
               e.currentTarget.style.background = darkMode
-                ? "rgba(217, 119, 87, 0.15)"
-                : "rgba(217, 119, 87, 0.1)";
+                ? 'rgba(217, 119, 87, 0.15)'
+                : 'rgba(217, 119, 87, 0.1)'
               e.currentTarget.style.borderColor = darkMode
-                ? "rgba(217, 119, 87, 0.3)"
-                : "rgba(217, 119, 87, 0.25)";
-              e.currentTarget.style.transform = "translateY(0)";
-              e.currentTarget.style.boxShadow = "none";
+                ? 'rgba(217, 119, 87, 0.3)'
+                : 'rgba(217, 119, 87, 0.25)'
+              e.currentTarget.style.transform = 'translateY(0)'
+              e.currentTarget.style.boxShadow = 'none'
             }}
             title={`点击预览图片 #${imageNumber}`}
           >
             {part}
           </span>
-        );
+        )
       }
 
-      return <span key={index}>{part}</span>;
-    });
-  };
+      return <span key={index}>{part}</span>
+    })
+  }
 
   // 渲染代码块
   const renderCodeBlock = (code: string, language: string) => {
-    const lines = code.split("\n");
-    const shouldTruncate = maxLines && lines.length > maxLines;
+    const lines = code.split('\n')
+    const shouldTruncate = maxLines && lines.length > maxLines
 
     return (
       <div
         style={{
-          position: "relative",
-          cursor: shouldTruncate && onClick ? "pointer" : "default",
+          position: 'relative',
+          cursor: shouldTruncate && onClick ? 'pointer' : 'default'
         }}
         onClick={shouldTruncate && onClick ? onClick : undefined}
       >
@@ -323,32 +309,32 @@ function SmartContent({
             borderRadius: 6,
             fontSize: 13,
             maxHeight: shouldTruncate ? `${maxLines * 1.5}em` : undefined,
-            overflow: shouldTruncate ? "hidden" : "auto",
+            overflow: shouldTruncate ? 'hidden' : 'auto'
           }}
           wrapLongLines={true}
         >
-          {shouldTruncate ? lines.slice(0, maxLines).join("\n") : code}
+          {shouldTruncate ? lines.slice(0, maxLines).join('\n') : code}
         </SyntaxHighlighter>
         {shouldTruncate && (
           <div
             style={{
-              position: "absolute",
+              position: 'absolute',
               bottom: 0,
               left: 0,
               right: 0,
               height: 40,
               background: `linear-gradient(transparent, ${themeVars.codeBg})`,
-              display: "flex",
-              alignItems: "flex-end",
-              justifyContent: "center",
-              paddingBottom: 8,
+              display: 'flex',
+              alignItems: 'flex-end',
+              justifyContent: 'center',
+              paddingBottom: 8
             }}
           >
             <Text
               style={{
                 fontSize: 12,
                 color: themeVars.primary,
-                cursor: "pointer",
+                cursor: 'pointer'
               }}
             >
               点击查看完整内容...
@@ -356,8 +342,8 @@ function SmartContent({
           </div>
         )}
       </div>
-    );
-  };
+    )
+  }
 
   // 渲染 Markdown
   const renderMarkdown = (text: string) => {
@@ -366,7 +352,7 @@ function SmartContent({
         remarkPlugins={[remarkGfm]}
         components={{
           code({ node, inline, className, children, ...props }: any) {
-            const match = /language-(\w+)/.exec(className || "");
+            const match = /language-(\w+)/.exec(className || '')
             return !inline && match ? (
               <SyntaxHighlighter
                 style={vscDarkPlus}
@@ -375,34 +361,32 @@ function SmartContent({
                 customStyle={{
                   margin: 0,
                   borderRadius: 6,
-                  fontSize: 13,
+                  fontSize: 13
                 }}
                 {...props}
               >
-                {String(children).replace(/\n$/, "")}
+                {String(children).replace(/\n$/, '')}
               </SyntaxHighlighter>
             ) : (
               <code
                 style={{
                   background: themeVars.codeBg,
-                  padding: "2px 6px",
+                  padding: '2px 6px',
                   borderRadius: 3,
                   fontSize: 12,
-                  fontFamily: "monospace",
+                  fontFamily: 'monospace'
                 }}
                 {...props}
               >
                 {children}
               </code>
-            );
+            )
           },
           p({ children }) {
-            return (
-              <p style={{ marginBottom: 8, lineHeight: 1.6 }}>{children}</p>
-            );
+            return <p style={{ marginBottom: 8, lineHeight: 1.6 }}>{children}</p>
           },
           pre({ children }) {
-            return <>{children}</>;
+            return <>{children}</>
           },
           a({ href, children }) {
             return (
@@ -412,78 +396,76 @@ function SmartContent({
                 rel="noopener noreferrer"
                 style={{
                   color: themeVars.primary,
-                  textDecoration: "underline",
-                  cursor: "pointer",
+                  textDecoration: 'underline',
+                  cursor: 'pointer'
                 }}
-                onClick={(e) => {
-                  e.stopPropagation();
+                onClick={e => {
+                  e.stopPropagation()
                   if (href) {
-                    window.electronAPI.openExternal(href);
-                    e.preventDefault();
+                    window.electronAPI.openExternal(href)
+                    e.preventDefault()
                   }
                 }}
               >
                 {children}
               </a>
-            );
-          },
+            )
+          }
         }}
       >
         {text}
       </ReactMarkdown>
-    );
-  };
+    )
+  }
 
   // 渲染普通文本（带链接检测）
   const renderPlainText = (text: string) => {
-    const lines = text.split("\n");
-    const shouldTruncate = maxLines && lines.length > maxLines;
+    const lines = text.split('\n')
+    const shouldTruncate = maxLines && lines.length > maxLines
 
     return (
       <div
         style={{
-          whiteSpace: "pre-wrap",
-          wordBreak: "break-word",
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
           lineHeight: 1.6,
-          cursor: shouldTruncate && onClick ? "pointer" : "default",
+          cursor: shouldTruncate && onClick ? 'pointer' : 'default'
         }}
         onClick={shouldTruncate && onClick ? onClick : undefined}
       >
-        {(shouldTruncate ? lines.slice(0, maxLines) : lines).map(
-          (line, index) => (
-            <div key={index}>{renderTextWithLinks(line)}</div>
-          ),
-        )}
+        {(shouldTruncate ? lines.slice(0, maxLines) : lines).map((line, index) => (
+          <div key={index}>{renderTextWithLinks(line)}</div>
+        ))}
         {shouldTruncate && (
           <Text
             style={{
               fontSize: 12,
               color: themeVars.primary,
-              cursor: "pointer",
-              display: "block",
-              marginTop: 8,
+              cursor: 'pointer',
+              display: 'block',
+              marginTop: 8
             }}
           >
             点击查看完整内容...
           </Text>
         )}
       </div>
-    );
-  };
+    )
+  }
 
   // 主渲染逻辑
-  const contentType = detectContentType(content);
+  const contentType = detectContentType(content)
 
-  if (contentType === "code" || contentType === "json") {
-    const language = detectLanguage(content);
-    return renderCodeBlock(content, language);
+  if (contentType === 'code' || contentType === 'json') {
+    const language = detectLanguage(content)
+    return renderCodeBlock(content, language)
   }
 
-  if (contentType === "markdown") {
-    return renderMarkdown(content);
+  if (contentType === 'markdown') {
+    return renderMarkdown(content)
   }
 
-  return renderPlainText(content);
+  return renderPlainText(content)
 }
 
-export default SmartContent;
+export default SmartContent

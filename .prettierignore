@@ -1,0 +1,29 @@
+# 依赖
+node_modules
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+
+# 构建产物
+dist
+dist-electron
+release
+debug
+build
+
+# 缓存
+.vite
+.cache
+*.log
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode
+.idea
+
+# 其他
+*.min.js
+*.min.css

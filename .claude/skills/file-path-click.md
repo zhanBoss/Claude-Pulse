@@ -7,11 +7,13 @@
 ## 核心特性
 
 ### 1. 智能文件打开
+
 - **文件夹路径**：点击后在文件管理器中打开
 - **文件路径**：点击后在代码编辑器中打开
 - **缓存文件**：以只读模式打开（如 JSONL 历史记录文件）
 
 ### 2. 支持的文件类型
+
 - `.json` - JSON 配置文件
 - `.jsonl` - JSONL 日志文件
 - `.js/.ts/.tsx/.jsx` - JavaScript/TypeScript 文件
@@ -19,6 +21,7 @@
 - `.txt` - 文本文件
 
 ### 3. 编辑器功能
+
 - 语法高亮
 - 行号显示
 - JSON 格式化
@@ -53,9 +56,11 @@ ipcMain.handle('open-file-in-editor', async (_, filePath: string) => {
 ### 组件结构
 
 #### FileViewer 组件 (src/components/FileViewer.tsx)
+
 通用文件查看/编辑器组件，基于 Monaco Editor。
 
 **Props:**
+
 - `filePath`: 文件路径
 - `darkMode`: 深色模式
 - `visible`: 是否显示
@@ -63,6 +68,7 @@ ipcMain.handle('open-file-in-editor', async (_, filePath: string) => {
 - `readOnly`: 是否只读（默认 false）
 
 **功能:**
+
 - 自动检测文件类型和语言
 - 支持 JSON 格式化
 - 只读模式保护缓存文件
@@ -70,12 +76,16 @@ ipcMain.handle('open-file-in-editor', async (_, filePath: string) => {
 - 重新加载文件
 
 #### LogViewer 集成
+
 在实时对话页面中：
+
 - 文件路径：点击打开文件夹
 - 消息路径：点击以只读模式打开 JSONL 文件
 
 #### HistoryViewer 集成
+
 在历史记录页面中：
+
 - 项目路径：点击打开文件夹
 - 可扩展支持更多路径点击
 
@@ -140,16 +150,16 @@ handleOpenFile(configPath, false) // readOnly = false
 
 FileViewer 会根据文件扩展名自动选择合适的语言模式：
 
-| 扩展名 | 语言模式 |
-|--------|----------|
-| .json  | json     |
-| .jsonl | json     |
+| 扩展名 | 语言模式   |
+| ------ | ---------- |
+| .json  | json       |
+| .jsonl | json       |
 | .js    | javascript |
 | .ts    | typescript |
 | .tsx   | typescript |
 | .jsx   | javascript |
-| .md    | markdown |
-| .txt   | plaintext |
+| .md    | markdown   |
+| .txt   | plaintext  |
 
 ## 注意事项
 
@@ -170,6 +180,7 @@ FileViewer 会根据文件扩展名自动选择合适的语言模式：
 ## 未来扩展
 
 可以考虑添加：
+
 - 文件对比功能
 - 搜索和替换
 - 多文件标签页

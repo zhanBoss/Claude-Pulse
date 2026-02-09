@@ -20,17 +20,13 @@ Electron 窗口使用 `WebkitAppRegion: 'drag'` 实现拖拽，会导致 Modal �
 // ✅ 正确
 import ElectronModal from './ElectronModal'
 
-<ElectronModal
-  title="标题"
-  open={visible}
-  onCancel={onClose}
->
+;<ElectronModal title="标题" open={visible} onCancel={onClose}>
   内容
 </ElectronModal>
 
 // ❌ 错误 - 不要用 Modal
 import { Modal } from 'antd'
-<Modal title="标题">内容</Modal>
+;<Modal title="标题">内容</Modal>
 ```
 
 ### 2. Modal 静态方法（confirm/error/warning/info）
@@ -44,7 +40,7 @@ Modal.confirm({
   title: '确认',
   content: '内容',
   onOk: handleOk,
-  ...getElectronModalConfig()  // 必须加这一行
+  ...getElectronModalConfig() // 必须加这一行
 })
 
 // ❌ 错误 - 忘记配置

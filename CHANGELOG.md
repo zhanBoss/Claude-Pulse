@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [1.7.0] - 2026-02-08
 
 ### Added
+
 - AI 助手对话支持重新生成回复功能
   - 每条 AI 回复添加"重新生成"按钮
   - 支持针对单条消息独立重新生成
@@ -12,6 +13,7 @@ All notable changes to this project will be documented in this file.
   - 流式显示在原位置替换，保持对话顺序
 
 ### Improved
+
 - 重新生成按钮 UI 设计优化
   - 按钮位于消息气泡右侧外部，不遮挡内容
   - 默认隐藏，hover 消息时显示
@@ -20,6 +22,7 @@ All notable changes to this project will be documented in this file.
   - 距离消息气泡仅 4px，视觉紧凑
 
 ### Technical
+
 - 使用 Ant Design X Bubble 组件的 `extra` 插槽实现按钮布局
 - 添加 `regeneratingIndex` 状态管理重新生成过程
 - 流式内容在原消息位置实时更新，无需添加新消息
@@ -27,6 +30,7 @@ All notable changes to this project will be documented in this file.
 ## [1.6.0] - 2026-02-05
 
 ### Added
+
 - 常用Prompt页面新增快捷搜索功能
   - 支持 Cmd+F / Ctrl+F 快捷键唤起搜索
   - 居中弹窗式搜索界面，实时搜索 Prompt 内容
@@ -34,6 +38,7 @@ All notable changes to this project will be documented in this file.
   - 点击搜索结果直接复制内容
 
 ### Improved
+
 - 常用Prompt页面交互优化
   - 移除复制按钮，点击卡片直接复制内容
   - 添加 hover 和点击动画效果（卡片向右上角浮动）
@@ -42,6 +47,7 @@ All notable changes to this project will be documented in this file.
   - 复制成功后显示浮层提示（带动画效果）
 
 ### Fixed
+
 - 优化搜索功能实现，与实时对话/历史记录页面保持一致
 - 修复快捷键无法触发搜索弹窗的问题
 - 主列表不受搜索影响，始终显示完整数据
@@ -49,6 +55,7 @@ All notable changes to this project will be documented in this file.
 ## [1.5.0] - 2026-02-05
 
 ### Added
+
 - 实时对话页面新增快捷搜索功能
   - 支持 Cmd+F / Ctrl+F 快捷键唤起搜索
   - 居中弹窗式搜索界面，体验优雅
@@ -64,6 +71,7 @@ All notable changes to this project will be documented in this file.
   - 点击结果直接查看 Prompt 详情
 
 ### Improved
+
 - 搜索功能三大优化
   - 打开搜索时自动关闭所有其他弹窗，界面更清爽
   - 搜索结果关键词高亮（蓝色背景 + 白色文字）
@@ -75,17 +83,20 @@ All notable changes to this project will be documented in this file.
   - Modal 代码量减少 80%（从 20-25 行 → 3-5 行）
 
 ### Fixed
+
 - 改进图片匹配逻辑，支持无标记的图片识别
 - 修复图片关联错误，只关联当前 prompt 使用的图片
 - 修复实时对话清空后刷新数据回显问题
 
 ### Changed
+
 - 实时对话页面只显示当前会话记录，不加载历史数据
 - 优化历史记录页面 UI 和智能内容渲染
 
 ## [1.4.2] - 2026-02-03
 
 ### Fixed
+
 - 修复实时对话图片加载失败问题
   - 解决图片路径重复拼接导致文件找不到的问题
   - 移除发送到前端时的路径拼接，保持相对路径
@@ -95,6 +106,7 @@ All notable changes to this project will be documented in this file.
 ## [1.4.1] - 2026-02-03
 
 ### Fixed
+
 - 修复 TypeScript 编译错误
   - 添加 `downlevelIteration` 支持 Map/Set 迭代
   - 添加 `esModuleInterop` 和 `allowSyntheticDefaultImports` 支持模块导入
@@ -104,18 +116,22 @@ All notable changes to this project will be documented in this file.
 ## [1.4.0] - 2026-02-03
 
 ### Added
+
 - 添加清除缓存功能和独立的关于/更新日志页面
 - 添加历史记录删除功能
 - 实现历史记录按需加载优化
 
 ### Changed
+
 - 优化图片处理和显示逻辑
 - 优化 LogViewer 布局和交互体验
 - 优化设置页面布局和交互体验
 - 优化配置管理和数据刷新机制
 
 ### Fixed
+
 - 修复实时对话图片加载时序问题
 
 ### Documentation
+
 - 添加 CLAUDE.md 开发指南和主题一致性优化

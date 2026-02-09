@@ -137,11 +137,11 @@ const ConfigEditor = forwardRef<ConfigEditorRef, ConfigEditorProps>(({ darkMode 
             backgroundColor: themeVars.bgContainer,
             transition: 'all 0.3s'
           }}
-          onMouseEnter={(e) => {
+          onMouseEnter={e => {
             e.currentTarget.style.borderColor = themeVars.primary
             e.currentTarget.style.boxShadow = `0 0 0 2px ${themeVars.primary}20`
           }}
-          onMouseLeave={(e) => {
+          onMouseLeave={e => {
             e.currentTarget.style.borderColor = themeVars.border
             e.currentTarget.style.boxShadow = 'none'
           }}
@@ -158,11 +158,7 @@ const ConfigEditor = forwardRef<ConfigEditorRef, ConfigEditorProps>(({ darkMode 
                   </Text>
                 </div>
               </Space>
-              <Button
-                type="primary"
-                icon={<EditOutlined />}
-                size="small"
-              >
+              <Button type="primary" icon={<EditOutlined />} size="small">
                 查看/编辑
               </Button>
             </div>
@@ -184,7 +180,6 @@ const ConfigEditor = forwardRef<ConfigEditorRef, ConfigEditorProps>(({ darkMode 
             </div>
           </Space>
         </div>
-
       </Space>
 
       {/* 编辑 Modal */}
@@ -198,23 +193,31 @@ const ConfigEditor = forwardRef<ConfigEditorRef, ConfigEditorProps>(({ darkMode 
         open={modalVisible}
         onCancel={handleCloseModal}
         closable={true}
-        closeIcon={<CloseOutlined onClick={(e) => {
-          e.stopPropagation()
-          handleCloseModal()
-        }} />}
+        closeIcon={
+          <CloseOutlined
+            onClick={e => {
+              e.stopPropagation()
+              handleCloseModal()
+            }}
+          />
+        }
         maskClosable={true}
         keyboard={true}
         destroyOnClose={false}
         width="70%"
         footer={[
-          <Button key="folder" icon={<FolderOpenOutlined />} onClick={async () => {
-            try {
-              await window.electronAPI.showClaudeConfigInFolder()
-              message.success('已在文件管理器中显示')
-            } catch (error) {
-              message.error('打开文件夹失败')
-            }
-          }}>
+          <Button
+            key="folder"
+            icon={<FolderOpenOutlined />}
+            onClick={async () => {
+              try {
+                await window.electronAPI.showClaudeConfigInFolder()
+                message.success('已在文件管理器中显示')
+              } catch (error) {
+                message.error('打开文件夹失败')
+              }
+            }}
+          >
             打开文件位置
           </Button>,
           <Button key="format" icon={<FormatPainterOutlined />} onClick={handleFormat}>
@@ -248,7 +251,7 @@ const ConfigEditor = forwardRef<ConfigEditorRef, ConfigEditorProps>(({ darkMode 
             height="100%"
             defaultLanguage="json"
             value={editedConfig}
-            onChange={(value) => setEditedConfig(value || '')}
+            onChange={value => setEditedConfig(value || '')}
             theme={darkMode ? 'vs-dark' : 'light'}
             options={{
               minimap: { enabled: false },

@@ -5,16 +5,16 @@
  * 如果使用 npm 或 yarn 安装，立即报错并退出
  */
 
-const userAgent = process.env.npm_config_user_agent || '';
+const userAgent = process.env.npm_config_user_agent || ''
 
-const isUsingPnpm = userAgent.includes('pnpm');
-const isUsingYarn = userAgent.includes('yarn');
-const isUsingNpm = userAgent.includes('npm') && !isUsingPnpm;
+const isUsingPnpm = userAgent.includes('pnpm')
+const isUsingYarn = userAgent.includes('yarn')
+const isUsingNpm = userAgent.includes('npm') && !isUsingPnpm
 
 if (!isUsingPnpm) {
-  const red = '\x1b[31m';
-  const yellow = '\x1b[33m';
-  const reset = '\x1b[0m';
+  const red = '\x1b[31m'
+  const yellow = '\x1b[33m'
+  const reset = '\x1b[0m'
 
   console.error(`
 ${red}╔════════════════════════════════════════════════════════════════╗
@@ -43,9 +43,9 @@ ${yellow}当前环境:${reset}
   User Agent: ${userAgent}
   Package Manager: ${isUsingYarn ? 'yarn' : 'npm'}
 
-`);
+`)
 
-  process.exit(1);
+  process.exit(1)
 }
 
-console.log('✅ 使用 pnpm，继续安装...');
+console.log('✅ 使用 pnpm，继续安装...')

@@ -8,12 +8,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getClaudeConfig: () => ipcRenderer.invoke('get-claude-config'),
   saveClaudeConfig: (config: string) => ipcRenderer.invoke('save-claude-config', config),
 
-  // 记录配置
-  selectSavePath: () => ipcRenderer.invoke('select-save-path'),
-  getRecordConfig: () => ipcRenderer.invoke('get-record-config'),
-  saveRecordConfig: (config: { enabled: boolean; savePath: string }) =>
-    ipcRenderer.invoke('save-record-config', config),
-
   // 监听新记录
   onNewRecord: (callback: (record: any) => void) => {
     const listener = (_: any, record: any) => callback(record)
@@ -38,6 +32,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // 读取指定会话的详细记录（按需加载）
   readSessionDetails: (sessionId: string) => ipcRenderer.invoke('read-session-details', sessionId),
+
+  // 读取完整对话（从 projects/{sessionId}.jsonl）
+  readFullConversation: (sessionId: string, project: string) =>
+    ipcRenderer.invoke('read-full-conversation', sessionId, project),
 
   // 应用设置
   getAppSettings: () => ipcRenderer.invoke('get-app-settings'),
@@ -90,7 +88,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   showClaudeConfigInFolder: () => ipcRenderer.invoke('show-claude-config-in-folder'),
 
   // 删除单条历史记录
-  deleteRecord: (sessionId: string, timestamp: number) => ipcRenderer.invoke('delete-record', sessionId, timestamp),
+  deleteRecord: (sessionId: string, timestamp: number) =>
+    ipcRenderer.invoke('delete-record', sessionId, timestamp),
 
   // 读取应用配置文件内容
   readAppConfigFile: () => ipcRenderer.invoke('read-app-config-file'),
@@ -101,8 +100,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 卸载应用
   uninstallApp: () => ipcRenderer.invoke('uninstall-app'),
 
-  // 清除缓存
+  // 清除应用内部缓存
   clearCache: () => ipcRenderer.invoke('clear-cache'),
+
+  // 清除所有缓存（本项目涉及的所有资源）
+  clearAllCache: () => ipcRenderer.invoke('clear-all-cache'),
 
   // 按时间范围清理缓存
   clearCacheByAge: (retainMs: number) => ipcRenderer.invoke('clear-cache-by-age', retainMs),
@@ -114,7 +116,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   triggerAutoCleanup: () => ipcRenderer.invoke('trigger-auto-cleanup'),
 
   // 监听自动清理倒计时更新
-  onAutoCleanupTick: (callback: (data: { nextCleanupTime: number; remainingMs: number }) => void) => {
+  onAutoCleanupTick: (
+    callback: (data: { nextCleanupTime: number; remainingMs: number }) => void
+  ) => {
     const listener = (_: any, data: any) => callback(data)
     ipcRenderer.on('auto-cleanup-tick', listener)
     return () => {
@@ -123,7 +127,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
 
   // 监听自动清理执行完成
-  onAutoCleanupExecuted: (callback: (data: { deletedCount: number; nextCleanupTime: number }) => void) => {
+  onAutoCleanupExecuted: (
+    callback: (data: { deletedCount: number; nextCleanupTime: number }) => void
+  ) => {
     const listener = (_: any, data: any) => callback(data)
     ipcRenderer.on('auto-cleanup-executed', listener)
     return () => {
@@ -156,32 +162,37 @@ contextBridge.exposeInMainWorld('electronAPI', {
   readImage: (imagePath: string) => ipcRenderer.invoke('read-image', imagePath),
 
   // 复制图片到剪贴板（使用原生 nativeImage）
-  copyImageToClipboard: (base64Data: string) => ipcRenderer.invoke('copy-image-to-clipboard', base64Data),
+  copyImageToClipboard: (base64Data: string) =>
+    ipcRenderer.invoke('copy-image-to-clipboard', base64Data),
 
   // 读取文件内容（用于代码编辑器）
   readFileContent: (filePath: string) => ipcRenderer.invoke('read-file-content', filePath),
 
   // 保存文件内容（用于代码编辑器）
-  saveFileContent: (filePath: string, content: string) => ipcRenderer.invoke('save-file-content', filePath, content),
+  saveFileContent: (filePath: string, content: string) =>
+    ipcRenderer.invoke('save-file-content', filePath, content),
 
   // 在系统默认编辑器中打开文件
   openFileInEditor: (filePath: string) => ipcRenderer.invoke('open-file-in-editor', filePath),
 
   // Claude Code 配置备份管理
   listClaudeConfigBackups: () => ipcRenderer.invoke('list-claude-config-backups'),
-  createClaudeConfigBackup: (name: string) => ipcRenderer.invoke('create-claude-config-backup', name),
+  createClaudeConfigBackup: (name: string) =>
+    ipcRenderer.invoke('create-claude-config-backup', name),
   deleteClaudeConfigBackup: (id: number) => ipcRenderer.invoke('delete-claude-config-backup', id),
   switchClaudeConfigBackup: (id: number) => ipcRenderer.invoke('switch-claude-config-backup', id),
   updateClaudeConfigBackupName: (id: number, name: string) =>
     ipcRenderer.invoke('update-claude-config-backup-name', id, name),
-  getClaudeConfigBackupContent: (id: number) => ipcRenderer.invoke('get-claude-config-backup-content', id),
+  getClaudeConfigBackupContent: (id: number) =>
+    ipcRenderer.invoke('get-claude-config-backup-content', id),
 
   // 在外部浏览器中打开链接
   openExternal: (url: string) => ipcRenderer.invoke('open-external', url),
 
   // 常用命令管理
   getCommonCommands: () => ipcRenderer.invoke('get-common-commands'),
-  addCommonCommand: (name: string, content: string) => ipcRenderer.invoke('add-common-command', name, content),
+  addCommonCommand: (name: string, content: string) =>
+    ipcRenderer.invoke('add-common-command', name, content),
   updateCommonCommand: (id: string, name: string, content: string) =>
     ipcRenderer.invoke('update-common-command', id, name, content),
   deleteCommonCommand: (id: string) => ipcRenderer.invoke('delete-common-command', id),

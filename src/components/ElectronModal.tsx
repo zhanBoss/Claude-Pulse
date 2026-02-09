@@ -51,19 +51,13 @@ export const ElectronModal = (props: ModalProps) => {
 
   // 包装 title
   const wrappedTitle = title && (
-    <div style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-      {title}
-    </div>
+    <div style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>{title}</div>
   )
 
   // 包装 modalRender
   const wrappedModalRender = (modal: ReactNode) => {
     const userRendered = modalRender ? modalRender(modal) : modal
-    return (
-      <div style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-        {userRendered}
-      </div>
-    )
+    return <div style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>{userRendered}</div>
   }
 
   return (
@@ -97,9 +91,7 @@ export const getElectronModalConfig = () => ({
     WebkitAppRegion: 'no-drag'
   } as React.CSSProperties,
   modalRender: (modal: ReactNode) => (
-    <div style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-      {modal}
-    </div>
+    <div style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>{modal}</div>
   )
 })
 

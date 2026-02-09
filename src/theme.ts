@@ -22,39 +22,39 @@ export const lightTheme: ThemeConfig = {
     // 文本色
     colorText: '#1f2937',
     colorTextSecondary: '#6b7280',
-    colorTextTertiary: '#9ca3af',
+    colorTextTertiary: '#9ca3af'
   },
   components: {
     Button: {
       borderRadius: 6,
       controlHeight: 32,
-      fontWeight: 500,
+      fontWeight: 500
     },
     Card: {
       borderRadiusLG: 8,
-      paddingLG: 16,
+      paddingLG: 16
     },
     Modal: {
-      borderRadiusLG: 12,
+      borderRadiusLG: 12
     },
     Input: {
       borderRadius: 6,
-      controlHeight: 36,
+      controlHeight: 36
     },
     Tag: {
-      borderRadiusSM: 4,
+      borderRadiusSM: 4
     },
     Layout: {
       bodyBg: '#f5f7fa',
       headerBg: '#ffffff',
       siderBg: '#ffffff',
-      triggerBg: '#f0f0f0',
+      triggerBg: '#f0f0f0'
     },
     Menu: {
-      itemSelectedBg: '#FFF5ED',  // 浅橙色/米色选中背景
-      itemSelectedColor: '#D97757', // 选中文字颜色
-    },
-  },
+      itemSelectedBg: '#FFF5ED', // 浅橙色/米色选中背景
+      itemSelectedColor: '#D97757' // 选中文字颜色
+    }
+  }
 }
 
 // 暗色模式主题
@@ -68,9 +68,9 @@ export const darkTheme: ThemeConfig = {
     colorBgLayout: '#141414',
     colorBorder: '#434343',
     colorBorderSecondary: '#303030',
-    colorText: '#f0f0f0',           // 提高主文字对比度
-    colorTextSecondary: '#b8b8b8',  // 提高次级文字对比度
-    colorTextTertiary: '#8c8c8c',   // 提高三级文字对比度
+    colorText: '#f0f0f0', // 提高主文字对比度
+    colorTextSecondary: '#b8b8b8', // 提高次级文字对比度
+    colorTextTertiary: '#8c8c8c' // 提高三级文字对比度
   },
   components: {
     ...lightTheme.components,
@@ -78,22 +78,22 @@ export const darkTheme: ThemeConfig = {
       bodyBg: '#141414',
       headerBg: '#1f1f1f',
       siderBg: '#1f1f1f',
-      triggerBg: '#262626',
+      triggerBg: '#262626'
     },
     Card: {
       ...lightTheme.components?.Card,
-      colorBgContainer: '#1f1f1f',
+      colorBgContainer: '#1f1f1f'
     },
     Modal: {
       ...lightTheme.components?.Modal,
       contentBg: '#1f1f1f',
-      headerBg: '#1f1f1f',  // 与 contentBg 保持一致，避免颜色割裂
+      headerBg: '#1f1f1f' // 与 contentBg 保持一致，避免颜色割裂
     },
     Menu: {
-      itemSelectedBg: '#2A2420',  // 深色模式下的深橙棕色选中背景
-      itemSelectedColor: '#E88B6F', // 选中文字颜色(更亮)
-    },
-  },
+      itemSelectedBg: '#2A2420', // 深色模式下的深橙棕色选中背景
+      itemSelectedColor: '#E88B6F' // 选中文字颜色(更亮)
+    }
+  }
 }
 
 // 向后兼容
@@ -140,5 +140,5 @@ export const getThemeVars = (isDark: boolean) => ({
   link: isDark ? '#58a6ff' : '#0969da',
   // 高亮颜色
   highlightBg: isDark ? 'rgba(217, 119, 87, 0.3)' : 'rgba(217, 119, 87, 0.2)',
-  highlightText: '#fff',
+  highlightText: '#fff'
 })

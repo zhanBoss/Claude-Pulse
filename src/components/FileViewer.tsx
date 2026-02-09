@@ -1,6 +1,11 @@
 import { useState, useEffect } from 'react'
 import { Button, message, Space } from 'antd'
-import { SaveOutlined, ReloadOutlined, FormatPainterOutlined, FolderOpenOutlined } from '@ant-design/icons'
+import {
+  SaveOutlined,
+  ReloadOutlined,
+  FormatPainterOutlined,
+  FolderOpenOutlined
+} from '@ant-design/icons'
 import Editor from '@monaco-editor/react'
 import { getThemeVars } from '../theme'
 import ElectronModal from './ElectronModal'
@@ -13,13 +18,7 @@ interface FileViewerProps {
   readOnly?: boolean // 是否只读模式（用于缓存文件）
 }
 
-function FileViewer({
-  filePath,
-  darkMode,
-  visible,
-  onClose,
-  readOnly = false
-}: FileViewerProps) {
+function FileViewer({ filePath, darkMode, visible, onClose, readOnly = false }: FileViewerProps) {
   const themeVars = getThemeVars(darkMode)
   const [content, setContent] = useState<string>('')
   const [saving, setSaving] = useState(false)
@@ -128,28 +127,15 @@ function FileViewer({
       width="80%"
       style={{ top: 40 }}
       footer={[
-        <Button
-          key="folder"
-          icon={<FolderOpenOutlined />}
-          onClick={handleOpenFolder}
-        >
+        <Button key="folder" icon={<FolderOpenOutlined />} onClick={handleOpenFolder}>
           打开文件位置
         </Button>,
         getLanguage() === 'json' && (
-          <Button
-            key="format"
-            icon={<FormatPainterOutlined />}
-            onClick={handleFormat}
-          >
+          <Button key="format" icon={<FormatPainterOutlined />} onClick={handleFormat}>
             格式化
           </Button>
         ),
-        <Button
-          key="reload"
-          icon={<ReloadOutlined />}
-          onClick={handleLoad}
-          loading={loading}
-        >
+        <Button key="reload" icon={<ReloadOutlined />} onClick={handleLoad} loading={loading}>
           重新加载
         </Button>,
         <Button key="cancel" onClick={onClose}>
@@ -169,16 +155,14 @@ function FileViewer({
       ].filter(Boolean)}
     >
       <div style={{ marginBottom: 12 }}>
-        <span style={{ fontSize: 12, color: themeVars.textSecondary }}>
-          {filePath}
-        </span>
+        <span style={{ fontSize: 12, color: themeVars.textSecondary }}>{filePath}</span>
       </div>
 
       <Editor
         height="60vh"
         language={getLanguage()}
         value={content}
-        onChange={(value) => setContent(value || '')}
+        onChange={value => setContent(value || '')}
         theme={darkMode ? 'vs-dark' : 'light'}
         options={{
           readOnly: readOnly,

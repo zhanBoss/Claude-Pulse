@@ -36,6 +36,7 @@
 ### 步骤 1: 访问分支保护设置
 
 1. 打开浏览器，访问:
+
    ```
    https://github.com/zhanBoss/Claude-Code-Monitor/settings/branches
    ```
@@ -50,6 +51,7 @@
 1. 点击 **"Add branch protection rule"** (添加分支保护规则)
 
 2. 在 **"Branch name pattern"** 中输入:
+
    ```
    main
    ```
@@ -110,6 +112,7 @@ Branch name pattern: main
 ```
 
 **设置后的效果**:
+
 - ✅ 你可以直接推送到 main (作为管理员)
 - ✅ 协作者必须通过 PR
 - ✅ 防止强制推送和删除分支
@@ -158,6 +161,7 @@ Branch name pattern: main
 ```
 
 **设置后的效果**:
+
 - ✅ 只有你能直接推送到 main
 - ✅ 其他人必须通过 PR
 - ✅ PR 需要你审批
@@ -196,6 +200,7 @@ Branch name pattern: main
 ```
 
 **设置后的效果**:
+
 - ✅ 任何人都可以推送
 - ✅ 防止强制推送和删除分支
 - ✅ 最小限度的保护
@@ -209,6 +214,7 @@ Branch name pattern: main
 **方案**: 使用配置 A，并取消勾选 "Do not allow bypassing the above settings"
 
 **操作**:
+
 ```bash
 # 你可以直接推送
 git push origin main
@@ -221,6 +227,7 @@ git push origin main
 **方案**: 使用配置 B，并勾选 "Do not allow bypassing the above settings"
 
 **操作**:
+
 ```bash
 # 创建新分支
 git checkout -b feature/new-feature
@@ -244,6 +251,7 @@ gh pr merge 1 --squash
 **方案**: 使用配置 B，并启用 "Restrict who can push to matching branches"
 
 **操作**:
+
 1. 勾选 "Restrict pushes that create matching branches"
 2. 在 "People, teams, or apps with push access" 中只添加你自己
 3. 其他人将无法推送，只能提交 PR
@@ -259,6 +267,7 @@ gh pr merge 1 --squash
    - 保存
 
 2. **执行强制推送**:
+
    ```bash
    git push origin main --force
    ```
@@ -268,6 +277,7 @@ gh pr merge 1 --squash
    - 保存
 
 **更好的方案**: 使用 `git revert` 而不是强制推送
+
 ```bash
 # 回退最近的提交
 git revert HEAD
@@ -285,12 +295,14 @@ git push origin main
 **原因**: 勾选了 "Do not allow bypassing the above settings"
 
 **解决**:
+
 1. 访问分支保护设置
 2. 编辑 main 分支规则
 3. 取消勾选 "Do not allow bypassing the above settings"
 4. 保存
 
 或者:
+
 ```bash
 # 通过 PR 推送
 git checkout -b temp-branch
@@ -302,12 +314,14 @@ gh pr merge --squash
 ### Q2: 如何临时禁用分支保护？
 
 **方法 1: 编辑规则**
+
 1. 访问分支保护设置
 2. 点击规则右侧的 "Edit"
 3. 取消需要的保护项
 4. 保存
 
 **方法 2: 删除规则**
+
 1. 访问分支保护设置
 2. 点击规则右侧的 "Delete"
 3. 确认删除
@@ -316,6 +330,7 @@ gh pr merge --squash
 ### Q3: 协作者无法推送，提示权限错误
 
 **错误信息**:
+
 ```
 remote: error: GH006: Protected branch update failed
 ```
@@ -323,6 +338,7 @@ remote: error: GH006: Protected branch update failed
 **原因**: 分支保护规则阻止了推送
 
 **解决**:
+
 1. 让协作者创建新分支
 2. 推送到新分支
 3. 创建 PR
@@ -338,11 +354,13 @@ gh pr create
 ### Q4: 如何查看当前的分支保护规则？
 
 **方法 1: 网页查看**
+
 ```
 https://github.com/zhanBoss/Claude-Code-Monitor/settings/branches
 ```
 
 **方法 2: 使用 gh CLI**
+
 ```bash
 # 查看分支保护状态
 gh api repos/zhanBoss/Claude-Code-Monitor/branches/main/protection
@@ -360,6 +378,7 @@ Branch name pattern: release/*
 ```
 
 这会保护所有 `release/` 开头的分支，如:
+
 - `release/v1.0.0`
 - `release/v2.0.0`
 - `release/production`
@@ -373,8 +392,8 @@ Branch name pattern: release/*
 ```yaml
 # .github/workflows/release.yml
 permissions:
-  contents: write  # 允许写入内容
-  pull-requests: write  # 允许创建 PR
+  contents: write # 允许写入内容
+  pull-requests: write # 允许创建 PR
 ```
 
 ### Q7: 如何配置 GPG 签名提交？
@@ -382,16 +401,19 @@ permissions:
 **步骤**:
 
 1. **生成 GPG 密钥**:
+
    ```bash
    gpg --full-generate-key
    ```
 
 2. **查看密钥 ID**:
+
    ```bash
    gpg --list-secret-keys --keyid-format=long
    ```
 
 3. **导出公钥**:
+
    ```bash
    gpg --armor --export YOUR_KEY_ID
    ```
@@ -402,6 +424,7 @@ permissions:
    - 粘贴公钥
 
 5. **配置 Git**:
+
    ```bash
    git config --global user.signingkey YOUR_KEY_ID
    git config --global commit.gpgsign true
@@ -415,12 +438,14 @@ permissions:
 ### Q8: 如何撤销分支保护规则？
 
 **完全删除**:
+
 1. 访问 https://github.com/zhanBoss/Claude-Code-Monitor/settings/branches
 2. 找到要删除的规则
 3. 点击右侧的 "Delete"
 4. 确认删除
 
 **使用 gh CLI**:
+
 ```bash
 # 删除分支保护
 gh api -X DELETE repos/zhanBoss/Claude-Code-Monitor/branches/main/protection
@@ -441,6 +466,7 @@ gh api -X DELETE repos/zhanBoss/Claude-Code-Monitor/branches/main/protection
 ```
 
 **效果**:
+
 - 你可以直接推送
 - 协作者必须通过 PR
 - 防止误操作
@@ -459,6 +485,7 @@ gh api -X DELETE repos/zhanBoss/Claude-Code-Monitor/branches/main/protection
 ```
 
 **效果**:
+
 - 所有人必须通过 PR
 - 需要代码审查
 - 需要 CI 通过
@@ -477,6 +504,7 @@ gh api -X DELETE repos/zhanBoss/Claude-Code-Monitor/branches/main/protection
 ## 🆘 获取帮助
 
 如果遇到问题:
+
 1. 查看本文档的常见问题部分
 2. 访问 GitHub 官方文档
 3. 在仓库创建 Issue

@@ -1,7 +1,25 @@
 import { useEffect, useState, forwardRef, useImperativeHandle } from 'react'
-import { Card, Switch, Button, Typography, Space, Spin, Tag, Alert, message, Modal, InputNumber, Select, Divider } from 'antd'
-import { PlayCircleOutlined, PauseCircleOutlined, EditOutlined, DeleteOutlined, ExclamationCircleOutlined, ClockCircleOutlined } from '@ant-design/icons'
-import { RecordConfig, AutoCleanupConfig } from '../types'
+import {
+  Card,
+  Switch,
+  Button,
+  Typography,
+  Space,
+  Spin,
+  Tag,
+  Alert,
+  message,
+  Modal,
+  InputNumber,
+  Select
+} from 'antd'
+import {
+  DeleteOutlined,
+  ExclamationCircleOutlined,
+  ClockCircleOutlined,
+  CheckCircleOutlined
+} from '@ant-design/icons'
+import { AutoCleanupConfig } from '../types'
 import { getElectronModalConfig } from './ElectronModal'
 import { getThemeVars } from '../theme'
 
@@ -19,7 +37,7 @@ export interface RecordControlRef {
 const TIME_UNIT_OPTIONS = [
   { label: '分钟', value: 'minutes', ms: 60 * 1000 },
   { label: '小时', value: 'hours', ms: 60 * 60 * 1000 },
-  { label: '天', value: 'days', ms: 24 * 60 * 60 * 1000 },
+  { label: '天', value: 'days', ms: 24 * 60 * 60 * 1000 }
 ]
 
 /**
@@ -42,18 +60,15 @@ const msToTimeUnit = (ms: number): { value: number; unit: string } => {
  * 将时间值和单位转换为毫秒
  */
 const timeUnitToMs = (value: number, unit: string): number => {
-  const unitConfig = TIME_UNIT_OPTIONS.find((u) => u.value === unit)
+  const unitConfig = TIME_UNIT_OPTIONS.find(u => u.value === unit)
   return value * (unitConfig?.ms || 60 * 1000)
 }
 
-const RecordControl = forwardRef<RecordControlRef, RecordControlProps>(({ darkMode }, ref) => {
+const RecordControl = forwardRef<RecordControlRef, RecordControlProps>((props, ref) => {
+  const { darkMode } = props
   const themeVars = getThemeVars(darkMode)
-  const [config, setConfig] = useState<RecordConfig>({
-    enabled: false,
-    savePath: ''
-  })
   const [loading, setLoading] = useState(true)
-  const [cleanupLoading, setCleanupLoading] = useState(false) // 手动清理加载状态
+  const [cleanupLoading, setCleanupLoading] = useState(false)
 
   // 自动清理配置
   const [autoCleanup, setAutoCleanup] = useState<AutoCleanupConfig>({
@@ -62,7 +77,7 @@ const RecordControl = forwardRef<RecordControlRef, RecordControlProps>(({ darkMo
     retainMs: 12 * 60 * 60 * 1000,
     lastCleanupTime: null,
     nextCleanupTime: null,
-    showFloatingBall: true,
+    showFloatingBall: true
   })
 
   // 时间输入状态
@@ -83,15 +98,10 @@ const RecordControl = forwardRef<RecordControlRef, RecordControlProps>(({ darkMo
   }))
 
   const loadConfig = async () => {
-    const result = await window.electronAPI.getRecordConfig()
-    setConfig(result)
-
-    // 加载自动清理配置
     try {
       const settings = await window.electronAPI.getAppSettings()
       if (settings.autoCleanup) {
         setAutoCleanup(settings.autoCleanup)
-        // 解析时间值
         const interval = msToTimeUnit(settings.autoCleanup.intervalMs)
         setIntervalValue(interval.value)
         setIntervalUnit(interval.unit)
@@ -100,85 +110,63 @@ const RecordControl = forwardRef<RecordControlRef, RecordControlProps>(({ darkMo
         setRetainUnit(retain.unit)
       }
     } catch (error) {
-      console.error('加载自动清理配置失败:', error)
+      console.error('加载配置失败:', error)
     }
 
     setLoading(false)
   }
 
-  const handleToggle = async (checked: boolean) => {
-    if (checked) {
-      // 开启记录，选择路径
-      const result = await window.electronAPI.selectSavePath()
-      if (result.canceled || !result.path) {
-        return
-      }
+  // 清除所有缓存（本项目用到或可能用到的所有资源）
+  const [clearing, setClearing] = useState(false)
 
-      const newConfig = {
-        enabled: true,
-        savePath: result.path
-      }
-
-      const saveResult = await window.electronAPI.saveRecordConfig(newConfig)
-      if (saveResult.success) {
-        setConfig(newConfig)
-      } else {
-        alert('保存失败：' + saveResult.error)
-      }
-    } else {
-      // 关闭记录
-      const newConfig = {
-        enabled: false,
-        savePath: config.savePath
-      }
-
-      const saveResult = await window.electronAPI.saveRecordConfig(newConfig)
-      if (saveResult.success) {
-        setConfig(newConfig)
-      }
-    }
-  }
-
-  const handleChangePath = async () => {
-    const result = await window.electronAPI.selectSavePath()
-    if (result.canceled || !result.path) {
-      return
-    }
-
-    const newConfig = {
-      ...config,
-      savePath: result.path
-    }
-
-    const saveResult = await window.electronAPI.saveRecordConfig(newConfig)
-    if (saveResult.success) {
-      setConfig(newConfig)
-    } else {
-      alert('保存失败：' + saveResult.error)
-    }
-  }
-
-  const handleClearCache = () => {
+  const handleClearAllCache = () => {
     Modal.confirm({
-      title: '清除缓存',
+      title: '清除所有缓存',
       icon: <ExclamationCircleOutlined />,
-      content: '将删除保存路径下的所有对话记录和图片缓存，不影响 Claude Code 原始数据。',
-      okText: '确认',
+      content: (
+        <div>
+          <p style={{ marginBottom: 8 }}>将清除本应用涉及的所有缓存资源：</p>
+          <ul style={{ paddingLeft: 20, fontSize: 13, lineHeight: 2, color: '#666' }}>
+            <li>对话历史记录（history.jsonl）</li>
+            <li>会话详情文件（projects 目录）</li>
+            <li>图片缓存（image-cache）</li>
+            <li>粘贴内容缓存（paste-cache）</li>
+            <li>应用内部缓存</li>
+          </ul>
+          <p style={{ fontSize: 12, color: '#999', marginTop: 4 }}>
+            Claude Code 的配置文件（settings.json）不受影响
+          </p>
+        </div>
+      ),
+      okText: '确认清除',
       okType: 'danger',
       cancelText: '取消',
+      width: 420,
       onOk: async () => {
+        setClearing(true)
         try {
-          const result = await window.electronAPI.clearCache()
+          const result = await window.electronAPI.clearAllCache()
           if (result.success) {
-            // 只有删除了文件才显示提示
-            if (result.deletedCount && result.deletedCount > 0) {
-              message.success(`已清除 ${result.deletedCount} 个文件`)
+            const cleared: string[] = []
+            const r = result.result
+            if (r?.historyCleared) cleared.push('历史记录')
+            if (r?.projectsCleared) cleared.push('会话文件')
+            if (r?.imageCacheCleared) cleared.push('图片缓存')
+            if (r?.pasteCacheCleared) cleared.push('粘贴缓存')
+            if (r?.appCacheCleared) cleared.push('应用缓存')
+
+            if (cleared.length > 0) {
+              message.success(`已清除：${cleared.join('、')}`)
+            } else {
+              message.info('没有需要清除的缓存')
             }
           } else {
             message.error(result.error || '清除失败')
           }
         } catch (error: any) {
           message.error(error?.message || '清除失败')
+        } finally {
+          setClearing(false)
         }
       },
       ...getElectronModalConfig()
@@ -191,7 +179,7 @@ const RecordControl = forwardRef<RecordControlRef, RecordControlProps>(({ darkMo
       const settings = await window.electronAPI.getAppSettings()
       const updatedSettings = {
         ...settings,
-        autoCleanup: newConfig,
+        autoCleanup: newConfig
       }
       await window.electronAPI.saveAppSettings(updatedSettings)
       setAutoCleanup(newConfig)
@@ -211,7 +199,7 @@ const RecordControl = forwardRef<RecordControlRef, RecordControlProps>(({ darkMo
       enabled: checked,
       intervalMs,
       retainMs,
-      nextCleanupTime: checked ? Date.now() + intervalMs : null,
+      nextCleanupTime: checked ? Date.now() + intervalMs : null
     }
     await saveAutoCleanupConfig(newConfig)
     if (checked) {
@@ -232,11 +220,10 @@ const RecordControl = forwardRef<RecordControlRef, RecordControlProps>(({ darkMo
 
     const intervalMs = timeUnitToMs(newValue, newUnit)
 
-    // 移除实时校验，允许用户自由输入
     const newConfig: AutoCleanupConfig = {
       ...autoCleanup,
       intervalMs,
-      nextCleanupTime: Date.now() + intervalMs,
+      nextCleanupTime: Date.now() + intervalMs
     }
     await saveAutoCleanupConfig(newConfig)
   }
@@ -252,10 +239,9 @@ const RecordControl = forwardRef<RecordControlRef, RecordControlProps>(({ darkMo
 
     const retainMs = timeUnitToMs(newValue, newUnit)
 
-    // 移除实时校验，允许用户自由输入
     const newConfig: AutoCleanupConfig = {
       ...autoCleanup,
-      retainMs,
+      retainMs
     }
     await saveAutoCleanupConfig(newConfig)
   }
@@ -265,7 +251,7 @@ const RecordControl = forwardRef<RecordControlRef, RecordControlProps>(({ darkMo
     Modal.confirm({
       title: '立即执行清理',
       icon: <ExclamationCircleOutlined />,
-      content: `将立即清理超过保留时间（${retainValue} ${TIME_UNIT_OPTIONS.find(u => u.value === retainUnit)?.label}）的数据。确定继续？`,
+      content: `将立即清理超过保留时间（${retainValue} ${TIME_UNIT_OPTIONS.find(u => u.value === retainUnit)?.label}）的图片缓存。确定继续？`,
       okText: '立即清理',
       okType: 'primary',
       cancelText: '取消',
@@ -274,11 +260,11 @@ const RecordControl = forwardRef<RecordControlRef, RecordControlProps>(({ darkMo
         try {
           const result = await window.electronAPI.triggerAutoCleanup()
           if (result.success) {
-            // 只有删除了记录才显示提示
             if (result.deletedCount && result.deletedCount > 0) {
-              message.success(`清理完成，删除了 ${result.deletedCount} 条记录`)
+              message.success(`清理完成，清理了 ${result.deletedCount} 个缓存目录`)
+            } else {
+              message.info('没有需要清理的缓存')
             }
-            // 刷新配置以更新倒计时
             await loadConfig()
           } else {
             message.error(result.error || '清理失败')
@@ -297,7 +283,7 @@ const RecordControl = forwardRef<RecordControlRef, RecordControlProps>(({ darkMo
   const handleFloatingBallToggle = async (checked: boolean) => {
     const newConfig: AutoCleanupConfig = {
       ...autoCleanup,
-      showFloatingBall: checked,
+      showFloatingBall: checked
     }
     await saveAutoCleanupConfig(newConfig)
   }
@@ -312,202 +298,189 @@ const RecordControl = forwardRef<RecordControlRef, RecordControlProps>(({ darkMo
 
   return (
     <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-      <Title level={4} style={{ margin: 0 }}>对话记录控制</Title>
+      <Title level={4} style={{ margin: 0 }}>
+        缓存管理
+      </Title>
 
-      {!config.enabled && (
-        <Alert
-          message="此功能必须开启才能使用应用"
-          type="warning"
-          showIcon
-          style={{ marginBottom: 8 }}
-        />
-      )}
-
+      {/* 数据来源说明 */}
       <Card size="small">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+          <CheckCircleOutlined style={{ color: themeVars.primary }} />
+          <Text strong>数据来源</Text>
+          <Tag color="success">自动读取</Tag>
+        </div>
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          直接读取 Claude Code 本地数据（~/.claude），无需额外配置
+        </Text>
+      </Card>
+
+      {/* 缓存清理 */}
+      <Card size="small">
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+            <DeleteOutlined style={{ color: themeVars.textSecondary }} />
+            <Text strong>资源清理</Text>
+          </div>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            清除本应用涉及的所有缓存资源（历史记录、会话文件、图片缓存等）
+          </Text>
+        </div>
+        <Button
+          danger
+          icon={<DeleteOutlined />}
+          onClick={handleClearAllCache}
+          loading={clearing}
+          block
+        >
+          清除所有缓存
+        </Button>
+      </Card>
+
+      {/* 自动清理缓存设置 */}
+      <Card size="small">
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            marginBottom: autoCleanup.enabled ? 16 : 0
+          }}
+        >
           <div style={{ flex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-              <Text strong>启用记录</Text>
-              {config.enabled ? (
-                <Tag icon={<PlayCircleOutlined />} color="success">运行中</Tag>
-              ) : (
-                <Tag icon={<PauseCircleOutlined />} color="default">未开启</Tag>
+              <ClockCircleOutlined style={{ color: themeVars.primary }} />
+              <Text strong>自动清理</Text>
+              {autoCleanup.enabled && (
+                <Tag color="processing" style={{ fontSize: 11 }}>
+                  已开启
+                </Tag>
               )}
             </div>
             <Text type="secondary" style={{ fontSize: 12 }}>
-              {config.enabled ? '正在记录所有对话' : '开启后自动记录所有 Claude Code 对话'}
+              定时自动清理过期的图片缓存
             </Text>
           </div>
           <Switch
-            checked={config.enabled}
-            onChange={handleToggle}
+            checked={autoCleanup.enabled}
+            onChange={handleAutoCleanupToggle}
             checkedChildren="开"
             unCheckedChildren="关"
           />
         </div>
-      </Card>
 
-      {config.savePath && (
-        <Card size="small">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <div style={{ flex: 1, marginRight: 12 }}>
-              <div style={{ marginBottom: 4 }}>
-                <Text strong>保存路径</Text>
-              </div>
-              <Text
-                code
-                style={{
-                  fontSize: 12,
-                  wordBreak: 'break-all',
-                  display: 'block'
-                }}
-              >
-                {config.savePath}
+        {autoCleanup.enabled && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+            {/* 清理间隔 */}
+            <div>
+              <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>
+                清理间隔
               </Text>
-            </div>
-            <Button
-              size="small"
-              icon={<EditOutlined />}
-              onClick={handleChangePath}
-            >
-              更改
-            </Button>
-          </div>
-        </Card>
-      )}
-
-      {config.savePath && (
-        <Button
-          danger
-          icon={<DeleteOutlined />}
-          onClick={handleClearCache}
-          block
-        >
-          清除缓存
-        </Button>
-      )}
-
-      {/* 自动清理缓存设置 */}
-      {config.savePath && (
-        <>
-          <Divider style={{ margin: '8px 0' }} />
-          <Card size="small">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: autoCleanup.enabled ? 16 : 0 }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                  <ClockCircleOutlined style={{ color: themeVars.primary }} />
-                  <Text strong>自动清理</Text>
-                  {autoCleanup.enabled && (
-                    <Tag color="processing" style={{ fontSize: 11 }}>已开启</Tag>
-                  )}
-                </div>
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                  定时自动清理过期的对话记录缓存
-                </Text>
-              </div>
-              <Switch
-                checked={autoCleanup.enabled}
-                onChange={handleAutoCleanupToggle}
-                checkedChildren="开"
-                unCheckedChildren="关"
-              />
-            </div>
-
-            {autoCleanup.enabled && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {/* 清理间隔 */}
-                <div>
-                  <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>
-                    清理间隔（每隔多久执行一次清理）
-                  </Text>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <span style={{ fontSize: 13, color: 'inherit', whiteSpace: 'nowrap' }}>每</span>
-                    <InputNumber
-                      min={1}
-                      max={999}
-                      value={intervalValue}
-                      onChange={(v) => handleIntervalChange(v)}
-                      style={{ width: 80 }}
-                      size="small"
-                    />
-                    <Select
-                      value={intervalUnit}
-                      onChange={(v) => handleIntervalChange(intervalValue, v)}
-                      options={TIME_UNIT_OPTIONS}
-                      style={{ width: 90 }}
-                      size="small"
-                    />
-                    <span style={{ fontSize: 13, color: 'inherit', whiteSpace: 'nowrap' }}>清理一次</span>
-                  </div>
-                </div>
-
-                {/* 保留范围 */}
-                <div>
-                  <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>
-                    保留范围（保留最近多久的数据，清理更早的）
-                  </Text>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                    <span style={{ fontSize: 13, color: 'inherit', whiteSpace: 'nowrap' }}>保留最近</span>
-                    <InputNumber
-                      min={1}
-                      max={999}
-                      value={retainValue}
-                      onChange={(v) => handleRetainChange(v)}
-                      style={{ width: 80 }}
-                      size="small"
-                    />
-                    <Select
-                      value={retainUnit}
-                      onChange={(v) => handleRetainChange(retainValue, v)}
-                      options={TIME_UNIT_OPTIONS}
-                      style={{ width: 90 }}
-                      size="small"
-                    />
-                    <span style={{ fontSize: 13, color: 'inherit', whiteSpace: 'nowrap' }}>的数据</span>
-                  </div>
-                </div>
-
-                {/* 手动清理按钮 */}
-                <Button
-                  type="primary"
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <span style={{ fontSize: 13, color: 'inherit', whiteSpace: 'nowrap' }}>每</span>
+                <InputNumber
+                  min={1}
+                  max={999}
+                  value={intervalValue}
+                  onChange={v => handleIntervalChange(v)}
+                  style={{ width: 80 }}
                   size="small"
-                  onClick={handleManualCleanup}
-                  loading={cleanupLoading}
-                  block
-                  style={{ marginTop: 4 }}
-                >
-                  立即执行清理
-                </Button>
+                />
+                <Select
+                  value={intervalUnit}
+                  onChange={v => handleIntervalChange(intervalValue, v)}
+                  options={TIME_UNIT_OPTIONS}
+                  style={{ width: 90 }}
+                  size="small"
+                />
+                <span style={{ fontSize: 13, color: 'inherit', whiteSpace: 'nowrap' }}>
+                  清理一次
+                </span>
+              </div>
+            </div>
 
-                {/* 悬浮球显示开关 */}
-                <div style={{ marginTop: 12, padding: '8px 12px', background: 'rgba(0,0,0,0.02)', borderRadius: 4 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Text style={{ fontSize: 13 }}>显示悬浮球倒计时</Text>
-                    <Switch
-                      size="small"
-                      checked={autoCleanup.showFloatingBall ?? true}
-                      onChange={handleFloatingBallToggle}
-                    />
-                  </div>
-                </div>
+            {/* 保留范围 */}
+            <div>
+              <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>
+                保留范围
+              </Text>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <span style={{ fontSize: 13, color: 'inherit', whiteSpace: 'nowrap' }}>
+                  保留最近
+                </span>
+                <InputNumber
+                  min={1}
+                  max={999}
+                  value={retainValue}
+                  onChange={v => handleRetainChange(v)}
+                  style={{ width: 80 }}
+                  size="small"
+                />
+                <Select
+                  value={retainUnit}
+                  onChange={v => handleRetainChange(retainValue, v)}
+                  options={TIME_UNIT_OPTIONS}
+                  style={{ width: 90 }}
+                  size="small"
+                />
+                <span style={{ fontSize: 13, color: 'inherit', whiteSpace: 'nowrap' }}>的缓存</span>
+              </div>
+            </div>
 
-                {/* 说明 */}
-                <Alert
-                  type="info"
-                  showIcon
-                  message={
-                    <span style={{ fontSize: 12 }}>
-                      每 <strong>{intervalValue} {TIME_UNIT_OPTIONS.find(u => u.value === intervalUnit)?.label}</strong> 自动清理一次，
-                      保留最近 <strong>{retainValue} {TIME_UNIT_OPTIONS.find(u => u.value === retainUnit)?.label}</strong> 的数据
-                    </span>
-                  }
-                  style={{ padding: '6px 12px' }}
+            {/* 手动清理按钮 */}
+            <Button
+              type="primary"
+              size="small"
+              onClick={handleManualCleanup}
+              loading={cleanupLoading}
+              block
+              style={{ marginTop: 4 }}
+            >
+              立即执行清理
+            </Button>
+
+            {/* 悬浮球显示开关 */}
+            <div
+              style={{
+                marginTop: 12,
+                padding: '8px 12px',
+                background: 'rgba(0,0,0,0.02)',
+                borderRadius: 4
+              }}
+            >
+              <div
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+              >
+                <Text style={{ fontSize: 13 }}>显示悬浮球倒计时</Text>
+                <Switch
+                  size="small"
+                  checked={autoCleanup.showFloatingBall ?? true}
+                  onChange={handleFloatingBallToggle}
                 />
               </div>
-            )}
-          </Card>
-        </>
-      )}
+            </div>
+
+            {/* 说明 */}
+            <Alert
+              type="info"
+              showIcon
+              message={
+                <span style={{ fontSize: 12 }}>
+                  每{' '}
+                  <strong>
+                    {intervalValue} {TIME_UNIT_OPTIONS.find(u => u.value === intervalUnit)?.label}
+                  </strong>{' '}
+                  自动清理一次， 保留最近{' '}
+                  <strong>
+                    {retainValue} {TIME_UNIT_OPTIONS.find(u => u.value === retainUnit)?.label}
+                  </strong>{' '}
+                  的缓存
+                </span>
+              }
+              style={{ padding: '6px 12px' }}
+            />
+          </div>
+        )}
+      </Card>
     </Space>
   )
 })

@@ -1,5 +1,21 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
-import { Button, Card, Tag, Space, Typography, Empty, Spin, DatePicker, message, List, Modal, Pagination, Input, Image, Tooltip } from 'antd'
+import {
+  Button,
+  Card,
+  Tag,
+  Space,
+  Typography,
+  Empty,
+  Spin,
+  DatePicker,
+  message,
+  List,
+  Modal,
+  Pagination,
+  Input,
+  Image,
+  Tooltip
+} from 'antd'
 import {
   FolderOpenOutlined,
   CopyOutlined,
@@ -9,8 +25,6 @@ import {
   ClockCircleOutlined,
   ReloadOutlined,
   ExportOutlined,
-  WarningOutlined,
-  SettingOutlined,
   DeleteOutlined,
   ExclamationCircleOutlined,
   CloseOutlined,
@@ -22,13 +36,14 @@ import ReactMarkdown from 'react-markdown'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import ElectronModal, { getElectronModalConfig } from './ElectronModal'
-import { ClaudeRecord, RecordConfig, SessionMetadata } from '../types'
+import { ClaudeRecord, SessionMetadata } from '../types'
 import dayjs, { Dayjs } from 'dayjs'
 import 'dayjs/locale/zh-cn'
 import { getThemeVars } from '../theme'
 import SmartContent from './SmartContent'
 import CopyTextModal from './CopyTextModal'
 import CopyableImage, { getCopyablePreviewConfig } from './CopyableImage'
+import ConversationDetailModal from './ConversationDetailModal'
 
 // 设置 dayjs 中文语言
 dayjs.locale('zh-cn')
@@ -50,29 +65,19 @@ interface GroupedRecord {
   recordCount: number
 }
 
-type DateRange = '1d' | '7d' | '30d' | 'custom'
+type DateRange = 'all' | '1d' | '7d' | '30d' | 'custom'
 
 function HistoryViewer({ onOpenSettings, darkMode, onSendToChat }: HistoryViewerProps) {
   // 使用会话元数据代替完整记录
   const [sessions, setSessions] = useState<SessionMetadata[]>([])
   const [loading, setLoading] = useState(true)
-  const [dateRange, setDateRange] = useState<DateRange>('1d')
+  const [dateRange, setDateRange] = useState<DateRange>('all')
   const [customDateRange, setCustomDateRange] = useState<[Dayjs, Dayjs] | null>(null)
   const [searchKeyword, setSearchKeyword] = useState('')
   const [searchVisible, setSearchVisible] = useState(false)
   const searchInputRef = useRef<any>(null)
-  const [isInitialLoad, setIsInitialLoad] = useState(true) // 标记是否为初始加载
+  const [isInitialLoad, setIsInitialLoad] = useState(true)
   const themeVars = getThemeVars(darkMode)
-
-  // 记录配置状态
-  const [recordConfig, setRecordConfig] = useState<RecordConfig | null>(null)
-
-  // 初始化默认日期范围（1天）
-  useEffect(() => {
-    const now = dayjs()
-    const oneDayAgo = now.subtract(1, 'day')
-    setCustomDateRange([oneDayAgo.startOf('day'), now.endOf('day')])
-  }, [])
 
   // 分页状态
   const [currentPage, setCurrentPage] = useState(1)
@@ -99,6 +104,11 @@ function HistoryViewer({ onOpenSettings, darkMode, onSendToChat }: HistoryViewer
   // 图片加载缓存
   const [imageCache, setImageCache] = useState<Map<string, string>>(new Map())
 
+  // 完整对话弹窗状态
+  const [conversationModalVisible, setConversationModalVisible] = useState(false)
+  const [conversationSessionId, setConversationSessionId] = useState('')
+  const [conversationProject, setConversationProject] = useState('')
+
   // Session Modal 关闭处理
   const handleCloseSessionModal = () => {
     setSessionModalVisible(false)
@@ -111,7 +121,6 @@ function HistoryViewer({ onOpenSettings, darkMode, onSendToChat }: HistoryViewer
 
   useEffect(() => {
     loadHistoryMetadata()
-    loadRecordConfig()
   }, [])
 
   // 监听 Cmd+F 快捷键
@@ -142,15 +151,6 @@ function HistoryViewer({ onOpenSettings, darkMode, onSendToChat }: HistoryViewer
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [searchVisible])
 
-  const loadRecordConfig = async () => {
-    try {
-      const config = await window.electronAPI.getRecordConfig()
-      setRecordConfig(config)
-    } catch (error) {
-      console.error('加载记录配置失败:', error)
-    }
-  }
-
   const loadHistoryMetadata = async () => {
     setLoading(true)
     try {
@@ -159,14 +159,10 @@ function HistoryViewer({ onOpenSettings, darkMode, onSendToChat }: HistoryViewer
         setTimeout(() => reject(new Error('加载超时')), 10000)
       })
 
-      const result = await Promise.race([
-        window.electronAPI.readHistoryMetadata(),
-        timeoutPromise
-      ])
+      const result = await Promise.race([window.electronAPI.readHistoryMetadata(), timeoutPromise])
 
       if (result.success && result.sessions) {
         setSessions(result.sessions)
-        // 只在初始加载时显示提示
         if (isInitialLoad) {
           message.success(`成功加载 ${result.sessions.length} 个会话`)
           setIsInitialLoad(false)
@@ -175,25 +171,14 @@ function HistoryViewer({ onOpenSettings, darkMode, onSendToChat }: HistoryViewer
         setSessions([])
         if (result.error) {
           console.error('加载历史记录失败:', result.error)
-          // 如果是未配置保存路径的错误，不显示 toast（页面已有提示卡片）
-          const isConfigError = result.error.includes('未配置保存路径') ||
-                                result.error.includes('保存路径') ||
-                                result.error.includes('未开启')
-          if (!isConfigError) {
-            message.error(`加载失败: ${result.error}`)
-          }
+          message.error(`加载失败: ${result.error}`)
         }
         setIsInitialLoad(false)
       }
     } catch (error: any) {
       console.error('加载历史记录时发生错误:', error)
       const errorMsg = error?.message || '未知错误'
-      // 如果是配置相关错误，不显示 toast
-      const isConfigError = errorMsg.includes('未配置保存路径') ||
-                            errorMsg.includes('保存路径') ||
-                            errorMsg.includes('未开启') ||
-                            errorMsg.includes('加载超时')
-      if (!isConfigError) {
+      if (!errorMsg.includes('加载超时')) {
         message.error(`加载失败: ${errorMsg}`)
       }
       setSessions([])
@@ -205,125 +190,41 @@ function HistoryViewer({ onOpenSettings, darkMode, onSendToChat }: HistoryViewer
 
   // 根据日期范围筛选会话
   const filteredSessions = useMemo(() => {
-    if (customDateRange) {
-      const [start, end] = customDateRange
-      return sessions.filter(s =>
-        s.latestTimestamp >= start.valueOf() &&
-        s.latestTimestamp <= end.valueOf()
-      )
+    // "全部" 模式不做时间筛选
+    if (dateRange === 'all' || !customDateRange) {
+      return sessions
     }
-    return sessions
-  }, [sessions, customDateRange])
+    const [start, end] = customDateRange
+    return sessions.filter(
+      s => s.latestTimestamp >= start.valueOf() && s.latestTimestamp <= end.valueOf()
+    )
+  }, [sessions, dateRange, customDateRange])
 
-  // 搜索状态和结果
-  const [searching, setSearching] = useState(false)
-  const [promptSearchResults, setPromptSearchResults] = useState<Array<{
-    record: ClaudeRecord
-    sessionId: string
-    project: string
-    matchText: string
-  }>>([])
-
-  // 执行 Prompt 搜索
-  useEffect(() => {
-    const performSearch = async () => {
-      if (!searchKeyword.trim()) {
-        setPromptSearchResults([])
-        return
-      }
-
-      setSearching(true)
-      try {
-        const keyword = searchKeyword.toLowerCase()
-        const results: Array<{
-          record: ClaudeRecord
-          sessionId: string
-          project: string
-          matchText: string
-        }> = []
-
-        // 遍历所有符合日期范围的会话
-        for (const session of filteredSessions) {
-          try {
-            // 加载会话的完整记录
-            const result = await window.electronAPI.readHistory()
-            if (!result.success || !result.records) continue
-
-            // 过滤出当前会话的记录
-            const sessionRecords = result.records.filter(
-              (r: ClaudeRecord) => r.sessionId === session.sessionId
-            )
-
-            // 搜索每条记录的 display 内容
-            sessionRecords.forEach((record: ClaudeRecord) => {
-              const content = record.display?.toLowerCase() || ''
-              if (content.includes(keyword)) {
-                // 获取匹配上下文
-                const index = content.indexOf(keyword)
-                const start = Math.max(0, index - 50)
-                const end = Math.min(content.length, index + keyword.length + 50)
-                let matchText = record.display?.substring(start, end) || ''
-
-                if (start > 0) matchText = '...' + matchText
-                if (end < content.length) matchText = matchText + '...'
-
-                results.push({
-                  record,
-                  sessionId: session.sessionId,
-                  project: session.project,
-                  matchText
-                })
-              }
-            })
-          } catch (error) {
-            console.error(`搜索会话 ${session.sessionId} 失败:`, error)
-          }
-        }
-
-        setPromptSearchResults(results)
-      } catch (error) {
-        console.error('搜索失败:', error)
-        setPromptSearchResults([])
-      } finally {
-        setSearching(false)
-      }
-    }
-
-    // 防抖：延迟 300ms 执行搜索
-    const timer = setTimeout(performSearch, 300)
-    return () => clearTimeout(timer)
-  }, [searchKeyword, filteredSessions])
-
-  // 查看搜索结果详情
-  const handleViewSearchResult = (record: ClaudeRecord) => {
-    setSelectedRecord(record)
-    setRecordModalVisible(true)
-    setSearchVisible(false)
-    setSearchKeyword('')
-  }
-
-  // 原有的搜索过滤（保留用于列表过滤）
+  // 搜索过滤（按项目名/SessionID 过滤）
   const searchedSessions = useMemo(() => {
     if (!searchKeyword.trim()) {
       return filteredSessions
     }
 
     const keyword = searchKeyword.toLowerCase()
-    return filteredSessions.filter(session => {
-      return session.project.toLowerCase().includes(keyword) ||
-             session.sessionId.toLowerCase().includes(keyword)
-    })
+    return filteredSessions.filter(
+      session =>
+        session.project.toLowerCase().includes(keyword) ||
+        session.sessionId.toLowerCase().includes(keyword)
+    )
   }, [filteredSessions, searchKeyword])
 
   // 转换为 GroupedRecord 格式（用于显示）
   const groupedRecords = useMemo(() => {
-    return searchedSessions.map(session => ({
-      sessionId: session.sessionId,
-      project: session.project,
-      records: [], // 暂时为空，点击时才加载
-      latestTimestamp: session.latestTimestamp,
-      recordCount: session.recordCount
-    })).sort((a, b) => b.latestTimestamp - a.latestTimestamp) // 按时间降序排序，最新的在前面
+    return searchedSessions
+      .map(session => ({
+        sessionId: session.sessionId,
+        project: session.project,
+        records: [], // 暂时为空，点击时才加载
+        latestTimestamp: session.latestTimestamp,
+        recordCount: session.recordCount
+      }))
+      .sort((a, b) => b.latestTimestamp - a.latestTimestamp) // 按时间降序排序，最新的在前面
   }, [searchedSessions])
 
   // 分页数据
@@ -541,7 +442,6 @@ function HistoryViewer({ onOpenSettings, darkMode, onSendToChat }: HistoryViewer
           }
         }
       )
-
     } catch (error: any) {
       setSummarizing(false)
       message.error(`总结失败: ${error?.message || '未知错误'}`, 5)
@@ -580,7 +480,9 @@ function HistoryViewer({ onOpenSettings, darkMode, onSendToChat }: HistoryViewer
             setRecordModalVisible(false)
             // 重新加载 Session 详情
             if (selectedSession) {
-              const updatedResult = await window.electronAPI.readSessionDetails(selectedSession.sessionId)
+              const updatedResult = await window.electronAPI.readSessionDetails(
+                selectedSession.sessionId
+              )
               if (updatedResult.success && updatedResult.records) {
                 setSelectedSession({
                   ...selectedSession,
@@ -668,190 +570,141 @@ function HistoryViewer({ onOpenSettings, darkMode, onSendToChat }: HistoryViewer
   )
 
   return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      height: '100%',
-      background: themeVars.bgContainer,
-      minHeight: 0
-    }}>
-      {/* 操作栏 - 只在有记录或记录功能已开启时显示 */}
-      {(recordConfig?.enabled || groupedRecords.length > 0) && (
-        <div style={{
-          padding: '12px 16px',
-          borderBottom: `1px solid ${themeVars.border}`,
-          background: themeVars.bgContainer,
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          WebkitAppRegion: 'drag'
-        } as React.CSSProperties}>
-          <Text type="secondary" style={{ fontSize: 12 }}>
-            共 {groupedRecords.length} 个会话，{sessions.reduce((sum, s) => sum + s.recordCount, 0)} 条记录
-            {groupedRecords.length > 0 && ` | 第 ${currentPage}/${Math.ceil(groupedRecords.length / pageSize)} 页`}
-          </Text>
-          <Space style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-            <Tooltip title="搜索会话 (Cmd+F / Ctrl+F)">
-              <Button
-                icon={<SearchOutlined />}
-                onClick={() => {
-                  // 关闭所有弹窗
-                  setSessionModalVisible(false)
-                  setRecordModalVisible(false)
-                  setSummaryModalVisible(false)
-                  // 打开搜索
-                  setSearchVisible(true)
-                  setTimeout(() => {
-                    searchInputRef.current?.focus()
-                  }, 100)
-                }}
-                size="small"
-              />
-            </Tooltip>
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        background: themeVars.bgContainer,
+        minHeight: 0
+      }}
+    >
+      {/* 操作栏 */}
+      <div
+        style={
+          {
+            padding: '12px 16px',
+            borderBottom: `1px solid ${themeVars.border}`,
+            background: themeVars.bgContainer,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            WebkitAppRegion: 'drag'
+          } as React.CSSProperties
+        }
+      >
+        <Text type="secondary" style={{ fontSize: 12 }}>
+          共 {groupedRecords.length} 个会话，
+          {groupedRecords.reduce((sum, s) => sum + s.recordCount, 0)} 条记录
+          {groupedRecords.length > 0 &&
+            ` | 第 ${currentPage}/${Math.ceil(groupedRecords.length / pageSize)} 页`}
+        </Text>
+        <Space style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+          <Tooltip title="搜索会话 (Cmd+F / Ctrl+F)">
             <Button
-              icon={<ReloadOutlined />}
-              onClick={loadHistoryMetadata}
-              loading={loading}
+              icon={<SearchOutlined />}
+              onClick={() => {
+                // 关闭所有弹窗
+                setSessionModalVisible(false)
+                setRecordModalVisible(false)
+                setSummaryModalVisible(false)
+                // 打开搜索
+                setSearchVisible(true)
+                setTimeout(() => {
+                  searchInputRef.current?.focus()
+                }, 100)
+              }}
               size="small"
-            >
-              刷新
-            </Button>
-            <Button
-              icon={<ExportOutlined />}
-              onClick={handleExport}
-              disabled={groupedRecords.length === 0}
-              size="small"
-            >
-              导出
-            </Button>
-          </Space>
-        </div>
-      )}
+            />
+          </Tooltip>
+          <Button
+            icon={<ReloadOutlined />}
+            onClick={loadHistoryMetadata}
+            loading={loading}
+            size="small"
+          >
+            刷新
+          </Button>
+          <Button
+            icon={<ExportOutlined />}
+            onClick={handleExport}
+            disabled={groupedRecords.length === 0}
+            size="small"
+          >
+            导出
+          </Button>
+        </Space>
+      </div>
 
       {/* 内容区域 */}
-      <div style={{
-        flex: 1,
-        overflow: 'auto',
-        padding: recordConfig && !recordConfig.enabled ? 0 : '16px 24px',
-        minHeight: 0,
-        display: recordConfig && !recordConfig.enabled ? 'flex' : 'block',
-        alignItems: recordConfig && !recordConfig.enabled ? 'center' : 'flex-start',
-        justifyContent: recordConfig && !recordConfig.enabled ? 'center' : 'flex-start'
-      }}>
-        {recordConfig && !recordConfig.enabled ? (
-          // 记录功能未开启时的提示 - 完全居中显示
-          loading ? (
-            <div style={{ textAlign: 'center' }}>
-              <Spin size="large" tip="加载中..." />
-            </div>
-          ) : (
-            <Card
-              style={{
-                maxWidth: 420,
-                textAlign: 'center',
-                border: 'none',
-                boxShadow: darkMode
-                  ? '0 4px 24px rgba(0, 0, 0, 0.4)'
-                  : '0 4px 24px rgba(0, 0, 0, 0.06)',
-              }}
-            >
-              <div style={{
-                background: themeVars.primaryGradient,
-                width: 64,
-                height: 64,
-                borderRadius: '50%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                margin: '0 auto 24px',
-                boxShadow: `0 8px 16px ${themeVars.primaryShadow}`
-              }}>
-                <WarningOutlined style={{ fontSize: 32, color: themeVars.bgContainer }} />
-              </div>
-
-              <Text strong style={{ fontSize: 20, display: 'block', marginBottom: 12 }}>
-                记录功能未开启
-              </Text>
-
-              <Text type="secondary" style={{ fontSize: 14, display: 'block', marginBottom: 32, lineHeight: 1.6 }}>
-                开启后即可记录和查看所有对话历史
-              </Text>
-
+      <div
+        style={{
+          flex: 1,
+          overflow: 'auto',
+          padding: '16px 24px',
+          minHeight: 0
+        }}
+      >
+        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+          {/* 时间筛选器 */}
+          <Card size="small" styles={{ body: { padding: 12 } }}>
+            <Space wrap>
               <Button
-                type="primary"
-                size="large"
-                icon={<SettingOutlined />}
-                onClick={() => onOpenSettings?.()}
-                block
-                style={{
-                  height: 48,
-                  fontSize: 16,
-                  fontWeight: 500,
-                  borderRadius: 8,
-                  background: themeVars.primaryGradient,
-                  border: 'none'
+                type={dateRange === 'all' ? 'primary' : 'default'}
+                size="small"
+                onClick={() => {
+                  setCustomDateRange(null)
+                  setDateRange('all')
                 }}
               >
-                前往设置开启
+                全部
               </Button>
-            </Card>
-          )
-        ) : (
-        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-          {/* 时间筛选器 - 只在记录功能已开启时显示 */}
-          {(recordConfig?.enabled || groupedRecords.length > 0) && (
-            <Card size="small" styles={{ body: { padding: 12 } }}>
-              <Space wrap>
-                <Button
-                  type={dateRange === '1d' ? 'primary' : 'default'}
-                  size="small"
-                  onClick={() => {
-                    const now = dayjs()
-                    const oneDayAgo = now.subtract(1, 'day')
-                    setCustomDateRange([oneDayAgo.startOf('day'), now.endOf('day')])
-                    setDateRange('1d')
-                  }}
-                >
-                  1天
-                </Button>
-                <Button
-                  type={dateRange === '7d' ? 'primary' : 'default'}
-                  size="small"
-                  onClick={() => {
-                    const now = dayjs()
-                    const sevenDaysAgo = now.subtract(7, 'day')
-                    setCustomDateRange([sevenDaysAgo.startOf('day'), now.endOf('day')])
-                    setDateRange('7d')
-                  }}
-                >
-                  7天
-                </Button>
-                <Button
-                  type={dateRange === '30d' ? 'primary' : 'default'}
-                  size="small"
-                  onClick={() => {
-                    const now = dayjs()
-                    const thirtyDaysAgo = now.subtract(30, 'day')
-                    setCustomDateRange([thirtyDaysAgo.startOf('day'), now.endOf('day')])
-                    setDateRange('30d')
-                  }}
-                >
-                  30天
-                </Button>
-                <RangePicker
-                  size="small"
-                  value={customDateRange}
-                  onChange={(dates) => {
-                    if (dates) {
-                      const [start, end] = dates as [Dayjs, Dayjs]
-                      setCustomDateRange([start.startOf('day'), end.endOf('day')])
-                      setDateRange('custom')
-                    }
-                  }}
-                />
-              </Space>
-            </Card>
-          )}
+              <Button
+                type={dateRange === '1d' ? 'primary' : 'default'}
+                size="small"
+                onClick={() => {
+                  const now = dayjs()
+                  setCustomDateRange([now.subtract(1, 'day').startOf('day'), now.endOf('day')])
+                  setDateRange('1d')
+                }}
+              >
+                1天
+              </Button>
+              <Button
+                type={dateRange === '7d' ? 'primary' : 'default'}
+                size="small"
+                onClick={() => {
+                  const now = dayjs()
+                  setCustomDateRange([now.subtract(7, 'day').startOf('day'), now.endOf('day')])
+                  setDateRange('7d')
+                }}
+              >
+                7天
+              </Button>
+              <Button
+                type={dateRange === '30d' ? 'primary' : 'default'}
+                size="small"
+                onClick={() => {
+                  const now = dayjs()
+                  setCustomDateRange([now.subtract(30, 'day').startOf('day'), now.endOf('day')])
+                  setDateRange('30d')
+                }}
+              >
+                30天
+              </Button>
+              <RangePicker
+                size="small"
+                value={customDateRange}
+                onChange={dates => {
+                  if (dates) {
+                    const [start, end] = dates as [Dayjs, Dayjs]
+                    setCustomDateRange([start.startOf('day'), end.endOf('day')])
+                    setDateRange('custom')
+                  }
+                }}
+              />
+            </Space>
+          </Card>
 
           {/* Session 列表 */}
           {loading ? (
@@ -865,7 +718,7 @@ function HistoryViewer({ onOpenSettings, darkMode, onSendToChat }: HistoryViewer
               <List
                 grid={{ gutter: 16, column: 2 }}
                 dataSource={paginatedRecords}
-                renderItem={(group) => (
+                renderItem={group => (
                   <List.Item style={{ marginBottom: 8 }}>
                     <Card
                       hoverable
@@ -881,17 +734,29 @@ function HistoryViewer({ onOpenSettings, darkMode, onSendToChat }: HistoryViewer
                           )}
                         </Space>
                       }
-                      extra={
-                        <ClockCircleOutlined style={{ color: themeVars.textTertiary }} />
-                      }
+                      extra={<ClockCircleOutlined style={{ color: themeVars.textTertiary }} />}
                       actions={[
+                        <Button
+                          key="full-conversation"
+                          type="text"
+                          size="small"
+                          icon={<FileTextOutlined />}
+                          onClick={e => {
+                            e.stopPropagation()
+                            setConversationSessionId(group.sessionId)
+                            setConversationProject(group.project)
+                            setConversationModalVisible(true)
+                          }}
+                        >
+                          完整对话
+                        </Button>,
                         <Button
                           key="summarize"
                           type="text"
                           size="small"
                           icon={<StarOutlined />}
                           loading={summarizing}
-                          onClick={(e) => {
+                          onClick={e => {
                             e.stopPropagation()
                             handleSummarize(group)
                           }}
@@ -911,13 +776,15 @@ function HistoryViewer({ onOpenSettings, darkMode, onSendToChat }: HistoryViewer
                           type="link"
                           size="small"
                           icon={<FolderOpenOutlined />}
-                          onClick={(e) => {
+                          onClick={e => {
                             e.stopPropagation()
                             handleOpenFolder(group.project)
                           }}
                           style={{ padding: 0, height: 'auto' }}
                         >
-                          <Text code style={{ fontSize: 11 }}>{truncateText(group.project, 40)}</Text>
+                          <Text code style={{ fontSize: 11 }}>
+                            {truncateText(group.project, 40)}
+                          </Text>
                         </Button>
                       </Space>
                     </Card>
@@ -936,7 +803,7 @@ function HistoryViewer({ onOpenSettings, darkMode, onSendToChat }: HistoryViewer
                     onShowSizeChange={handlePageChange}
                     showSizeChanger
                     showQuickJumper
-                    showTotal={(total) => `共 ${total} 个会话`}
+                    showTotal={total => `共 ${total} 个会话`}
                     pageSizeOptions={['10', '20', '50', '100']}
                     size="small"
                   />
@@ -945,7 +812,6 @@ function HistoryViewer({ onOpenSettings, darkMode, onSendToChat }: HistoryViewer
             </>
           )}
         </Space>
-        )}
       </div>
 
       {/* 层级 2: Session 详情弹窗 */}
@@ -996,99 +862,117 @@ function HistoryViewer({ onOpenSettings, darkMode, onSendToChat }: HistoryViewer
           <div style={{ textAlign: 'center', padding: 60 }}>
             <Spin size="large" tip="加载会话详情中..." />
           </div>
-        ) : selectedSession && (
-          <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-            {/* Session 信息 */}
-            <Card size="small" styles={{ body: { padding: 12 } }}>
-              <Space direction="vertical" size={4} style={{ width: '100%' }}>
-                <div>
-                  <Text type="secondary" style={{ fontSize: 12 }}>项目名称：</Text>
-                  <Text style={{ fontSize: 12 }}>{getProjectName(selectedSession.project)}</Text>
-                </div>
-                <div>
-                  <Text type="secondary" style={{ fontSize: 12 }}>最后更新：</Text>
-                  <Text style={{ fontSize: 12 }}>{formatTime(selectedSession.latestTimestamp)}</Text>
-                </div>
-                <div>
-                  <Text type="secondary" style={{ fontSize: 12 }}>Session ID：</Text>
-                  <Text code style={{ fontSize: 12 }}>{selectedSession.sessionId}</Text>
-                </div>
-                <div>
-                  <Text type="secondary" style={{ fontSize: 12 }}>项目路径：</Text>
-                  <Button
-                    type="link"
-                    size="small"
-                    icon={<FolderOpenOutlined />}
-                    onClick={() => handleOpenFolder(selectedSession.project)}
-                    style={{ padding: 0, height: 'auto' }}
-                  >
-                    <Text code style={{ fontSize: 12 }}>{selectedSession.project}</Text>
-                  </Button>
-                </div>
-              </Space>
-            </Card>
+        ) : (
+          selectedSession && (
+            <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+              {/* Session 信息 */}
+              <Card size="small" styles={{ body: { padding: 12 } }}>
+                <Space direction="vertical" size={4} style={{ width: '100%' }}>
+                  <div>
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      项目名称：
+                    </Text>
+                    <Text style={{ fontSize: 12 }}>{getProjectName(selectedSession.project)}</Text>
+                  </div>
+                  <div>
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      最后更新：
+                    </Text>
+                    <Text style={{ fontSize: 12 }}>
+                      {formatTime(selectedSession.latestTimestamp)}
+                    </Text>
+                  </div>
+                  <div>
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      Session ID：
+                    </Text>
+                    <Text code style={{ fontSize: 12 }}>
+                      {selectedSession.sessionId}
+                    </Text>
+                  </div>
+                  <div>
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      项目路径：
+                    </Text>
+                    <Button
+                      type="link"
+                      size="small"
+                      icon={<FolderOpenOutlined />}
+                      onClick={() => handleOpenFolder(selectedSession.project)}
+                      style={{ padding: 0, height: 'auto' }}
+                    >
+                      <Text code style={{ fontSize: 12 }}>
+                        {selectedSession.project}
+                      </Text>
+                    </Button>
+                  </div>
+                </Space>
+              </Card>
 
-            {/* Records 列表 */}
-            <List
-              dataSource={selectedSession.records}
-              renderItem={(record, index) => (
-                <List.Item style={{ padding: '8px 0' }}>
-                  <Card
-                    hoverable
-                    size="small"
-                    style={{ width: '100%' }}
-                    onClick={() => handleRecordClick(record)}
-                    title={
-                      <Space>
-                        <Text type="secondary" style={{ fontSize: 12 }}>
-                          #{selectedSession.records.length - index}
-                        </Text>
-                        <ClockCircleOutlined style={{ fontSize: 12 }} />
-                        <Text type="secondary" style={{ fontSize: 12 }}>
-                          {formatTime(record.timestamp)}
-                        </Text>
-                      </Space>
-                    }
-                    extra={
-                      onSendToChat && (
-                        <Tooltip title="发送到AI助手">
-                          <Button
-                            type="text"
-                            size="small"
-                            icon={<CommentOutlined style={{ color: themeVars.primary }} />}
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              onSendToChat(record.display)
+              {/* Records 列表 */}
+              <List
+                dataSource={selectedSession.records}
+                renderItem={(record, index) => (
+                  <List.Item style={{ padding: '8px 0' }}>
+                    <Card
+                      hoverable
+                      size="small"
+                      style={{ width: '100%' }}
+                      onClick={() => handleRecordClick(record)}
+                      title={
+                        <Space>
+                          <Text type="secondary" style={{ fontSize: 12 }}>
+                            #{selectedSession.records.length - index}
+                          </Text>
+                          <ClockCircleOutlined style={{ fontSize: 12 }} />
+                          <Text type="secondary" style={{ fontSize: 12 }}>
+                            {formatTime(record.timestamp)}
+                          </Text>
+                        </Space>
+                      }
+                      extra={
+                        onSendToChat && (
+                          <Tooltip title="发送到AI助手">
+                            <Button
+                              type="text"
+                              size="small"
+                              icon={<CommentOutlined style={{ color: themeVars.primary }} />}
+                              onClick={e => {
+                                e.stopPropagation()
+                                onSendToChat(record.display)
+                              }}
+                            />
+                          </Tooltip>
+                        )
+                      }
+                    >
+                      <Paragraph
+                        ellipsis={{ rows: 2 }}
+                        style={{ margin: 0, fontSize: 13, color: themeVars.textSecondary }}
+                      >
+                        {searchKeyword ? (
+                          <Highlighter
+                            searchWords={[searchKeyword]}
+                            autoEscape
+                            textToHighlight={record.display}
+                            highlightStyle={{
+                              backgroundColor: darkMode
+                                ? themeVars.primaryHover
+                                : themeVars.primaryLight,
+                              color: themeVars.text,
+                              padding: 0
                             }}
                           />
-                        </Tooltip>
-                      )
-                    }
-                  >
-                    <Paragraph
-                      ellipsis={{ rows: 2 }}
-                      style={{ margin: 0, fontSize: 13, color: themeVars.textSecondary }}
-                    >
-                      {searchKeyword ? (
-                        <Highlighter
-                          searchWords={[searchKeyword]}
-                          autoEscape
-                          textToHighlight={record.display}
-                          highlightStyle={{
-                            backgroundColor: darkMode ? themeVars.primaryHover : themeVars.primaryLight,
-                            color: themeVars.text,
-                            padding: 0,
-                          }}
-                        />
-                      ) : (
-                        record.display
-                      )}
-                    </Paragraph>
-                  </Card>
-                </List.Item>
-              )}
-            />
-          </Space>
+                        ) : (
+                          record.display
+                        )}
+                      </Paragraph>
+                    </Card>
+                  </List.Item>
+                )}
+              />
+            </Space>
+          )
         )}
       </ElectronModal>
 
@@ -1164,7 +1048,8 @@ function HistoryViewer({ onOpenSettings, darkMode, onSendToChat }: HistoryViewer
           >
             {/* 资源信息栏 */}
             {((selectedRecord.images && selectedRecord.images.length > 0) ||
-              (selectedRecord.pastedContents && Object.keys(selectedRecord.pastedContents).length > 0)) && (
+              (selectedRecord.pastedContents &&
+                Object.keys(selectedRecord.pastedContents).length > 0)) && (
               <div style={{ marginBottom: 12 }}>
                 <Space size="middle">
                   {selectedRecord.images && selectedRecord.images.length > 0 && (
@@ -1178,35 +1063,36 @@ function HistoryViewer({ onOpenSettings, darkMode, onSendToChat }: HistoryViewer
                       {selectedRecord.images.length}张图片
                     </Text>
                   )}
-                  {selectedRecord.pastedContents && Object.keys(selectedRecord.pastedContents).length > 0 && (
-                    <Text
-                      style={{
-                        fontSize: 13,
-                        color: themeVars.textSecondary,
-                        cursor: 'pointer'
-                      }}
-                      onClick={() => {
-                        setCopyTextModalContent(selectedRecord.pastedContents || {})
-                        setCopyTextModalVisible(true)
-                      }}
-                    >
-                      <FileTextOutlined style={{ marginRight: 4 }} />
-                      {Object.keys(selectedRecord.pastedContents).length}个Copy Text
-                    </Text>
-                  )}
+                  {selectedRecord.pastedContents &&
+                    Object.keys(selectedRecord.pastedContents).length > 0 && (
+                      <Text
+                        style={{
+                          fontSize: 13,
+                          color: themeVars.textSecondary,
+                          cursor: 'pointer'
+                        }}
+                        onClick={() => {
+                          setCopyTextModalContent(selectedRecord.pastedContents || {})
+                          setCopyTextModalVisible(true)
+                        }}
+                      >
+                        <FileTextOutlined style={{ marginRight: 4 }} />
+                        {Object.keys(selectedRecord.pastedContents).length}个Copy Text
+                      </Text>
+                    )}
                 </Space>
 
                 {/* 图片网格 - 默认显示 */}
                 {selectedRecord.images && selectedRecord.images.length > 0 && (
-                  <Image.PreviewGroup
-                    preview={getCopyablePreviewConfig(darkMode)}
-                  >
-                    <div style={{
-                      display: 'flex',
-                      gap: 8,
-                      marginTop: 8,
-                      flexWrap: 'wrap'
-                    }}>
+                  <Image.PreviewGroup preview={getCopyablePreviewConfig(darkMode)}>
+                    <div
+                      style={{
+                        display: 'flex',
+                        gap: 8,
+                        marginTop: 8,
+                        flexWrap: 'wrap'
+                      }}
+                    >
                       {selectedRecord.images.map((imagePath, imgIndex) => (
                         <ImageThumbnail key={imgIndex} imagePath={imagePath} index={imgIndex} />
                       ))}
@@ -1221,8 +1107,11 @@ function HistoryViewer({ onOpenSettings, darkMode, onSendToChat }: HistoryViewer
               <SmartContent
                 content={selectedRecord.display}
                 darkMode={darkMode}
-                hasPastedContents={selectedRecord.pastedContents && Object.keys(selectedRecord.pastedContents).length > 0}
-                onPastedTextClick={(_pastedTextKey) => {
+                hasPastedContents={
+                  selectedRecord.pastedContents &&
+                  Object.keys(selectedRecord.pastedContents).length > 0
+                }
+                onPastedTextClick={_pastedTextKey => {
                   // 打开 Copy Text 弹窗
                   setCopyTextModalContent(selectedRecord.pastedContents || {})
                   setCopyTextModalVisible(true)
@@ -1231,13 +1120,15 @@ function HistoryViewer({ onOpenSettings, darkMode, onSendToChat }: HistoryViewer
             </div>
 
             {/* 底部信息栏 */}
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              paddingTop: 8,
-              borderTop: `1px solid ${themeVars.borderSecondary}`
-            }}>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                paddingTop: 8,
+                borderTop: `1px solid ${themeVars.borderSecondary}`
+              }}
+            >
               <div>
                 <Text type="secondary" style={{ fontSize: 11, marginRight: 12 }}>
                   <ClockCircleOutlined style={{ marginRight: 4 }} />
@@ -1297,9 +1188,7 @@ function HistoryViewer({ onOpenSettings, darkMode, onSendToChat }: HistoryViewer
         }}
         zIndex={1004}
       >
-        <div style={{ fontSize: 14, lineHeight: 1.8 }}>
-          {renderMarkdown(summaryContent)}
-        </div>
+        <div style={{ fontSize: 14, lineHeight: 1.8 }}>{renderMarkdown(summaryContent)}</div>
       </ElectronModal>
 
       {/* 搜索弹窗 */}
@@ -1325,9 +1214,9 @@ function HistoryViewer({ onOpenSettings, darkMode, onSendToChat }: HistoryViewer
             <Input
               ref={searchInputRef}
               size="large"
-              placeholder="搜索 Prompt 内容..."
+              placeholder="搜索项目名称或 Session ID..."
               value={searchKeyword}
-              onChange={(e) => setSearchKeyword(e.target.value)}
+              onChange={e => setSearchKeyword(e.target.value)}
               prefix={<SearchOutlined style={{ fontSize: 18, color: themeVars.textSecondary }} />}
               suffix={
                 searchKeyword && (
@@ -1344,112 +1233,44 @@ function HistoryViewer({ onOpenSettings, darkMode, onSendToChat }: HistoryViewer
             />
           </div>
 
-          {/* 搜索结果列表 */}
-          <div style={{
-            maxHeight: '400px',
-            overflow: 'auto'
-          }}>
+          {/* 搜索结果提示 */}
+          <div
+            style={{
+              textAlign: 'center',
+              padding: '20px',
+              color: themeVars.textTertiary
+            }}
+          >
             {!searchKeyword ? (
-              <div style={{
-                textAlign: 'center',
-                padding: '30px 20px',
-                color: themeVars.textTertiary
-              }}>
+              <>
                 <SearchOutlined style={{ fontSize: 36, marginBottom: 8, opacity: 0.25 }} />
-                <div style={{ fontSize: 13, marginBottom: 4 }}>输入关键词搜索 Prompt 内容</div>
+                <div style={{ fontSize: 13, marginBottom: 4 }}>
+                  输入项目名称或 Session ID 筛选会话
+                </div>
                 <div style={{ fontSize: 12, opacity: 0.7 }}>提示：按 ESC 关闭搜索</div>
-              </div>
-            ) : searching ? (
-              <div style={{ textAlign: 'center', padding: '30px 0' }}>
-                <Spin tip="搜索中..." />
-              </div>
-            ) : promptSearchResults.length === 0 ? (
+              </>
+            ) : searchedSessions.length === 0 ? (
               <Empty
                 image={Empty.PRESENTED_IMAGE_SIMPLE}
-                description="未找到匹配的 Prompt"
-                style={{ padding: '30px 0' }}
+                description="未找到匹配的会话"
+                style={{ padding: '10px 0' }}
               />
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {promptSearchResults.map((result, index) => (
-                  <div
-                    key={index}
-                    onClick={() => handleViewSearchResult(result.record)}
-                    style={{
-                      padding: '12px 16px',
-                      background: themeVars.bgSection,
-                      borderRadius: 8,
-                      cursor: 'pointer',
-                      border: `1px solid ${themeVars.borderSecondary}`,
-                      transition: 'all 0.2s'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.background = themeVars.bgElevated
-                      e.currentTarget.style.borderColor = themeVars.primary
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.background = themeVars.bgSection
-                      e.currentTarget.style.borderColor = themeVars.borderSecondary
-                    }}
-                  >
-                    <div style={{
-                      fontSize: 12,
-                      color: themeVars.textSecondary,
-                      marginBottom: 6,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 8
-                    }}>
-                      <ClockCircleOutlined style={{ fontSize: 11 }} />
-                      {formatTime(result.record.timestamp)}
-                      <span style={{ opacity: 0.5 }}>·</span>
-                      <FolderOpenOutlined style={{ fontSize: 11 }} />
-                      {getProjectName(result.project)}
-                    </div>
-                    <div style={{
-                      fontSize: 13,
-                      color: themeVars.text,
-                      lineHeight: 1.6,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      display: '-webkit-box',
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: 'vertical'
-                    }}>
-                      <Highlighter
-                        searchWords={[searchKeyword]}
-                        autoEscape={true}
-                        textToHighlight={result.matchText}
-                        highlightStyle={{
-                          backgroundColor: themeVars.primary,
-                          color: themeVars.highlightText,
-                          padding: '2px 4px',
-                          borderRadius: 2
-                        }}
-                      />
-                    </div>
-                  </div>
-                ))}
+              <div style={{ fontSize: 13, color: themeVars.textSecondary }}>
+                找到 {searchedSessions.length} 个匹配的会话，已在列表中筛选显示
               </div>
             )}
           </div>
-
-          {/* 底部提示 */}
-          {promptSearchResults.length > 0 && (
-            <div style={{
-              marginTop: 12,
-              padding: '8px 12px',
-              background: themeVars.bgElevated,
-              borderRadius: 6,
-              fontSize: 12,
-              color: themeVars.textTertiary,
-              textAlign: 'center'
-            }}>
-              找到 {promptSearchResults.length} 条匹配结果
-            </div>
-          )}
         </div>
       </ElectronModal>
+
+      {/* 完整对话弹窗 */}
+      <ConversationDetailModal
+        visible={conversationModalVisible}
+        sessionId={conversationSessionId}
+        project={conversationProject}
+        onClose={() => setConversationModalVisible(false)}
+      />
     </div>
   )
 }
