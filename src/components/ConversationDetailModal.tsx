@@ -5,7 +5,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus, prism } from 'react-syntax-highlighter/dist/esm/styles/prism'
-import { FullConversation, FullMessage, MessageContent, MessageSubType } from '../types'
+import { ClaudeRecord, FullConversation, FullMessage, MessageContent, MessageSubType } from '../types'
 import { getCopyablePreviewConfig } from './CopyableImage'
 import { getThemeVars } from '../theme'
 import {
@@ -22,7 +22,9 @@ import {
   PictureOutlined,
   FileTextOutlined,
   SortAscendingOutlined,
-  SortDescendingOutlined
+  SortDescendingOutlined,
+  StarOutlined,
+  LoadingOutlined
 } from '@ant-design/icons'
 
 const { Text } = Typography
@@ -75,6 +77,13 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
   /* 工具流程展开状态 */
   const [expandedToolIds, setExpandedToolIds] = useState<Set<string>>(new Set())
 
+  /* AI 总结相关状态 */
+  const [summarizing, setSummarizing] = useState(false)
+  const [summaryContent, setSummaryContent] = useState<string>('')
+  const [summaryVisible, setSummaryVisible] = useState(false)
+  /* 记录当前总结对应的轮次，切换轮次时不会混淆 */
+  const summaryRoundRef = useRef<number>(-1)
+
   /* 会话级资源：paste-cache */
   const [sessionPastes, setSessionPastes] = useState<Array<{ key: string; filename: string; content: string; contentHash?: string; timestamp?: number }>>([])
   const [resourcesLoading, setResourcesLoading] = useState(false)
@@ -97,6 +106,11 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
       setViewMode('round')
       /* 有 initialTimestamp 时直接进入单轮详情；否则显示 prompt 列表 */
       setPageView(initialTimestamp ? 'detail' : 'list')
+      /* 重置 AI 总结状态 */
+      setSummaryVisible(false)
+      setSummaryContent('')
+      setSummarizing(false)
+      summaryRoundRef.current = -1
     }
   }, [visible, sessionId, project])
 
@@ -406,6 +420,106 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
     return text
   }
 
+  /**
+   * 将当前轮次的消息转为 ClaudeRecord[] 以便调用 AI 总结接口
+   */
+  const roundToRecords = (r: ConversationRound): ClaudeRecord[] => {
+    const records: ClaudeRecord[] = []
+
+    /* 用户 Prompt */
+    const userText = getUserPromptText(r.userMessage)
+    if (userText) {
+      records.push({
+        timestamp: r.timestamp,
+        project: conversation?.project || '',
+        sessionId: conversation?.sessionId || '',
+        display: `[用户] ${userText}`
+      })
+    }
+
+    /* AI 回复 & 工具调用 */
+    for (const msg of r.assistantMessages) {
+      const parts: string[] = []
+      for (const c of msg.content) {
+        if (c.type === 'text' && c.text) parts.push(c.text)
+        else if (c.type === 'tool_use') parts.push(`[工具调用: ${c.name}] ${c.input ? JSON.stringify(c.input).slice(0, 500) : ''}`)
+        else if (c.type === 'tool_result') {
+          const txt = typeof c.content === 'string' ? c.content : JSON.stringify(c.content)
+          parts.push(`[工具结果] ${txt.slice(0, 500)}`)
+        }
+      }
+      if (parts.length > 0) {
+        records.push({
+          timestamp: msg.timestamp,
+          project: conversation?.project || '',
+          sessionId: conversation?.sessionId || '',
+          display: `[${msg.role === 'assistant' ? 'AI' : '系统'}] ${parts.join('\n')}`
+        })
+      }
+    }
+    return records
+  }
+
+  /* AI 总结当前 Prompt 轮次 */
+  const handleSummarizeRound = async () => {
+    if (!round) return
+
+    setSummarizing(true)
+    summaryRoundRef.current = currentRound
+
+    try {
+      /* 检查 AI 配置 */
+      const settings = await window.electronAPI.getAppSettings()
+
+      if (!settings.aiSummary.enabled) {
+        message.warning('AI 总结功能尚未启用，请前往设置页面开启')
+        setSummarizing(false)
+        return
+      }
+
+      const currentProvider = settings.aiSummary.providers[settings.aiSummary.provider]
+      if (!currentProvider || !currentProvider.apiKey) {
+        message.warning('尚未配置 API Key，请前往设置页面配置')
+        setSummarizing(false)
+        return
+      }
+
+      const records = roundToRecords(round)
+      if (records.length === 0) {
+        message.warning('当前轮次没有可总结的内容')
+        setSummarizing(false)
+        return
+      }
+
+      setSummaryContent('正在生成总结...')
+      setSummaryVisible(true)
+
+      let fullSummary = ''
+
+      await window.electronAPI.summarizeRecordsStream(
+        { records, type: 'detailed' },
+        (chunk: string) => {
+          /* 仅在轮次未切换时更新 */
+          if (summaryRoundRef.current === currentRound) {
+            fullSummary += chunk
+            setSummaryContent(fullSummary)
+          }
+        },
+        () => {
+          setSummarizing(false)
+        },
+        (error: string) => {
+          setSummarizing(false)
+          setSummaryVisible(false)
+          message.error(`总结失败: ${error}`, 5)
+        }
+      )
+    } catch (err: any) {
+      setSummarizing(false)
+      message.error(`总结失败: ${err.message || '未知错误'}`, 5)
+    }
+  }
+
   /* 渲染消息子类型标签 */
   const renderSubTypeTag = (subType?: MessageSubType) => {
     if (!subType || subType === 'user' || subType === 'assistant') return null
@@ -586,39 +700,34 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
         const hasImageRef = /\[Image #\d+\]/.test(text)
         const markdown = isMarkdown(text)
 
-        /* Markdown 内容需要卡片包裹，与工具调用/结果风格统一 */
-        const cardStyle: React.CSSProperties = markdown ? {
-          padding: '12px 16px',
-          borderRadius: 8,
-          border: `1px solid ${isDark ? '#303030' : '#e8e8e8'}`,
-          background: isDark ? '#1a1a2e' : '#fafbfc',
-        } : {}
-
         return (
-          <div key={index} className="mb-2">
-            {/* 复制按钮 */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 2 }}>
-              <Button
-                type="text"
-                size="small"
-                icon={<CopyOutlined />}
-                onClick={() => copyText(text)}
-                style={{ fontSize: 10, color: isDark ? '#999' : '#aaa' }}
-              />
-            </div>
+          <div key={index} style={{ position: 'relative', marginBottom: 6 }}>
+            {/* 复制按钮（浮动右上角） */}
+            <Button
+              type="text"
+              size="small"
+              icon={<CopyOutlined />}
+              onClick={() => copyText(text)}
+              style={{ position: 'absolute', right: 4, top: 2, fontSize: 10, color: isDark ? '#666' : '#bbb', zIndex: 1 }}
+            />
             {hasImageRef ? (
-              /* 含有 [Image #N] 标记的文本 */
-              <div className="whitespace-pre-wrap text-sm" style={{ lineHeight: 1.6 }}>
+              <div className="whitespace-pre-wrap text-sm" style={{ lineHeight: 1.6, paddingRight: 28 }}>
                 {renderTextWithImages(text)}
               </div>
             ) : markdown ? (
-              /* Markdown 内容 → 卡片包裹 + 格式化渲染 */
-              <div style={cardStyle} className="text-sm markdown-content">
+              <div
+                className="text-sm"
+                style={{
+                  padding: '8px 12px',
+                  borderRadius: 6,
+                  border: `1px solid ${isDark ? '#303030' : '#e8e8e8'}`,
+                  background: isDark ? '#1a1a2e' : '#fafbfc',
+                }}
+              >
                 {renderMarkdownContent(text)}
               </div>
             ) : (
-              /* 纯文本 → 保留换行 */
-              <div className="whitespace-pre-wrap font-mono text-sm" style={{ lineHeight: 1.6 }}>
+              <div className="whitespace-pre-wrap font-mono text-sm" style={{ lineHeight: 1.6, paddingRight: 28 }}>
                 {text}
               </div>
             )}
@@ -632,22 +741,22 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
       if (item.type === 'tool_use') {
         const inputJson = item.input ? JSON.stringify(item.input, null, 2) : ''
         return (
-          <div key={index} className="mb-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded">
+          <div key={index} style={{ marginBottom: 6, padding: '6px 10px', borderRadius: 6, background: isDark ? 'rgba(59,130,246,0.08)' : '#f0f5ff' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Space>
-                <Tag icon={<ToolOutlined />} color="processing">工具调用</Tag>
-                <Text strong>{item.name}</Text>
+              <Space size={4}>
+                <Tag icon={<ToolOutlined />} color="processing" style={{ fontSize: 11 }}>工具调用</Tag>
+                <Text strong style={{ fontSize: 12 }}>{item.name}</Text>
               </Space>
               {inputJson && (
-                <Button type="text" size="small" icon={<CopyOutlined />} onClick={() => copyText(inputJson)} style={{ fontSize: 10, color: isDark ? '#999' : '#aaa' }} />
+                <Button type="text" size="small" icon={<CopyOutlined />} onClick={() => copyText(inputJson)} style={{ fontSize: 10, color: isDark ? '#666' : '#bbb' }} />
               )}
             </div>
             {inputJson && (
-              <div style={{ marginTop: 6 }}>
+              <div style={{ marginTop: 4 }}>
                 <SyntaxHighlighter
                   style={isDark ? vscDarkPlus : prism}
                   language="json"
-                  customStyle={{ margin: 0, borderRadius: 6, fontSize: 11, maxHeight: 200, overflow: 'auto' }}
+                  customStyle={{ margin: 0, borderRadius: 4, fontSize: 11, maxHeight: 180, overflow: 'auto', padding: '6px 10px' }}
                 >
                   {inputJson}
                 </SyntaxHighlighter>
@@ -659,17 +768,17 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
       if (item.type === 'tool_result') {
         const resultText = typeof item.content === 'string' ? item.content : JSON.stringify(item.content, null, 2)
         return (
-          <div key={index} className="mb-2 p-3 bg-green-50 dark:bg-green-900/20 rounded">
+          <div key={index} style={{ marginBottom: 6, padding: '6px 10px', borderRadius: 6, background: isDark ? (item.is_error ? 'rgba(239,68,68,0.08)' : 'rgba(34,197,94,0.08)') : (item.is_error ? '#fff1f0' : '#f0fff4') }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Tag icon={<ToolOutlined />} color={item.is_error ? 'error' : 'success'}>
+              <Tag icon={<ToolOutlined />} color={item.is_error ? 'error' : 'success'} style={{ fontSize: 11 }}>
                 {item.is_error ? '工具错误' : '工具结果'}
               </Tag>
               {resultText && (
-                <Button type="text" size="small" icon={<CopyOutlined />} onClick={() => copyText(resultText)} style={{ fontSize: 10, color: isDark ? '#999' : '#aaa' }} />
+                <Button type="text" size="small" icon={<CopyOutlined />} onClick={() => copyText(resultText)} style={{ fontSize: 10, color: isDark ? '#666' : '#bbb' }} />
               )}
             </div>
             {resultText && (
-              <pre className="mt-2 whitespace-pre-wrap text-xs font-mono" style={{ maxHeight: 200, overflow: 'auto', margin: 0 }}>
+              <pre className="whitespace-pre-wrap text-xs font-mono" style={{ maxHeight: 180, overflow: 'auto', margin: '4px 0 0 0' }}>
                 {resultText}
               </pre>
             )}
@@ -955,64 +1064,93 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
     )
   }
 
+  /* 是否展示右侧 AI 总结面板 */
+  const showSummaryPanel = summaryVisible && summaryRoundRef.current === currentRound
+
   /* 渲染单轮详情视图 */
   const renderDetailView = () => {
     if (!conversation) return null
 
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-        {/* 返回列表按钮（仅当从列表进入时显示） */}
-        {!initialTimestamp && (
-          <Button
-            type="text"
-            icon={<ArrowLeftOutlined />}
-            onClick={() => setPageView('list')}
-            style={{ alignSelf: 'flex-start', marginBottom: 8, padding: '4px 8px', fontSize: 13 }}
-          >
-            返回 Prompt 列表
-          </Button>
-        )}
-
-        {/* 当前轮次摘要 */}
-        {round && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
-            <Tag color="blue" style={{ fontSize: 12 }}>第 {currentRound + 1} 轮</Tag>
-            {round.tokens > 0 && (
-              <Tag style={{ fontSize: 10 }}>{round.tokens.toLocaleString()} tokens</Tag>
-            )}
-            {round.cost > 0 && (
-              <Tag color="green" style={{ fontSize: 10 }}>${round.cost.toFixed(4)}</Tag>
-            )}
-            {round.toolCalls > 0 && (
-              <Tag icon={<ToolOutlined />} color="purple" style={{ fontSize: 10 }}>
-                {round.toolCalls} 次工具
+        {/* 顶部栏：返回 + 轮次信息 + AI 总结按钮 */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
+          {!initialTimestamp && (
+            <Button
+              type="text"
+              icon={<ArrowLeftOutlined />}
+              onClick={() => setPageView('list')}
+              size="small"
+              style={{ padding: '2px 6px', fontSize: 12 }}
+            >
+              返回
+            </Button>
+          )}
+          {round && (
+            <>
+              <Tag color="blue" style={{ fontSize: 11 }}>第 {currentRound + 1} 轮</Tag>
+              {round.toolCalls > 0 && (
+                <Tag icon={<ToolOutlined />} color="purple" style={{ fontSize: 10 }}>
+                  {round.toolCalls} 次工具
+                </Tag>
+              )}
+              <Tag style={{ fontSize: 10 }}>
+                {round.assistantMessages.filter(m => m.role === 'assistant').length} 条回复
               </Tag>
-            )}
-            <Tag style={{ fontSize: 10 }}>
-              {round.assistantMessages.filter(m => m.role === 'assistant').length} 条回复
-            </Tag>
-          </div>
-        )}
-
-        {/* 视图切换 */}
-        <div style={{ marginBottom: 12 }}>
-          <Segmented
+              {round.tokens > 0 && (
+                <Tag style={{ fontSize: 10 }}>{round.tokens.toLocaleString()} tokens</Tag>
+              )}
+            </>
+          )}
+          <Button
+            type={showSummaryPanel ? 'default' : 'text'}
             size="small"
-            value={viewMode}
-            onChange={v => setViewMode(v as typeof viewMode)}
-            options={[
-              { value: 'round', label: '对话', icon: <MessageOutlined /> },
-              { value: 'tool-flow', label: `工具 (${currentToolFlow.length})`, icon: <NodeIndexOutlined /> },
-              { value: 'images', label: `图片 (${allImages.length})`, icon: <PictureOutlined />, disabled: allImages.length === 0 },
-              { value: 'pastes', label: `粘贴 (${sessionPastes.length})`, icon: <FileTextOutlined />, disabled: sessionPastes.length === 0 }
-            ]}
-          />
+            icon={summarizing ? <LoadingOutlined /> : <StarOutlined />}
+            loading={summarizing}
+            onClick={() => {
+              if (showSummaryPanel) {
+                setSummaryVisible(false)
+              } else if (summaryContent && summaryRoundRef.current === currentRound) {
+                /* 已有总结，直接展开 */
+                setSummaryVisible(true)
+              } else {
+                handleSummarizeRound()
+              }
+            }}
+            style={{
+              marginLeft: 'auto',
+              fontSize: 11,
+              color: showSummaryPanel ? '#faad14' : (isDark ? '#faad14' : '#d48806'),
+              borderColor: showSummaryPanel ? '#faad14' : undefined
+            }}
+          >
+            AI 总结
+          </Button>
         </div>
 
-        {/* 内容区域 */}
-        <div style={{ maxHeight: 450, overflow: 'auto' }}>
-          {viewMode === 'round' && renderRoundContent()}
-          {viewMode === 'tool-flow' && renderToolFlow(currentToolFlow)}
+        {/* 左右布局：对话内容 | AI 总结面板 */}
+        <div style={{ display: 'flex', gap: 12, minHeight: 0 }}>
+          {/* 左侧：对话内容 */}
+          <div style={{ flex: showSummaryPanel ? '0 0 58%' : '1 1 100%', minWidth: 0, transition: 'flex 0.25s ease' }}>
+            {/* 视图切换 */}
+            <div style={{ marginBottom: 10 }}>
+              <Segmented
+                size="small"
+                value={viewMode}
+                onChange={v => setViewMode(v as typeof viewMode)}
+                options={[
+                  { value: 'round', label: '对话', icon: <MessageOutlined /> },
+                  { value: 'tool-flow', label: `工具 (${currentToolFlow.length})`, icon: <NodeIndexOutlined /> },
+                  { value: 'images', label: `图片 (${allImages.length})`, icon: <PictureOutlined />, disabled: allImages.length === 0 },
+                  { value: 'pastes', label: `粘贴 (${sessionPastes.length})`, icon: <FileTextOutlined />, disabled: sessionPastes.length === 0 }
+                ]}
+              />
+            </div>
+
+            {/* 内容区域 */}
+            <div style={{ maxHeight: 480, overflow: 'auto' }}>
+              {viewMode === 'round' && renderRoundContent()}
+              {viewMode === 'tool-flow' && renderToolFlow(currentToolFlow)}
           {/* 图片资源视图（仅当前轮次的内联图片） */}
           {viewMode === 'images' && (
             <div>
@@ -1122,6 +1260,59 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
             </div>
           )}
         </div>
+          </div>
+
+          {/* 右侧：AI 总结面板 */}
+          {showSummaryPanel && (
+            <div style={{
+              flex: '0 0 40%',
+              minWidth: 0,
+              borderLeft: `1px solid ${isDark ? '#303030' : '#e8e8e8'}`,
+              paddingLeft: 12,
+              display: 'flex',
+              flexDirection: 'column'
+            }}>
+              {/* 面板头部 */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                marginBottom: 8,
+                paddingBottom: 6,
+                borderBottom: `1px solid ${isDark ? '#303030' : '#f0f0f0'}`
+              }}>
+                <Space size={4}>
+                  <StarOutlined style={{ color: '#faad14', fontSize: 13 }} />
+                  <Text strong style={{ fontSize: 13, color: '#faad14' }}>AI 总结</Text>
+                  {summarizing && (
+                    <Tag color="processing" style={{ fontSize: 10 }}>生成中</Tag>
+                  )}
+                </Space>
+                <Space size={2}>
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<CopyOutlined />}
+                    onClick={() => copyText(summaryContent)}
+                    style={{ fontSize: 10, color: isDark ? '#666' : '#bbb' }}
+                  />
+                  <Button
+                    type="text"
+                    size="small"
+                    onClick={() => setSummaryVisible(false)}
+                    style={{ fontSize: 10, color: isDark ? '#666' : '#bbb' }}
+                  >
+                    ✕
+                  </Button>
+                </Space>
+              </div>
+              {/* 面板内容（可滚动） */}
+              <div style={{ flex: 1, overflow: 'auto', maxHeight: 480, fontSize: 13, lineHeight: 1.7 }}>
+                {renderMarkdownContent(summaryContent)}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     )
   }
@@ -1140,7 +1331,8 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
       }
       open={visible}
       onCancel={onClose}
-      width={900}
+      width={pageView === 'detail' && showSummaryPanel ? 1280 : 900}
+      style={{ transition: 'width 0.25s ease' }}
       footer={
         pageView === 'detail'
           ? [
