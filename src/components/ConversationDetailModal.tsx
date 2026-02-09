@@ -1,6 +1,10 @@
 import { Modal, Spin, Alert, Typography, Tag, Space, Button, message, Segmented, Empty, Image, theme as antdTheme } from 'antd'
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
+import { vscDarkPlus, prism } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { FullConversation, FullMessage, MessageContent, MessageSubType } from '../types'
 import { getCopyablePreviewConfig } from './CopyableImage'
 import { getThemeVars } from '../theme'
@@ -21,7 +25,7 @@ import {
   SortDescendingOutlined
 } from '@ant-design/icons'
 
-const { Text, Paragraph } = Typography
+const { Text } = Typography
 
 interface ConversationDetailModalProps {
   visible: boolean
@@ -470,18 +474,112 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
     )
   }
 
+  /* 检测文本是否包含 Markdown 语法 */
+  const isMarkdown = (text: string): boolean => {
+    const trimmed = text.trim()
+    const markdownPatterns = [
+      /^#{1,6}\s+.+$/m,         // 标题
+      /\*\*.+\*\*/,             // 粗体
+      /\[.+\]\(.+\)/,           // 链接
+      /^```/m,                  // 代码块
+      /^[-*+]\s+/m,             // 无序列表
+      /^\d+\.\s+/m,             // 有序列表
+      /^>\s+/m,                 // 引用
+      /\|.+\|.+\|/             // 表格
+    ]
+    return markdownPatterns.some(pattern => pattern.test(trimmed))
+  }
+
+  /* 渲染 Markdown 文本（含代码高亮、链接点击） */
+  const renderMarkdownContent = (text: string) => (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      components={{
+        code({ inline, className, children, ...codeProps }: any) {
+          const langMatch = /language-(\w+)/.exec(className || '')
+          return !inline && langMatch ? (
+            <SyntaxHighlighter
+              style={isDark ? vscDarkPlus : prism}
+              language={langMatch[1]}
+              PreTag="div"
+              customStyle={{ margin: '4px 0', borderRadius: 6, fontSize: 12 }}
+              {...codeProps}
+            >
+              {String(children).replace(/\n$/, '')}
+            </SyntaxHighlighter>
+          ) : (
+            <code
+              style={{
+                background: isDark ? '#2a2a2a' : '#f5f5f5',
+                padding: '1px 5px',
+                borderRadius: 3,
+                fontSize: 12,
+                fontFamily: 'monospace'
+              }}
+              {...codeProps}
+            >
+              {children}
+            </code>
+          )
+        },
+        pre({ children }) { return <>{children}</> },
+        p({ children }) { return <p style={{ marginBottom: 6, lineHeight: 1.6 }}>{children}</p> },
+        a({ href, children }) {
+          return (
+            <a
+              href={href}
+              style={{ color: '#1677ff', textDecoration: 'underline', cursor: 'pointer' }}
+              onClick={e => {
+                e.preventDefault()
+                if (href) window.electronAPI.openExternal(href)
+              }}
+            >
+              {children}
+            </a>
+          )
+        }
+      }}
+    >
+      {text}
+    </ReactMarkdown>
+  )
+
   /* 渲染单条消息内容 */
   const renderContent = (content: MessageContent[]) => {
     return content.map((item, index) => {
       if (item.type === 'text' && item.text) {
+        const text = item.text
+        const hasImageRef = /\[Image #\d+\]/.test(text)
+        const markdown = isMarkdown(text)
+
         return (
           <div key={index} className="mb-2">
-            <Paragraph
-              className="whitespace-pre-wrap font-mono text-sm"
-              copyable={{ text: item.text, onCopy: () => message.success('已复制') }}
-            >
-              {renderTextWithImages(item.text)}
-            </Paragraph>
+            {/* 复制按钮 */}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 2 }}>
+              <Button
+                type="text"
+                size="small"
+                icon={<CopyOutlined />}
+                onClick={() => copyText(text)}
+                style={{ fontSize: 10, color: isDark ? '#999' : '#aaa' }}
+              />
+            </div>
+            {hasImageRef ? (
+              /* 含有 [Image #N] 标记的文本，先处理图片标记再渲染 */
+              <div className="whitespace-pre-wrap text-sm" style={{ lineHeight: 1.6 }}>
+                {renderTextWithImages(text)}
+              </div>
+            ) : markdown ? (
+              /* Markdown 内容 → 格式化渲染（标题、列表、代码块等） */
+              <div className="text-sm" style={{ lineHeight: 1.6 }}>
+                {renderMarkdownContent(text)}
+              </div>
+            ) : (
+              /* 纯文本 → 保留换行的等宽字体展示 */
+              <div className="whitespace-pre-wrap font-mono text-sm" style={{ lineHeight: 1.6 }}>
+                {text}
+              </div>
+            )}
           </div>
         )
       }
@@ -490,35 +588,48 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
         return null
       }
       if (item.type === 'tool_use') {
+        const inputJson = item.input ? JSON.stringify(item.input, null, 2) : ''
         return (
           <div key={index} className="mb-2 p-3 bg-blue-50 dark:bg-blue-900/20 rounded">
-            <Space>
-              <Tag icon={<ToolOutlined />} color="processing">工具调用</Tag>
-              <Text strong>{item.name}</Text>
-            </Space>
-            {item.input && (
-              <Paragraph
-                className="mt-2 text-xs font-mono"
-                copyable={{ text: JSON.stringify(item.input, null, 2), onCopy: () => message.success('已复制') }}
-              >
-                <pre className="whitespace-pre-wrap">{JSON.stringify(item.input, null, 2)}</pre>
-              </Paragraph>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Space>
+                <Tag icon={<ToolOutlined />} color="processing">工具调用</Tag>
+                <Text strong>{item.name}</Text>
+              </Space>
+              {inputJson && (
+                <Button type="text" size="small" icon={<CopyOutlined />} onClick={() => copyText(inputJson)} style={{ fontSize: 10, color: isDark ? '#999' : '#aaa' }} />
+              )}
+            </div>
+            {inputJson && (
+              <div style={{ marginTop: 6 }}>
+                <SyntaxHighlighter
+                  style={isDark ? vscDarkPlus : prism}
+                  language="json"
+                  customStyle={{ margin: 0, borderRadius: 6, fontSize: 11, maxHeight: 200, overflow: 'auto' }}
+                >
+                  {inputJson}
+                </SyntaxHighlighter>
+              </div>
             )}
           </div>
         )
       }
       if (item.type === 'tool_result') {
+        const resultText = typeof item.content === 'string' ? item.content : JSON.stringify(item.content, null, 2)
         return (
           <div key={index} className="mb-2 p-3 bg-green-50 dark:bg-green-900/20 rounded">
-            <Tag icon={<ToolOutlined />} color={item.is_error ? 'error' : 'success'}>
-              {item.is_error ? '工具错误' : '工具结果'}
-            </Tag>
-            {item.content && (
-              <Paragraph className="mt-2 text-xs font-mono">
-                <pre className="whitespace-pre-wrap">
-                  {typeof item.content === 'string' ? item.content : JSON.stringify(item.content, null, 2)}
-                </pre>
-              </Paragraph>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Tag icon={<ToolOutlined />} color={item.is_error ? 'error' : 'success'}>
+                {item.is_error ? '工具错误' : '工具结果'}
+              </Tag>
+              {resultText && (
+                <Button type="text" size="small" icon={<CopyOutlined />} onClick={() => copyText(resultText)} style={{ fontSize: 10, color: isDark ? '#999' : '#aaa' }} />
+              )}
+            </div>
+            {resultText && (
+              <pre className="mt-2 whitespace-pre-wrap text-xs font-mono" style={{ maxHeight: 200, overflow: 'auto', margin: 0 }}>
+                {resultText}
+              </pre>
             )}
           </div>
         )
