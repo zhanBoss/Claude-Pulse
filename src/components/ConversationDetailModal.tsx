@@ -1,24 +1,23 @@
-import { Modal, Spin, Alert, Typography, Divider, Tag, Space, Button, message, Tooltip, Collapse, Segmented, Empty, Switch, theme as antdTheme } from 'antd'
-import { useEffect, useState, useCallback, useMemo } from 'react'
-import Editor from '@monaco-editor/react'
+import { Modal, Spin, Alert, Typography, Divider, Tag, Space, Button, message, Segmented, Empty, Image, theme as antdTheme } from 'antd'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { FullConversation, FullMessage, MessageContent, MessageSubType } from '../types'
-import { getMonacoLanguage } from '../utils/codeDetector'
+import { getCopyablePreviewConfig } from './CopyableImage'
+import { getThemeVars } from '../theme'
 import {
   CopyOutlined,
   ToolOutlined,
-  FileImageOutlined,
   TagOutlined,
-  FileOutlined,
   ClockCircleOutlined,
-  FolderOutlined,
-  CodeOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
   MessageOutlined,
   NodeIndexOutlined,
-  LeftOutlined,
+  UnorderedListOutlined,
+  ArrowLeftOutlined,
   RightOutlined,
-  UnorderedListOutlined
+  PictureOutlined,
+  FileTextOutlined
 } from '@ant-design/icons'
 
 const { Text, Paragraph } = Typography
@@ -28,6 +27,8 @@ interface ConversationDetailModalProps {
   sessionId: string
   project: string
   onClose: () => void
+  /** 传入 prompt 的时间戳，打开后直接进入单轮详情模式 */
+  initialTimestamp?: number
 }
 
 /**
@@ -45,7 +46,7 @@ interface ConversationRound {
 }
 
 const ConversationDetailModal = (props: ConversationDetailModalProps) => {
-  const { visible, sessionId, project, onClose } = props
+  const { visible, sessionId, project, onClose, initialTimestamp } = props
 
   /* 通过 antd token 检测暗色模式 */
   const { token } = antdTheme.useToken()
@@ -55,27 +56,85 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
   const [error, setError] = useState<string | null>(null)
   const [conversation, setConversation] = useState<FullConversation | null>(null)
 
-  /* 轮次浏览状态 */
+  /**
+   * 双视图状态：
+   * - 'list': Prompt 列表视图（从 HistoryViewer 打开时默认）
+   * - 'detail': 单轮详情视图（从 LogViewer 点击"完整对话"或列表中点击某个 prompt）
+   */
+  const [pageView, setPageView] = useState<'list' | 'detail'>('list')
   const [currentRound, setCurrentRound] = useState(0)
-  const [viewMode, setViewMode] = useState<'round' | 'tool-flow' | 'all'>('round')
-
-  /* 文件快照预览 */
-  const [filePreviewVisible, setFilePreviewVisible] = useState(false)
-  const [filePreviewContent, setFilePreviewContent] = useState('')
-  const [filePreviewPath, setFilePreviewPath] = useState('')
-  const [filePreviewLoading, setFilePreviewLoading] = useState(false)
-  const [filePreviewWrap, setFilePreviewWrap] = useState(false)
+  const [viewMode, setViewMode] = useState<'round' | 'tool-flow' | 'all' | 'images' | 'pastes'>('round')
 
   /* 工具流程展开状态 */
   const [expandedToolIds, setExpandedToolIds] = useState<Set<string>>(new Set())
 
+  /* 会话级资源：paste-cache */
+  const [sessionPastes, setSessionPastes] = useState<Array<{ key: string; filename: string; content: string; contentHash?: string; timestamp?: number }>>([])
+  const [resourcesLoading, setResourcesLoading] = useState(false)
+
+  /* 右键菜单状态 */
+  const [ctxMenu, setCtxMenu] = useState<{ visible: boolean; x: number; y: number; dataUrl: string }>({ visible: false, x: 0, y: 0, dataUrl: '' })
+  const ctxMenuRef = useRef<HTMLDivElement>(null)
+
+  /* 单张图片预览状态（点击 [Image #N] Tag 触发） */
+  const [previewSrc, setPreviewSrc] = useState<string | null>(null)
+
+  /* 计算主题变量（用于 getCopyablePreviewConfig 和右键菜单样式） */
+  const themeVars = getThemeVars(isDark)
+
   useEffect(() => {
     if (visible && sessionId && project) {
       loadConversation()
+      loadSessionResources()
       setCurrentRound(0)
       setViewMode('round')
+      /* 有 initialTimestamp 时直接进入单轮详情；否则显示 prompt 列表 */
+      setPageView(initialTimestamp ? 'detail' : 'list')
     }
   }, [visible, sessionId, project])
+
+  /* 加载会话级资源（paste-cache） */
+  const loadSessionResources = async () => {
+    setResourcesLoading(true)
+    try {
+      const pasteResult = await window.electronAPI.readSessionPasteCache(sessionId)
+      setSessionPastes(pasteResult.pastes || [])
+    } catch {
+      /* 静默失败，资源为可选 */
+    } finally {
+      setResourcesLoading(false)
+    }
+  }
+
+  /* 右键菜单：点击外部关闭 */
+  useEffect(() => {
+    if (!ctxMenu.visible) return
+    const close = (e: MouseEvent) => {
+      if (ctxMenuRef.current && !ctxMenuRef.current.contains(e.target as Node)) {
+        setCtxMenu(prev => ({ ...prev, visible: false }))
+      }
+    }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [ctxMenu.visible])
+
+  /* 复制图片到剪贴板 */
+  const handleCopyImage = async (dataUrl: string) => {
+    setCtxMenu(prev => ({ ...prev, visible: false }))
+    try {
+      const result = await window.electronAPI.copyImageToClipboard(dataUrl)
+      if (result.success) message.success('图片已复制到剪贴板')
+      else message.error(`复制失败: ${result.error}`)
+    } catch (err: any) {
+      message.error(`复制失败: ${err.message}`)
+    }
+  }
+
+  /* 图片右键菜单处理 */
+  const handleImageContextMenu = (e: React.MouseEvent, dataUrl: string) => {
+    e.preventDefault()
+    setCtxMenu({ visible: true, x: e.clientX, y: e.clientY, dataUrl })
+  }
 
   const loadConversation = async () => {
     setLoading(true)
@@ -149,8 +208,61 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
     return result
   }, [conversation])
 
+  /* 将任意格式的时间戳归一化为毫秒级数字 */
+  const toEpochMs = (ts: string | number | undefined): number => {
+    if (!ts) return 0
+    if (typeof ts === 'number') return ts < 1e12 ? ts * 1000 : ts
+    const ms = new Date(ts).getTime()
+    return isNaN(ms) ? 0 : ms
+  }
+
+  /* 根据 initialTimestamp 自动定位到对应轮次 */
+  useEffect(() => {
+    if (!initialTimestamp || rounds.length === 0) return
+
+    const targetMs = toEpochMs(initialTimestamp)
+    if (targetMs === 0) return
+
+    // 找到时间戳最接近的轮次
+    let bestIndex = 0
+    let bestDiff = Math.abs(toEpochMs(rounds[0].timestamp as any) - targetMs)
+
+    for (let i = 1; i < rounds.length; i++) {
+      const diff = Math.abs(toEpochMs(rounds[i].timestamp as any) - targetMs)
+      if (diff < bestDiff) {
+        bestDiff = diff
+        bestIndex = i
+      }
+    }
+
+    setCurrentRound(bestIndex)
+  }, [rounds, initialTimestamp])
+
   const round = rounds[currentRound] || null
   const totalRounds = rounds.length
+
+  /* 从当前轮次消息中提取内联 base64 图片（仅当前 prompt，不是整个 session） */
+  const inlineImages = useMemo((): Array<{ filename: string; dataUrl: string }> => {
+    if (!round) return []
+    const msgs = [round.userMessage, ...round.assistantMessages]
+    const imgs: Array<{ filename: string; dataUrl: string }> = []
+    let imgIndex = 0
+    for (const msg of msgs) {
+      for (const c of msg.content) {
+        if (c.type === 'image' && c.source?.data) {
+          imgIndex++
+          imgs.push({
+            filename: `inline-image-${imgIndex}.${(c.source.media_type || 'image/png').split('/')[1] || 'png'}`,
+            dataUrl: `data:${c.source.media_type || 'image/png'};base64,${c.source.data}`
+          })
+        }
+      }
+    }
+    return imgs
+  }, [round])
+
+  /* 当前轮次的所有图片（仅内联） */
+  const allImages = inlineImages
 
   /* 提取当前轮次的工具调用流程 */
   interface ToolFlowItem {
@@ -234,24 +346,6 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
     })
   }, [])
 
-  const handleViewFileSnapshot = useCallback(async (messageId: string, filePath: string) => {
-    setFilePreviewPath(filePath)
-    setFilePreviewLoading(true)
-    setFilePreviewVisible(true)
-    try {
-      const result = await window.electronAPI.readFileSnapshotContent(sessionId, messageId, filePath)
-      if (result.success && result.content) {
-        setFilePreviewContent(result.content)
-      } else {
-        setFilePreviewContent('// 无法加载文件内容')
-      }
-    } catch {
-      setFilePreviewContent('// 加载失败')
-    } finally {
-      setFilePreviewLoading(false)
-    }
-  }, [sessionId])
-
   /* 提取用户 Prompt 的纯文本 */
   const getUserPromptText = (msg: FullMessage): string => {
     const texts: string[] = []
@@ -296,6 +390,56 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
     )
   }
 
+  /**
+   * 将文本中的 [Image #N] 标记替换为可点击预览的主题色 Tag
+   */
+  const renderTextWithImages = (text: string) => {
+    const imagePattern = /\[Image #(\d+)\]/g
+    const parts: Array<{ type: 'text' | 'image'; value: string; imageNum?: number }> = []
+    let lastIndex = 0
+    let match: RegExpExecArray | null
+
+    while ((match = imagePattern.exec(text)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push({ type: 'text', value: text.slice(lastIndex, match.index) })
+      }
+      parts.push({ type: 'image', value: match[0], imageNum: parseInt(match[1]) })
+      lastIndex = match.index + match[0].length
+    }
+    if (lastIndex < text.length) {
+      parts.push({ type: 'text', value: text.slice(lastIndex) })
+    }
+
+    /* 没有图片标记，直接返回纯文本 */
+    if (parts.length === 1 && parts[0].type === 'text') {
+      return <span>{text}</span>
+    }
+
+    return (
+      <>
+        {parts.map((part, idx) => {
+          if (part.type === 'text') {
+            return <span key={idx}>{part.value}</span>
+          }
+          const imgNum = part.imageNum || 0
+          const matchedImg = allImages[imgNum - 1]
+
+          return (
+            <Tag
+              key={idx}
+              icon={<PictureOutlined />}
+              color="blue"
+              style={{ fontSize: 11, margin: '0 2px', cursor: matchedImg ? 'pointer' : 'default' }}
+              onClick={matchedImg ? () => setPreviewSrc(matchedImg.dataUrl) : undefined}
+            >
+              {part.value}
+            </Tag>
+          )
+        })}
+      </>
+    )
+  }
+
   /* 渲染单条消息内容 */
   const renderContent = (content: MessageContent[]) => {
     return content.map((item, index) => {
@@ -306,17 +450,14 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
               className="whitespace-pre-wrap font-mono text-sm"
               copyable={{ text: item.text, onCopy: () => message.success('已复制') }}
             >
-              {item.text}
+              {renderTextWithImages(item.text)}
             </Paragraph>
           </div>
         )
       }
       if (item.type === 'image') {
-        return (
-          <div key={index} className="mb-2">
-            <Tag icon={<FileImageOutlined />} color="blue">图片 #{index + 1}</Tag>
-          </div>
-        )
+        /* 内联图片不在对话区显示，通过 [Image #N] Tag 点击预览或去"图片"Tab 查看 */
+        return null
       }
       if (item.type === 'tool_use') {
         return (
@@ -513,40 +654,21 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
     )
   }
 
-  return (
-    <Modal
-      title={
-        <Space>
-          <MessageOutlined />
-          <span>对话详情</span>
-          {totalRounds > 0 && (
-            <Tag style={{ fontSize: 11 }}>{totalRounds} 轮对话</Tag>
-          )}
-        </Space>
-      }
-      open={visible}
-      onCancel={onClose}
-      width={900}
-      footer={[
-        <Button key="copy" icon={<CopyOutlined />} onClick={() => copyText(extractRoundText())}>
-          复制当前轮
-        </Button>,
-        <Button key="close" type="primary" onClick={onClose}>
-          关闭
-        </Button>
-      ]}
-    >
-      {loading && (
-        <div className="text-center py-8">
-          <Spin size="large" tip="加载中..." />
-        </div>
-      )}
+  /* 从列表点击某个 prompt 进入详情 */
+  const handlePromptClick = (roundIndex: number) => {
+    setCurrentRound(roundIndex)
+    setViewMode('round')
+    setPageView('detail')
+  }
 
-      {error && <Alert message="加载失败" description={error} type="error" showIcon closable />}
+  /* 渲染 Prompt 列表视图 */
+  const renderPromptList = () => {
+    if (rounds.length === 0) return <Empty description="没有对话数据" />
 
-      {!loading && !error && conversation && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-          {/* 会话概览信息（简洁版） */}
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+        {/* 会话概览 */}
+        {conversation && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
             <Text type="secondary" style={{ fontSize: 11 }}>
               {conversation.project.split('/').pop()}
@@ -558,255 +680,369 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
             {conversation.total_cost_usd && (
               <Tag color="green" style={{ fontSize: 10 }}>${conversation.total_cost_usd.toFixed(4)}</Tag>
             )}
-            {conversation.tool_use_count && (
-              <Tag icon={<ToolOutlined />} color="purple" style={{ fontSize: 10 }}>
-                {conversation.tool_use_count} 次工具
-              </Tag>
-            )}
           </div>
+        )}
 
-          {/* 文件修改快照（折叠） */}
-          {conversation.fileEdits && conversation.fileEdits.length > 0 && (
-            <div style={{ marginBottom: 12 }}>
-              <Collapse
-                size="small"
-                items={[{
-                  key: 'file-edits',
-                  label: (
-                    <Space size={4}>
-                      <FileOutlined style={{ fontSize: 12 }} />
-                      <Text style={{ fontSize: 12 }}>文件修改</Text>
-                      <Tag style={{ fontSize: 10 }}>
-                        {conversation.fileEdits.reduce((s, e) => s + e.files.length, 0)} 个
+        {/* Prompt 列表 */}
+        <div style={{ maxHeight: 520, overflow: 'auto' }}>
+          {rounds.map((r, idx) => {
+            const promptText = getUserPromptText(r.userMessage)
+            const ts = toEpochMs(r.timestamp as any)
+
+            return (
+              <div
+                key={idx}
+                style={{
+                  padding: '12px 16px',
+                  borderRadius: 8,
+                  border: `1px solid ${isDark ? '#303030' : '#f0f0f0'}`,
+                  background: isDark ? '#1a1a1a' : '#fafafa',
+                  marginBottom: 8,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s'
+                }}
+                onClick={() => handlePromptClick(idx)}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLDivElement).style.borderColor = '#1677ff'
+                  ;(e.currentTarget as HTMLDivElement).style.background = isDark ? '#1e2a3a' : '#f0f5ff'
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLDivElement).style.borderColor = isDark ? '#303030' : '#f0f0f0'
+                  ;(e.currentTarget as HTMLDivElement).style.background = isDark ? '#1a1a1a' : '#fafafa'
+                }}
+              >
+                {/* 头部：轮次编号 + 时间 */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                  <Tag color="blue" style={{ fontSize: 11 }}>第 {idx + 1} 轮</Tag>
+                  <Text type="secondary" style={{ fontSize: 11 }}>
+                    <ClockCircleOutlined style={{ marginRight: 4 }} />
+                    {ts > 0 ? new Date(ts).toLocaleString('zh-CN') : ''}
+                  </Text>
+                  <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
+                    {r.toolCalls > 0 && (
+                      <Tag icon={<ToolOutlined />} color="purple" style={{ fontSize: 10 }}>
+                        {r.toolCalls} 次工具
                       </Tag>
-                    </Space>
-                  ),
-                  children: (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 200, overflowY: 'auto' }}>
-                      {conversation.fileEdits.map((edit, idx) => {
-                        // 安全处理 timestamp：确保它是字符串或数字
-                        let timestampDisplay = '未知'
-                        if (edit.timestamp) {
-                          if (typeof edit.timestamp === 'string' || typeof edit.timestamp === 'number') {
-                            timestampDisplay = new Date(edit.timestamp).toLocaleString('zh-CN')
-                          } else if (typeof edit.timestamp === 'object' && 'timestamp' in edit.timestamp) {
-                            // 如果timestamp是对象且包含timestamp字段，使用该字段
-                            timestampDisplay = new Date((edit.timestamp as any).timestamp).toLocaleString('zh-CN')
-                          }
-                        }
+                    )}
+                    {r.tokens > 0 && (
+                      <Tag style={{ fontSize: 10 }}>{r.tokens.toLocaleString()} tokens</Tag>
+                    )}
+                    {r.cost > 0 && (
+                      <Tag color="green" style={{ fontSize: 10 }}>${r.cost.toFixed(4)}</Tag>
+                    )}
+                  </div>
+                </div>
 
-                        return (
-                        <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                          <Text type="secondary" style={{ fontSize: 10 }}>
-                            <ClockCircleOutlined style={{ marginRight: 2 }} />
-                            {timestampDisplay}
-                          </Text>
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
-                            {edit.files.map((file, fIdx) => (
-                              <Tag
-                                key={fIdx}
-                                icon={<CodeOutlined />}
-                                style={{ fontSize: 10, cursor: 'pointer' }}
-                                onClick={() => handleViewFileSnapshot(edit.messageId, file)}
-                              >
-                                {file.split('/').pop()}
-                              </Tag>
-                            ))}
-                          </div>
-                        </div>
-                        )
-                      })}
-                    </div>
-                  )
-                }]}
-              />
-            </div>
-          )}
+                {/* Prompt 文本预览 */}
+                <Text style={{ fontSize: 13, lineHeight: '20px', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                  {promptText || '(空消息)'}
+                </Text>
 
-          {/* 轮次导航栏 */}
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 8,
-            padding: '8px 12px', borderRadius: 8,
-            background: '#fafafa', border: '1px solid #f0f0f0',
-            marginBottom: 12
-          }}>
-            <Button
-              size="small"
-              icon={<LeftOutlined />}
-              disabled={currentRound <= 0}
-              onClick={() => setCurrentRound(prev => Math.max(0, prev - 1))}
-            />
-
-            {/* 轮次快速跳转列表 */}
-            <div style={{ flex: 1, display: 'flex', gap: 4, overflow: 'auto', padding: '2px 0' }}>
-              {rounds.map((r, idx) => {
-                return (
-                  <Tooltip
-                    key={idx}
-                    title={
-                      <div style={{ fontSize: 11 }}>
-                        <div>{getUserPromptText(r.userMessage).slice(0, 100)}</div>
-                        <div style={{ marginTop: 4, color: '#aaa' }}>
-                          {r.toolCalls > 0 && `${r.toolCalls} 次工具 · `}
-                          {r.tokens > 0 && `${r.tokens.toLocaleString()} tokens`}
-                        </div>
-                      </div>
-                    }
-                  >
-                    <Button
-                      size="small"
-                      type={idx === currentRound ? 'primary' : 'default'}
-                      style={{
-                        fontSize: 10,
-                        padding: '0 8px',
-                        height: 24,
-                        minWidth: 24,
-                        flexShrink: 0
-                      }}
-                      onClick={() => setCurrentRound(idx)}
-                    >
-                      {idx + 1}
-                    </Button>
-                  </Tooltip>
-                )
-              })}
-            </div>
-
-            <Button
-              size="small"
-              icon={<RightOutlined />}
-              disabled={currentRound >= totalRounds - 1}
-              onClick={() => setCurrentRound(prev => Math.min(totalRounds - 1, prev + 1))}
-            />
-
-            <Text type="secondary" style={{ fontSize: 11, flexShrink: 0 }}>
-              {currentRound + 1}/{totalRounds}
-            </Text>
-          </div>
-
-          {/* 当前轮次摘要 */}
-          {round && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8, flexWrap: 'wrap' }}>
-              <Text strong style={{ fontSize: 13 }}>
-                第 {currentRound + 1} 轮
-              </Text>
-              {round.tokens > 0 && (
-                <Tag style={{ fontSize: 10 }}>{round.tokens.toLocaleString()} tokens</Tag>
-              )}
-              {round.cost > 0 && (
-                <Tag color="green" style={{ fontSize: 10 }}>${round.cost.toFixed(4)}</Tag>
-              )}
-              {round.toolCalls > 0 && (
-                <Tag icon={<ToolOutlined />} color="purple" style={{ fontSize: 10 }}>
-                  {round.toolCalls} 次工具
-                </Tag>
-              )}
-              <Tag style={{ fontSize: 10 }}>
-                {round.assistantMessages.length} 条回复
-              </Tag>
-            </div>
-          )}
-
-          {/* 视图切换 */}
-          <div style={{ marginBottom: 12 }}>
-            <Segmented
-              size="small"
-              value={viewMode}
-              onChange={v => setViewMode(v as 'round' | 'tool-flow' | 'all')}
-              options={[
-                { value: 'round', label: '对话', icon: <MessageOutlined /> },
-                { value: 'tool-flow', label: `工具 (${currentToolFlow.length})`, icon: <NodeIndexOutlined /> },
-                { value: 'all', label: '全部消息', icon: <UnorderedListOutlined /> }
-              ]}
-            />
-          </div>
-
-          {/* 内容区域 */}
-          <div style={{ maxHeight: 450, overflow: 'auto' }}>
-            {/* 单轮对话视图 */}
-            {viewMode === 'round' && renderRoundContent()}
-
-            {/* 工具流程视图（当前轮次） */}
-            {viewMode === 'tool-flow' && renderToolFlow(currentToolFlow)}
-
-            {/* 全部消息视图（原始消息列表） */}
-            {viewMode === 'all' && conversation.messages.map((msg, index) => (
-              <div key={index} className="mb-4">
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, flexWrap: 'wrap' }}>
-                  <Tag color={msg.role === 'user' ? 'blue' : 'green'} style={{ fontSize: 11 }}>
-                    {msg.role === 'user' ? '用户' : 'AI'}
-                  </Tag>
-                  {renderSubTypeTag(msg.subType)}
-                  <Text type="secondary" style={{ fontSize: 10 }}>
-                    {new Date(msg.timestamp).toLocaleString('zh-CN')}
+                {/* 底部：回复数 + 查看详情提示 */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 }}>
+                  <Text type="secondary" style={{ fontSize: 11 }}>
+                    {r.assistantMessages.length} 条 AI 回复
+                  </Text>
+                  <Text type="secondary" style={{ fontSize: 11 }}>
+                    点击查看完整对话 <RightOutlined style={{ fontSize: 10 }} />
                   </Text>
                 </div>
-                <div className="pl-3 border-l-2 border-gray-200">
-                  {renderContent(msg.content)}
-                </div>
-                {index < conversation.messages.length - 1 && <Divider style={{ margin: '8px 0' }} />}
               </div>
-            ))}
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
+
+  /* 渲染单轮详情视图 */
+  const renderDetailView = () => {
+    if (!conversation) return null
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+        {/* 返回列表按钮（仅当从列表进入时显示） */}
+        {!initialTimestamp && (
+          <Button
+            type="text"
+            icon={<ArrowLeftOutlined />}
+            onClick={() => setPageView('list')}
+            style={{ alignSelf: 'flex-start', marginBottom: 8, padding: '4px 8px', fontSize: 13 }}
+          >
+            返回 Prompt 列表
+          </Button>
+        )}
+
+        {/* 当前轮次摘要 */}
+        {round && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 10, flexWrap: 'wrap' }}>
+            <Tag color="blue" style={{ fontSize: 12 }}>第 {currentRound + 1} 轮</Tag>
+            {round.tokens > 0 && (
+              <Tag style={{ fontSize: 10 }}>{round.tokens.toLocaleString()} tokens</Tag>
+            )}
+            {round.cost > 0 && (
+              <Tag color="green" style={{ fontSize: 10 }}>${round.cost.toFixed(4)}</Tag>
+            )}
+            {round.toolCalls > 0 && (
+              <Tag icon={<ToolOutlined />} color="purple" style={{ fontSize: 10 }}>
+                {round.toolCalls} 次工具
+              </Tag>
+            )}
+            <Tag style={{ fontSize: 10 }}>
+              {round.assistantMessages.length} 条回复
+            </Tag>
           </div>
+        )}
+
+        {/* 视图切换 */}
+        <div style={{ marginBottom: 12 }}>
+          <Segmented
+            size="small"
+            value={viewMode}
+            onChange={v => setViewMode(v as typeof viewMode)}
+            options={[
+              { value: 'round', label: '对话', icon: <MessageOutlined /> },
+              { value: 'tool-flow', label: `工具 (${currentToolFlow.length})`, icon: <NodeIndexOutlined /> },
+              { value: 'all', label: '全部消息', icon: <UnorderedListOutlined /> },
+              { value: 'images', label: `图片 (${allImages.length})`, icon: <PictureOutlined />, disabled: allImages.length === 0 },
+              { value: 'pastes', label: `粘贴 (${sessionPastes.length})`, icon: <FileTextOutlined />, disabled: sessionPastes.length === 0 }
+            ]}
+          />
+        </div>
+
+        {/* 内容区域 */}
+        <div style={{ maxHeight: 450, overflow: 'auto' }}>
+          {viewMode === 'round' && renderRoundContent()}
+          {viewMode === 'tool-flow' && renderToolFlow(currentToolFlow)}
+          {viewMode === 'all' && round && (() => {
+            /* 仅展示当前轮次的所有消息 */
+            const roundMsgs = [round.userMessage, ...round.assistantMessages]
+            return (
+              <>
+                {roundMsgs.map((msg, index) => (
+                  <div key={index} className="mb-4">
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, flexWrap: 'wrap' }}>
+                      <Tag color={msg.role === 'user' ? 'blue' : 'green'} style={{ fontSize: 11 }}>
+                        {msg.role === 'user' ? '用户' : 'AI'}
+                      </Tag>
+                      {renderSubTypeTag(msg.subType)}
+                      <Text type="secondary" style={{ fontSize: 10 }}>
+                        {new Date(msg.timestamp).toLocaleString('zh-CN')}
+                      </Text>
+                    </div>
+                    <div className="pl-3 border-l-2 border-gray-200">
+                      {renderContent(msg.content)}
+                    </div>
+                    {index < roundMsgs.length - 1 && <Divider style={{ margin: '8px 0' }} />}
+                  </div>
+                ))}
+              </>
+            )
+          })()}
+
+          {/* 图片资源视图（仅当前轮次的内联图片） */}
+          {viewMode === 'images' && (
+            <div>
+              {allImages.length === 0 ? (
+                <Empty description="当前 Prompt 没有图片" />
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                  <Tag icon={<PictureOutlined />} color="blue">{allImages.length} 张图片</Tag>
+                  <Image.PreviewGroup preview={getCopyablePreviewConfig(isDark)}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                      {allImages.map((img, idx) => (
+                        <div
+                          key={idx}
+                          onContextMenu={e => handleImageContextMenu(e, img.dataUrl)}
+                          style={{
+                            display: 'flex', flexDirection: 'column', alignItems: 'center',
+                            borderRadius: 6, overflow: 'hidden',
+                            border: `1px solid ${themeVars.border}`,
+                            background: isDark ? '#1a1a1a' : '#fafafa',
+                            padding: 4
+                          }}
+                        >
+                          <Image
+                            src={img.dataUrl}
+                            alt={img.filename}
+                            width={120}
+                            height={120}
+                            style={{ objectFit: 'cover', borderRadius: 4, cursor: 'pointer' }}
+                            preview={{ src: img.dataUrl }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </Image.PreviewGroup>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 粘贴内容视图（会话级 paste-cache） */}
+          {viewMode === 'pastes' && (
+            <div>
+              {resourcesLoading ? (
+                <div style={{ textAlign: 'center', padding: 40 }}><Spin /></div>
+              ) : sessionPastes.length === 0 ? (
+                <Empty description="该会话没有 paste-cache 粘贴内容" />
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                    <Tag icon={<FileTextOutlined />} color="orange">{sessionPastes.length} 个粘贴内容</Tag>
+                    <Text type="secondary" style={{ fontSize: 11 }}>来源: ~/.claude/paste-cache/</Text>
+                  </div>
+                  {sessionPastes.map((paste, idx) => (
+                    <div
+                      key={idx}
+                      style={{
+                        borderRadius: 8,
+                        border: `1px solid ${isDark ? '#303030' : '#f0f0f0'}`,
+                        background: isDark ? '#1a1a1a' : '#fafafa',
+                        overflow: 'hidden'
+                      }}
+                    >
+                      <div style={{
+                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                        padding: '6px 12px',
+                        borderBottom: `1px solid ${isDark ? '#303030' : '#f0f0f0'}`,
+                        background: isDark ? '#222' : '#f5f5f5'
+                      }}>
+                        <Space size={4}>
+                          <FileTextOutlined style={{ fontSize: 12 }} />
+                          <Text style={{ fontSize: 12, fontWeight: 500 }}>{paste.filename}</Text>
+                          {paste.contentHash && (
+                            <Text code style={{ fontSize: 10 }}>{paste.contentHash.slice(0, 8)}</Text>
+                          )}
+                        </Space>
+                        <Space size={4}>
+                          {paste.timestamp && (
+                            <Text type="secondary" style={{ fontSize: 10 }}>
+                              {new Date(paste.timestamp).toLocaleString('zh-CN')}
+                            </Text>
+                          )}
+                          <Button
+                            type="text"
+                            size="small"
+                            icon={<CopyOutlined />}
+                            onClick={() => copyText(paste.content)}
+                            style={{ fontSize: 10 }}
+                          />
+                        </Space>
+                      </div>
+                      <pre style={{
+                        padding: '8px 12px',
+                        margin: 0,
+                        fontSize: 11,
+                        fontFamily: 'monospace',
+                        maxHeight: 200,
+                        overflow: 'auto',
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-all'
+                      }}>
+                        {paste.content.length > 3000 ? paste.content.slice(0, 3000) + '\n... (内容已截断)' : paste.content}
+                      </pre>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+  <>
+    <Modal
+      title={
+        <Space>
+          <MessageOutlined />
+          <span>{pageView === 'list' ? 'Prompt 列表' : 'Prompt 详情'}</span>
+          {totalRounds > 0 && (
+            <Tag style={{ fontSize: 11 }}>{totalRounds} 轮对话</Tag>
+          )}
+        </Space>
+      }
+      open={visible}
+      onCancel={onClose}
+      width={900}
+      footer={
+        pageView === 'detail'
+          ? [
+              <Button key="copy" icon={<CopyOutlined />} onClick={() => copyText(extractRoundText())}>
+                复制当前轮
+              </Button>,
+              <Button key="close" type="primary" onClick={onClose}>
+                关闭
+              </Button>
+            ]
+          : [
+              <Button key="close" type="primary" onClick={onClose}>
+                关闭
+              </Button>
+            ]
+      }
+    >
+      {loading && (
+        <div className="text-center py-8">
+          <Spin size="large" tip="加载中..." />
         </div>
       )}
 
-      {/* 文件快照预览弹窗 */}
-      <Modal
-        title={
-          <Space>
-            <CodeOutlined />
-            <span>文件快照</span>
-            <Text type="secondary" style={{ fontSize: 12 }}>{filePreviewPath.split('/').pop()}</Text>
-          </Space>
-        }
-        open={filePreviewVisible}
-        onCancel={() => { setFilePreviewVisible(false); setFilePreviewContent(''); setFilePreviewPath('') }}
-        width="65%"
-        footer={[
-          <Button key="copy" icon={<CopyOutlined />} onClick={() => copyText(filePreviewContent)}>复制</Button>,
-          <Button key="close" type="primary" onClick={() => { setFilePreviewVisible(false); setFilePreviewContent(''); setFilePreviewPath('') }}>关闭</Button>
-        ]}
-      >
-        <div style={{ marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-          <Text type="secondary" style={{ fontSize: 12, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-            <FolderOutlined style={{ marginRight: 4 }} />{filePreviewPath}
-          </Text>
-          <Space size={4} style={{ flexShrink: 0 }}>
-            <Text type="secondary" style={{ fontSize: 12 }}>折行</Text>
-            <Switch size="small" checked={filePreviewWrap} onChange={setFilePreviewWrap} />
-          </Space>
-        </div>
-        {filePreviewLoading ? (
-          <div style={{ textAlign: 'center', padding: 40 }}><Spin size="large" /></div>
-        ) : (
-          <Editor
-            height="500px"
-            language={getMonacoLanguage(filePreviewPath, filePreviewContent)}
-            value={filePreviewContent || '// 文件内容为空'}
-            theme={isDark ? 'vs-dark' : 'light'}
-            options={{
-              readOnly: true,
-              minimap: { enabled: false },
-              fontSize: 12,
-              lineNumbers: 'on',
-              scrollBeyondLastLine: false,
-              wordWrap: filePreviewWrap ? 'on' : 'off',
-              wrappingIndent: 'indent',
-              automaticLayout: true,
-              domReadOnly: true,
-              renderLineHighlight: 'none',
-              overviewRulerLanes: 0,
-              hideCursorInOverviewRuler: true,
-              scrollbar: {
-                verticalScrollbarSize: 8,
-                horizontalScrollbarSize: 8
-              }
-            }}
-          />
-        )}
-      </Modal>
+      {error && <Alert message="加载失败" description={error} type="error" showIcon closable />}
+
+      {!loading && !error && conversation && (
+        pageView === 'list' ? renderPromptList() : renderDetailView()
+      )}
+
     </Modal>
+
+    {/* 点击 [Image #N] Tag 时的图片预览（带复制功能） */}
+    {previewSrc && (
+      <Image
+        src={previewSrc}
+        style={{ display: 'none' }}
+        preview={{
+          visible: true,
+          src: previewSrc,
+          onVisibleChange: v => { if (!v) setPreviewSrc(null) },
+          ...getCopyablePreviewConfig(isDark)
+        }}
+      />
+    )}
+
+    {/* 图片右键菜单（Portal） */}
+    {ctxMenu.visible && createPortal(
+      <div
+        ref={ctxMenuRef}
+        style={{
+          position: 'fixed',
+          left: ctxMenu.x,
+          top: ctxMenu.y,
+          background: themeVars.bgElevated,
+          border: `1px solid ${themeVars.border}`,
+          borderRadius: 8,
+          boxShadow: isDark ? '0 6px 16px rgba(0,0,0,0.6)' : '0 6px 16px rgba(0,0,0,0.12)',
+          zIndex: 9999,
+          minWidth: 140,
+          padding: '4px 0',
+          fontSize: 13
+        }}
+      >
+        <div
+          onClick={() => handleCopyImage(ctxMenu.dataUrl)}
+          style={{ padding: '8px 16px', cursor: 'pointer', transition: 'background 0.2s', color: themeVars.text }}
+          onMouseEnter={e => { e.currentTarget.style.background = themeVars.bgSection }}
+          onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+        >
+          📋 复制图片
+        </div>
+      </div>,
+      document.body
+    )}
+  </>
   )
 }
 

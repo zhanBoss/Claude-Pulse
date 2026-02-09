@@ -40,6 +40,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 读取项目级别统计数据
   readProjectStatistics: () => ipcRenderer.invoke('read-project-statistics'),
 
+  // 读取会话的 image-cache 图片
+  readSessionImageCache: (sessionId: string) =>
+    ipcRenderer.invoke('read-session-image-cache', sessionId),
+
+  // 读取会话的 paste-cache 粘贴内容
+  readSessionPasteCache: (sessionId: string) =>
+    ipcRenderer.invoke('read-session-paste-cache', sessionId),
+
   // 读取文件编辑快照
   readFileEdits: () => ipcRenderer.invoke('read-file-edits'),
 

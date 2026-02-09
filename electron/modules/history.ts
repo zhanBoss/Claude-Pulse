@@ -765,4 +765,136 @@ export const registerHistoryHandlers = (ctx: ModuleContext) => {
       return { success: false, error: (error as Error).message }
     }
   })
+
+  /**
+   * 读取会话的 image-cache 图片列表
+   * 从 ~/.claude/image-cache/{sessionId}/ 和 ~/.claude/images/{sessionId}/ 读取
+   */
+  ipcMain.handle('read-session-image-cache', async (_, sessionId: string) => {
+    try {
+      if (!sessionId) return { success: false, error: 'sessionId 不能为空', images: [] }
+
+      const images: Array<{ filename: string; dataUrl: string }> = []
+      const dirs = [
+        path.join(CLAUDE_DIR, 'image-cache', sessionId),
+        path.join(CLAUDE_DIR, 'images', sessionId)
+      ]
+
+      for (const dir of dirs) {
+        if (!fs.existsSync(dir)) continue
+
+        const files = fs
+          .readdirSync(dir)
+          .filter((f: string) => /\.(png|jpg|jpeg|gif|webp)$/i.test(f))
+
+        for (const file of files) {
+          /* 避免重复（两个目录可能有相同文件名） */
+          if (images.some(img => img.filename === file)) continue
+
+          const filePath = path.join(dir, file)
+          const buffer = fs.readFileSync(filePath)
+          const ext = path.extname(file).toLowerCase()
+          const mime =
+            ext === '.jpg' || ext === '.jpeg'
+              ? 'image/jpeg'
+              : ext === '.gif'
+                ? 'image/gif'
+                : ext === '.webp'
+                  ? 'image/webp'
+                  : 'image/png'
+
+          images.push({
+            filename: file,
+            dataUrl: `data:${mime};base64,${buffer.toString('base64')}`
+          })
+        }
+      }
+
+      /* 按文件名中的数字排序 */
+      images.sort((a, b) =>
+        a.filename.localeCompare(b.filename, undefined, { numeric: true })
+      )
+
+      return { success: true, images }
+    } catch (error) {
+      console.error('读取 image-cache 失败:', error)
+      return { success: false, error: (error as Error).message, images: [] }
+    }
+  })
+
+  /**
+   * 读取会话的 paste-cache 粘贴内容
+   * 从 history.jsonl 中找到该会话的 pastedContents，展开 contentHash 引用
+   */
+  ipcMain.handle('read-session-paste-cache', async (_, sessionId: string) => {
+    try {
+      if (!sessionId) return { success: false, error: 'sessionId 不能为空', pastes: [] }
+
+      const HISTORY_FILE = path.join(CLAUDE_DIR, 'history.jsonl')
+      const pastes: Array<{
+        key: string
+        filename: string
+        content: string
+        contentHash?: string
+        timestamp?: number
+      }> = []
+
+      if (!fs.existsSync(HISTORY_FILE)) {
+        return { success: true, pastes }
+      }
+
+      const lines = fs
+        .readFileSync(HISTORY_FILE, 'utf-8')
+        .split('\n')
+        .filter((l: string) => l.trim())
+
+      const seenHashes = new Set<string>()
+
+      for (const line of lines) {
+        try {
+          const record = JSON.parse(line)
+          if (record.sessionId !== sessionId) continue
+          if (!record.pastedContents || typeof record.pastedContents !== 'object') continue
+
+          const recordTimestamp = new Date(record.timestamp).getTime()
+
+          for (const [key, value] of Object.entries(record.pastedContents)) {
+            if (!value || typeof value !== 'object') continue
+            const v = value as any
+            let content = v.content || ''
+            const contentHash = v.contentHash || ''
+
+            /* 去重 */
+            if (contentHash && seenHashes.has(contentHash)) continue
+            if (contentHash) seenHashes.add(contentHash)
+
+            /* 从 paste-cache 展开 */
+            if (!content && contentHash) {
+              const pasteFilePath = path.join(CLAUDE_DIR, 'paste-cache', `${contentHash}.txt`)
+              if (fs.existsSync(pasteFilePath)) {
+                content = fs.readFileSync(pasteFilePath, 'utf-8')
+              }
+            }
+
+            if (content) {
+              pastes.push({
+                key,
+                filename: v.basename || key,
+                content,
+                contentHash: contentHash || undefined,
+                timestamp: isNaN(recordTimestamp) ? undefined : recordTimestamp
+              })
+            }
+          }
+        } catch {
+          /* 跳过无效行 */
+        }
+      }
+
+      return { success: true, pastes }
+    } catch (error) {
+      console.error('读取 paste-cache 失败:', error)
+      return { success: false, error: (error as Error).message, pastes: [] }
+    }
+  })
 }

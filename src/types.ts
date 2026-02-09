@@ -240,6 +240,28 @@ export interface ElectronAPI {
     sessionId: string,
     project: string
   ) => Promise<{ success: boolean; conversation?: FullConversation; error?: string }>
+  // 读取会话的 image-cache 图片
+  readSessionImageCache: (
+    sessionId: string
+  ) => Promise<{
+    success: boolean
+    images?: Array<{ filename: string; dataUrl: string }>
+    error?: string
+  }>
+  // 读取会话的 paste-cache 粘贴内容
+  readSessionPasteCache: (
+    sessionId: string
+  ) => Promise<{
+    success: boolean
+    pastes?: Array<{
+      key: string
+      filename: string
+      content: string
+      contentHash?: string
+      timestamp?: number
+    }>
+    error?: string
+  }>
   // 读取文件编辑快照
   readFileEdits: () => Promise<{
     success: boolean

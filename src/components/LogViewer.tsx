@@ -87,6 +87,7 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
   const [conversationModalVisible, setConversationModalVisible] = useState(false)
   const [conversationSessionId, setConversationSessionId] = useState('')
   const [conversationProject, setConversationProject] = useState('')
+  const [conversationTimestamp, setConversationTimestamp] = useState<number | undefined>(undefined)
 
   // 搜索相关状态
   const [searchVisible, setSearchVisible] = useState(false)
@@ -252,123 +253,6 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
     setPromptModalVisible(true)
     setSearchVisible(false)
     setSearchKeyword('')
-  }
-
-  // 处理当前对话总结
-  const handleSummarizeCurrentLogs = async () => {
-    if (records.length === 0) {
-      message.warning('当前没有对话记录')
-      return
-    }
-
-    setSummarizing(true)
-
-    try {
-      // 检查 AI 配置
-      const settings = await window.electronAPI.getAppSettings()
-
-      // 使用 aiSummary 配置（总结配置）
-      if (!settings.aiSummary.enabled) {
-        Modal.confirm({
-          title: '启用 AI 总结功能',
-          content: 'AI 总结功能尚未启用，是否前往设置？',
-          okText: '去设置',
-          cancelText: '取消',
-          onOk: () => {
-            onOpenSettings?.()
-          },
-          ...getElectronModalConfig()
-        })
-        setSummarizing(false)
-        return
-      }
-
-      const currentProvider = settings.aiSummary.providers[settings.aiSummary.provider]
-      if (!currentProvider || !currentProvider.apiKey) {
-        Modal.confirm({
-          title: '配置 API Key',
-          content: `尚未配置 API Key，是否前往设置？`,
-          okText: '去设置',
-          cancelText: '取消',
-          onOk: () => {
-            onOpenSettings?.()
-          },
-          ...getElectronModalConfig()
-        })
-        setSummarizing(false)
-        return
-      }
-
-      // 先打开弹窗，显示"正在生成总结..."
-      setSummaryContent('正在生成总结...')
-      setSummaryModalVisible(true)
-
-      let fullSummary = ''
-
-      // 调用流式总结接口
-      await window.electronAPI.summarizeRecordsStream(
-        {
-          records: records,
-          type: 'detailed'
-        },
-        // onChunk: 接收到新内容时追加
-        (chunk: string) => {
-          fullSummary += chunk
-          setSummaryContent(fullSummary)
-        },
-        // onComplete: 总结完成
-        () => {
-          setSummarizing(false)
-        },
-        // onError: 出错时处理
-        (error: string) => {
-          setSummarizing(false)
-          setSummaryModalVisible(false)
-
-          // 显示详细的错误信息
-          if (error.includes('余额不足') || error.includes('402')) {
-            Modal.error({
-              title: 'AI 总结失败',
-              content: (
-                <div>
-                  <p>{error}</p>
-                  <p style={{ marginTop: 8, fontSize: 12, color: themeVars.textTertiary }}>
-                    提示：你可以前往相应平台充值后继续使用
-                  </p>
-                </div>
-              ),
-              okText: '我知道了',
-              ...getElectronModalConfig()
-            })
-          } else if (error.includes('API Key')) {
-            Modal.error({
-              title: 'AI 总结失败',
-              content: (
-                <div>
-                  <p>{error}</p>
-                  <p style={{ marginTop: 8, fontSize: 12, color: themeVars.textTertiary }}>
-                    提示：请前往设置页面重新配置 API Key
-                  </p>
-                </div>
-              ),
-              okText: '前往设置',
-              onOk: () => {
-                onOpenSettings?.()
-              },
-              ...getElectronModalConfig()
-            })
-          } else {
-            message.error(`总结失败: ${error}`, 5)
-          }
-        }
-      )
-
-      // 不需要处理 result，因为流式输出在回调中处理
-      return
-    } catch (error: any) {
-      setSummarizing(false)
-      message.error(`总结失败: ${error.message || '未知错误'}`, 5)
-    }
   }
 
   // 处理单个会话总结
@@ -556,16 +440,6 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
             />
           </Tooltip>
           <Button
-            type="primary"
-            icon={<StarOutlined />}
-            onClick={handleSummarizeCurrentLogs}
-            loading={summarizing}
-            disabled={records.length === 0}
-            size="small"
-          >
-            AI 总结
-          </Button>
-          <Button
             icon={<ClearOutlined />}
             onClick={onClear}
             disabled={records.length === 0}
@@ -630,20 +504,6 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
                       <Text type="secondary" style={{ fontSize: 12 }}>
                         {formatTime(group.latestTimestamp)}
                       </Text>
-                      {group.sessionId && !group.sessionId.startsWith('single-') && (
-                        <Tooltip title="查看完整对话（按轮次浏览）">
-                          <Button
-                            type="text"
-                            size="small"
-                            icon={<FileTextOutlined style={{ color: themeVars.primary }} />}
-                            onClick={() => {
-                              setConversationSessionId(group.sessionId)
-                              setConversationProject(group.project)
-                              setConversationModalVisible(true)
-                            }}
-                          />
-                        </Tooltip>
-                      )}
                       <Tooltip title="打开文件夹">
                         <Button
                           type="text"
@@ -800,12 +660,30 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
                               {formatTimeShort(record.timestamp)}
                             </Text>
                             <Space size={4}>
+                              {group.sessionId && !group.sessionId.startsWith('single-') && (
+                                <Tooltip title="查看该 Prompt 的完整对话上下文">
+                                  <Button
+                                    type="text"
+                                    size="small"
+                                    icon={<CommentOutlined style={{ color: themeVars.primary }} />}
+                                    onClick={() => {
+                                      setConversationSessionId(group.sessionId)
+                                      setConversationProject(group.project)
+                                      setConversationTimestamp(record.timestamp)
+                                      setConversationModalVisible(true)
+                                    }}
+                                    style={{ fontSize: 11, padding: '0 4px', height: 20 }}
+                                  >
+                                    完整对话
+                                  </Button>
+                                </Tooltip>
+                              )}
                               {onSendToChat && (
                                 <Tooltip title="发送到AI助手">
                                   <Button
                                     type="text"
                                     size="small"
-                                    icon={<CommentOutlined style={{ color: themeVars.primary }} />}
+                                    icon={<CommentOutlined style={{ color: themeVars.textSecondary }} />}
                                     onClick={() => onSendToChat(fullPrompt)}
                                     style={{ fontSize: 11, padding: '0 4px', height: 20 }}
                                   />
@@ -1000,11 +878,12 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
         </Image.PreviewGroup>
       )}
 
-      {/* 完整对话弹窗（按轮次浏览） */}
+      {/* 完整对话弹窗（按轮次浏览，自动定位到对应 Prompt） */}
       <ConversationDetailModal
         visible={conversationModalVisible}
         sessionId={conversationSessionId}
         project={conversationProject}
+        initialTimestamp={conversationTimestamp}
         onClose={() => setConversationModalVisible(false)}
       />
 
