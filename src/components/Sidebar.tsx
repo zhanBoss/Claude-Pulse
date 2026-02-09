@@ -8,8 +8,7 @@ import {
   CommentOutlined,
   SettingOutlined,
   FileTextOutlined,
-  InfoCircleOutlined,
-  AppstoreOutlined
+  InfoCircleOutlined
 } from '@ant-design/icons'
 import { getThemeVars } from '../theme'
 
@@ -48,11 +47,6 @@ const Sidebar = (props: SidebarProps) => {
       key: 'recent-edits',
       icon: <EditOutlined />,
       label: '最近编辑'
-    },
-    {
-      key: 'session-board',
-      icon: <AppstoreOutlined />,
-      label: '会话看板'
     },
     {
       key: 'prompts',

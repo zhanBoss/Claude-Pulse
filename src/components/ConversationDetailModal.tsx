@@ -1,6 +1,5 @@
 import { Modal, Spin, Alert, Typography, Tag, Space, Button, message, Segmented, Empty, Image, theme as antdTheme } from 'antd'
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
-import { createPortal } from 'react-dom'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
@@ -8,6 +7,7 @@ import { vscDarkPlus, prism } from 'react-syntax-highlighter/dist/esm/styles/pri
 import { ClaudeRecord, FullConversation, FullMessage, MessageContent, MessageSubType } from '../types'
 import { getCopyablePreviewConfig } from './CopyableImage'
 import { getThemeVars } from '../theme'
+import ImageContextMenu from './ImageContextMenu'
 import {
   CopyOutlined,
   ToolOutlined,
@@ -90,7 +90,6 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
 
   /* 右键菜单状态 */
   const [ctxMenu, setCtxMenu] = useState<{ visible: boolean; x: number; y: number; dataUrl: string }>({ visible: false, x: 0, y: 0, dataUrl: '' })
-  const ctxMenuRef = useRef<HTMLDivElement>(null)
 
   /* 单张图片预览状态（点击 [Image #N] Tag 触发） */
   const [previewSrc, setPreviewSrc] = useState<string | null>(null)
@@ -124,30 +123,6 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
       /* 静默失败，资源为可选 */
     } finally {
       setResourcesLoading(false)
-    }
-  }
-
-  /* 右键菜单：点击外部关闭 */
-  useEffect(() => {
-    if (!ctxMenu.visible) return
-    const close = (e: MouseEvent) => {
-      if (ctxMenuRef.current && !ctxMenuRef.current.contains(e.target as Node)) {
-        setCtxMenu(prev => ({ ...prev, visible: false }))
-      }
-    }
-    document.addEventListener('mousedown', close)
-    return () => document.removeEventListener('mousedown', close)
-  }, [ctxMenu.visible])
-
-  /* 复制图片到剪贴板 */
-  const handleCopyImage = async (dataUrl: string) => {
-    setCtxMenu(prev => ({ ...prev, visible: false }))
-    try {
-      const result = await window.electronAPI.copyImageToClipboard(dataUrl)
-      if (result.success) message.success('图片已复制到剪贴板')
-      else message.error(`复制失败: ${result.error}`)
-    } catch (err: any) {
-      message.error(`复制失败: ${err.message}`)
     }
   }
 
@@ -1382,35 +1357,15 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
       />
     )}
 
-    {/* 图片右键菜单（Portal） */}
-    {ctxMenu.visible && createPortal(
-      <div
-        ref={ctxMenuRef}
-        style={{
-          position: 'fixed',
-          left: ctxMenu.x,
-          top: ctxMenu.y,
-          background: themeVars.bgElevated,
-          border: `1px solid ${themeVars.border}`,
-          borderRadius: 8,
-          boxShadow: isDark ? '0 6px 16px rgba(0,0,0,0.6)' : '0 6px 16px rgba(0,0,0,0.12)',
-          zIndex: 9999,
-          minWidth: 140,
-          padding: '4px 0',
-          fontSize: 13
-        }}
-      >
-        <div
-          onClick={() => handleCopyImage(ctxMenu.dataUrl)}
-          style={{ padding: '8px 16px', cursor: 'pointer', transition: 'background 0.2s', color: themeVars.text }}
-          onMouseEnter={e => { e.currentTarget.style.background = themeVars.bgSection }}
-          onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
-        >
-          📋 复制图片
-        </div>
-      </div>,
-      document.body
-    )}
+    {/* 图片右键菜单 */}
+    <ImageContextMenu
+      visible={ctxMenu.visible}
+      x={ctxMenu.x}
+      y={ctxMenu.y}
+      darkMode={isDark}
+      imageDataUrl={ctxMenu.dataUrl}
+      onClose={() => setCtxMenu(prev => ({ ...prev, visible: false }))}
+    />
   </>
   )
 }

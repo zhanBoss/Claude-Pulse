@@ -7,9 +7,8 @@ import LogViewer from './components/LogViewer'
 import HistoryViewer from './components/HistoryViewer'
 import CommonPrompts from './components/CommonPrompts'
 import ChatView from './components/ChatView'
-import StatisticsView from './components/StatisticsView'
+import StatisticsDashboard from './components/StatisticsDashboard'
 import RecentEditsView from './components/RecentEditsView'
-import SessionBoardView from './components/SessionBoardView'
 import SettingsView from './components/SettingsView'
 import AboutView from './components/AboutView'
 import ChangelogView from './components/ChangelogView'
@@ -24,7 +23,6 @@ type Route =
   | 'history'
   | 'statistics'
   | 'recent-edits'
-  | 'session-board'
   | 'prompts'
   | 'chat'
   | 'settings'
@@ -205,11 +203,9 @@ function App() {
           />
         )
       case 'statistics':
-        return <StatisticsView darkMode={darkMode} />
+        return <StatisticsDashboard darkMode={darkMode} />
       case 'recent-edits':
         return <RecentEditsView darkMode={darkMode} />
-      case 'session-board':
-        return <SessionBoardView darkMode={darkMode} />
       case 'prompts':
         return (
           <CommonPrompts

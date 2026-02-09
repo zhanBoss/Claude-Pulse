@@ -57,7 +57,6 @@ const RecentEditsView = (props: RecentEditsViewProps) => {
   const [previewSessionId, setPreviewSessionId] = useState('')
   const [previewMessageId, setPreviewMessageId] = useState('')
   const [showDiff, setShowDiff] = useState(false)
-  const [currentFileContent, setCurrentFileContent] = useState<string | null>(null)
   const [diffResult, setDiffResult] = useState<Change[]>([])
   const [diffLoading, setDiffLoading] = useState(false)
   const [previewWrap, setPreviewWrap] = useState(false)
@@ -196,13 +195,11 @@ const RecentEditsView = (props: RecentEditsViewProps) => {
     try {
       const result = await window.electronAPI.readFileContent(previewFilePath)
       if (result.success && result.content !== undefined) {
-        setCurrentFileContent(result.content)
         const changes = diffLines(result.content, previewContent)
         setDiffResult(changes)
         setShowDiff(true)
       } else {
         // 文件可能已被删除
-        setCurrentFileContent(null)
         const changes = diffLines('', previewContent)
         setDiffResult(changes)
         setShowDiff(true)
@@ -505,7 +502,6 @@ const RecentEditsView = (props: RecentEditsViewProps) => {
           setPreviewVisible(false)
           setShowDiff(false)
           setDiffResult([])
-          setCurrentFileContent(null)
         }}
         width="70%"
         footer={[
@@ -528,7 +524,6 @@ const RecentEditsView = (props: RecentEditsViewProps) => {
             setPreviewVisible(false)
             setShowDiff(false)
             setDiffResult([])
-            setCurrentFileContent(null)
           }}>
             关闭
           </Button>

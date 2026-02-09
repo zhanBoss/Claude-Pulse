@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react'
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react'
 import {
   Button,
   Empty,
@@ -24,7 +24,8 @@ import {
   ClockCircleOutlined,
   SearchOutlined,
   CloseOutlined,
-  RightOutlined
+  RightOutlined,
+  PictureOutlined
 } from '@ant-design/icons'
 import Highlighter from 'react-highlight-words'
 import ReactMarkdown from 'react-markdown'
@@ -34,31 +35,52 @@ import { ClaudeRecord } from '../types'
 import { getThemeVars } from '../theme'
 import ElectronModal, { getElectronModalConfig } from './ElectronModal'
 import ConversationDetailModal from './ConversationDetailModal'
+import { getCopyablePreviewConfig } from './CopyableImage'
+import ImageContextMenu from './ImageContextMenu'
 
 const { Text } = Typography
 
-/* 图片缩略图组件：异步加载图片并转换为 dataUrl */
+/* 图片缩略图组件：异步加载图片并转换为 dataUrl，支持右键复制 */
 interface ImageThumbnailProps {
   imagePath: string
   index: number
-  themeVars: ReturnType<typeof getThemeVars>
+  darkMode: boolean
+  imageCache: Map<string, string>
+  onCacheUpdate: (path: string, data: string) => void
 }
 
 const ImageThumbnail = (props: ImageThumbnailProps) => {
-  const { imagePath, index, themeVars } = props
+  const { imagePath, index, darkMode, imageCache, onCacheUpdate } = props
+  const themeVars = getThemeVars(darkMode)
   const [dataUrl, setDataUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(false)
 
+  /* 右键菜单状态 */
+  const [ctxMenu, setCtxMenu] = useState<{
+    visible: boolean
+    x: number
+    y: number
+    dataUrl: string
+  }>({ visible: false, x: 0, y: 0, dataUrl: '' })
+
   useEffect(() => {
+    /* 检查缓存 */
+    if (imageCache.has(imagePath)) {
+      setDataUrl(imageCache.get(imagePath)!)
+      setLoading(false)
+      return
+    }
+
     let mounted = true
-    
+
     const loadImage = async () => {
       try {
         const result = await window.electronAPI.readImage(imagePath)
         if (mounted) {
           if (result.success && result.data) {
             setDataUrl(result.data)
+            onCacheUpdate(imagePath, result.data)
           } else {
             setError(true)
           }
@@ -73,8 +95,18 @@ const ImageThumbnail = (props: ImageThumbnailProps) => {
     }
 
     loadImage()
-    return () => { mounted = false }
-  }, [imagePath])
+    return () => {
+      mounted = false
+    }
+  }, [imagePath, imageCache, onCacheUpdate])
+
+  /* 图片右键菜单处理 */
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!dataUrl) return
+    setCtxMenu({ visible: true, x: e.clientX, y: e.clientY, dataUrl })
+  }
 
   if (loading) {
     return (
@@ -83,7 +115,7 @@ const ImageThumbnail = (props: ImageThumbnailProps) => {
           width: 60,
           height: 60,
           borderRadius: 6,
-          border: `1px solid ${themeVars.itemBorder}`,
+          border: `1px solid ${themeVars.border}`,
           background: themeVars.bgSection,
           display: 'flex',
           alignItems: 'center',
@@ -102,7 +134,7 @@ const ImageThumbnail = (props: ImageThumbnailProps) => {
           width: 60,
           height: 60,
           borderRadius: 6,
-          border: `1px solid ${themeVars.itemBorder}`,
+          border: `1px solid ${themeVars.border}`,
           background: themeVars.bgSection,
           display: 'flex',
           alignItems: 'center',
@@ -115,19 +147,36 @@ const ImageThumbnail = (props: ImageThumbnailProps) => {
   }
 
   return (
-    <Image
-      src={dataUrl}
-      alt={`Image #${index + 1}`}
-      width={60}
-      height={60}
-      style={{
-        objectFit: 'cover',
-        borderRadius: 6,
-        border: `1px solid ${themeVars.itemBorder}`,
-        cursor: 'pointer'
-      }}
-      preview={{ mask: null }}
-    />
+    <>
+      <div
+        onContextMenu={handleContextMenu}
+        style={{ position: 'relative', display: 'inline-block' }}
+      >
+        <Image
+          src={dataUrl}
+          alt={`Image #${index + 1}`}
+          width={60}
+          height={60}
+          style={{
+            objectFit: 'cover',
+            borderRadius: 6,
+            border: `1px solid ${themeVars.border}`,
+            cursor: 'pointer'
+          }}
+          preview={{ src: dataUrl }}
+        />
+      </div>
+
+      {/* 右键菜单 */}
+      <ImageContextMenu
+        visible={ctxMenu.visible}
+        x={ctxMenu.x}
+        y={ctxMenu.y}
+        darkMode={darkMode}
+        imageDataUrl={ctxMenu.dataUrl}
+        onClose={() => setCtxMenu(prev => ({ ...prev, visible: false }))}
+      />
+    </>
   )
 }
 
@@ -169,6 +218,15 @@ const LogViewer = (props: LogViewerProps) => {
   const [searchKeyword, setSearchKeyword] = useState('')
   const [debouncedKeyword, setDebouncedKeyword] = useState('')
   const searchInputRef = useRef<any>(null)
+
+  // 图片缓存（避免重复加载）
+  const [imageCache] = useState<Map<string, string>>(() => new Map())
+  const handleImageCacheUpdate = useCallback(
+    (path: string, data: string) => {
+      imageCache.set(path, data)
+    },
+    [imageCache]
+  )
 
   // 监听 Cmd+F 快捷键
   useEffect(() => {
@@ -275,6 +333,53 @@ const LogViewer = (props: LogViewerProps) => {
     }
   }
 
+  /**
+   * 将文本中的 [Image #N] 标记替换为带图标的 Tag
+   */
+  const renderTextWithImageTags = (text: string) => {
+    const imagePattern = /\[Image #(\d+)\]/g
+    const parts: Array<{ type: 'text' | 'image'; value: string; imageNum?: number }> = []
+    let lastIndex = 0
+    let match: RegExpExecArray | null
+
+    while ((match = imagePattern.exec(text)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push({ type: 'text', value: text.slice(lastIndex, match.index) })
+      }
+      parts.push({ type: 'image', value: match[0], imageNum: parseInt(match[1]) })
+      lastIndex = match.index + match[0].length
+    }
+    if (lastIndex < text.length) {
+      parts.push({ type: 'text', value: text.slice(lastIndex) })
+    }
+
+    /* 没有图片标记，直接返回纯文本 */
+    if (parts.length === 1 && parts[0].type === 'text') {
+      return <span>{text}</span>
+    }
+
+    return (
+      <>
+        {parts.map((part, idx) => {
+          if (part.type === 'text') {
+            return <span key={idx}>{part.value}</span>
+          }
+
+          return (
+            <Tag
+              key={idx}
+              icon={<PictureOutlined />}
+              color="#D97757"
+              style={{ fontSize: 11, margin: '0 2px', cursor: 'default' }}
+            >
+              {part.value}
+            </Tag>
+          )
+        })}
+      </>
+    )
+  }
+
   // 搜索 Prompt 内容
   const searchResults = useMemo(() => {
     if (!debouncedKeyword.trim()) return []
@@ -309,7 +414,11 @@ const LogViewer = (props: LogViewerProps) => {
   }, [records, debouncedKeyword])
 
   /* 点击搜索结果 → 打开完整对话弹窗 */
-  const handleViewSearchResult = (result: { record: ClaudeRecord; sessionId: string; project: string }) => {
+  const handleViewSearchResult = (result: {
+    record: ClaudeRecord
+    sessionId: string
+    project: string
+  }) => {
     setConversationSessionId(result.sessionId)
     setConversationProject(result.project)
     setConversationTimestamp(result.record.timestamp)
@@ -580,17 +689,27 @@ const LogViewer = (props: LogViewerProps) => {
                           onClick={() => isClickable && handlePromptClick(record, group)}
                           onMouseEnter={e => {
                             if (!isClickable) return
-                            ;(e.currentTarget as HTMLDivElement).style.borderColor = themeVars.itemHoverBorder
-                            ;(e.currentTarget as HTMLDivElement).style.background = themeVars.itemHoverBg
+                            ;(e.currentTarget as HTMLDivElement).style.borderColor =
+                              themeVars.itemHoverBorder
+                            ;(e.currentTarget as HTMLDivElement).style.background =
+                              themeVars.itemHoverBg
                           }}
                           onMouseLeave={e => {
                             if (!isClickable) return
-                            ;(e.currentTarget as HTMLDivElement).style.borderColor = themeVars.itemBorder
+                            ;(e.currentTarget as HTMLDivElement).style.borderColor =
+                              themeVars.itemBorder
                             ;(e.currentTarget as HTMLDivElement).style.background = themeVars.itemBg
                           }}
                         >
                           {/* 头部：轮次编号 + 时间 + 资源标签 */}
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 8,
+                              marginBottom: 6
+                            }}
+                          >
                             <Tag color="#D97757" style={{ fontSize: 11 }}>
                               第 {recordIndex + (isExpanded || !showCollapse ? 1 : 1)} 轮
                             </Tag>
@@ -625,13 +744,15 @@ const LogViewer = (props: LogViewerProps) => {
                               }}
                               onClick={e => e.stopPropagation()}
                             >
-                              <Image.PreviewGroup>
+                              <Image.PreviewGroup preview={getCopyablePreviewConfig(darkMode)}>
                                 {record.images!.map((imgPath, imgIndex) => (
                                   <ImageThumbnail
                                     key={imgIndex}
                                     imagePath={imgPath}
                                     index={imgIndex}
-                                    themeVars={themeVars}
+                                    darkMode={darkMode}
+                                    imageCache={imageCache}
+                                    onCacheUpdate={handleImageCacheUpdate}
                                   />
                                 ))}
                               </Image.PreviewGroup>
@@ -639,18 +760,18 @@ const LogViewer = (props: LogViewerProps) => {
                           )}
 
                           {/* Prompt 文本预览 */}
-                          <Text
+                          <div
                             style={{
                               fontSize: 13,
-                              lineHeight: '20px',
+                              lineHeight: '22px',
                               display: '-webkit-box',
                               WebkitLineClamp: 3,
                               WebkitBoxOrient: 'vertical',
                               overflow: 'hidden'
                             }}
                           >
-                            {record.display || '(空消息)'}
-                          </Text>
+                            {record.display ? renderTextWithImageTags(record.display) : '(空消息)'}
+                          </div>
 
                           {/* 底部：AI 回复提示 + 查看完整对话 / 复制 */}
                           <div
@@ -666,10 +787,7 @@ const LogViewer = (props: LogViewerProps) => {
                             </Text>
                             <Space size={8}>
                               {isClickable && (
-                                <Text
-                                  type="secondary"
-                                  style={{ fontSize: 11, cursor: 'pointer' }}
-                                >
+                                <Text type="secondary" style={{ fontSize: 11, cursor: 'pointer' }}>
                                   点击查看完整对话 <RightOutlined style={{ fontSize: 10 }} />
                                 </Text>
                               )}

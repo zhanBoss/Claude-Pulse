@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef } from 'react'
-import { createPortal } from 'react-dom'
-import { Image, message, Tooltip } from 'antd'
+import { useState, useEffect } from 'react'
+import { Image, Tooltip, message } from 'antd'
 import { CopyOutlined } from '@ant-design/icons'
 import { getThemeVars } from '../theme'
+import ImageContextMenu from './ImageContextMenu'
 
 interface CopyableImageProps {
   imagePath: string
@@ -138,11 +138,7 @@ const CopyableImage = (props: CopyableImageProps) => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [contextMenuVisible, setContextMenuVisible] = useState(false)
-  const [contextMenuPosition, setContextMenuPosition] = useState({
-    x: 0,
-    y: 0
-  })
-  const contextMenuRef = useRef<HTMLDivElement>(null)
+  const [contextMenuPosition, setContextMenuPosition] = useState({ x: 0, y: 0 })
   const themeVars = getThemeVars(darkMode)
 
   useEffect(() => {
@@ -196,39 +192,12 @@ const CopyableImage = (props: CopyableImageProps) => {
     }
   }, [imagePath, imageCache, onCacheUpdate])
 
-  // 点击其他地方关闭右键菜单
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
-        setContextMenuVisible(false)
-      }
-    }
-
-    if (contextMenuVisible) {
-      document.addEventListener('mousedown', handleClickOutside)
-      return () => document.removeEventListener('mousedown', handleClickOutside)
-    }
-  }, [contextMenuVisible])
-
   // 处理右键菜单
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault()
     if (!imageData) return
-
     setContextMenuPosition({ x: e.clientX, y: e.clientY })
     setContextMenuVisible(true)
-  }
-
-  // 复制图片路径
-  const handleCopyPath = async () => {
-    setContextMenuVisible(false)
-
-    try {
-      await window.electronAPI.copyToClipboard(imagePath)
-      message.success('图片路径已复制')
-    } catch (error) {
-      message.error('复制路径失败')
-    }
   }
 
   if (loading) {
@@ -301,67 +270,16 @@ const CopyableImage = (props: CopyableImageProps) => {
         />
       </div>
 
-      {/* 自定义右键菜单 */}
-      {contextMenuVisible &&
-        createPortal(
-          <div
-            ref={contextMenuRef}
-            style={{
-              position: 'fixed',
-              left: contextMenuPosition.x,
-              top: contextMenuPosition.y,
-              background: themeVars.bgElevated,
-              border: `1px solid ${themeVars.border}`,
-              borderRadius: 8,
-              boxShadow: darkMode
-                ? '0 6px 16px rgba(0, 0, 0, 0.6)'
-                : '0 6px 16px rgba(0, 0, 0, 0.12)',
-              zIndex: 9999,
-              minWidth: 140,
-              padding: '4px 0',
-              fontSize: 13
-            }}
-          >
-            <div
-              onClick={() => {
-                setContextMenuVisible(false)
-                copyImageToClipboard(imageData)
-              }}
-              style={{
-                padding: '8px 16px',
-                cursor: 'pointer',
-                transition: 'background 0.2s',
-                color: themeVars.text
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.background = themeVars.bgSection
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.background = 'transparent'
-              }}
-            >
-              📋 复制图片
-            </div>
-            <div
-              onClick={handleCopyPath}
-              style={{
-                padding: '8px 16px',
-                cursor: 'pointer',
-                transition: 'background 0.2s',
-                color: themeVars.text
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.background = themeVars.bgSection
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.background = 'transparent'
-              }}
-            >
-              📁 复制路径
-            </div>
-          </div>,
-          document.body
-        )}
+      {/* 右键菜单 */}
+      <ImageContextMenu
+        visible={contextMenuVisible}
+        x={contextMenuPosition.x}
+        y={contextMenuPosition.y}
+        darkMode={darkMode}
+        imageDataUrl={imageData}
+        imagePath={imagePath}
+        onClose={() => setContextMenuVisible(false)}
+      />
     </>
   )
 }
