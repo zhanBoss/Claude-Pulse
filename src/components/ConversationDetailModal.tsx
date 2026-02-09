@@ -1,4 +1,4 @@
-import { Modal, Spin, Alert, Typography, Divider, Tag, Space, Button, message, Segmented, Empty, Image, theme as antdTheme } from 'antd'
+import { Modal, Spin, Alert, Typography, Tag, Space, Button, message, Segmented, Empty, Image, theme as antdTheme } from 'antd'
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { FullConversation, FullMessage, MessageContent, MessageSubType } from '../types'
@@ -13,11 +13,12 @@ import {
   CloseCircleOutlined,
   MessageOutlined,
   NodeIndexOutlined,
-  UnorderedListOutlined,
   ArrowLeftOutlined,
   RightOutlined,
   PictureOutlined,
-  FileTextOutlined
+  FileTextOutlined,
+  SortAscendingOutlined,
+  SortDescendingOutlined
 } from '@ant-design/icons'
 
 const { Text, Paragraph } = Typography
@@ -63,7 +64,9 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
    */
   const [pageView, setPageView] = useState<'list' | 'detail'>('list')
   const [currentRound, setCurrentRound] = useState(0)
-  const [viewMode, setViewMode] = useState<'round' | 'tool-flow' | 'all' | 'images' | 'pastes'>('round')
+  const [viewMode, setViewMode] = useState<'round' | 'tool-flow' | 'images' | 'pastes'>('round')
+  /* Prompt 列表排序：newest = 最新在前，oldest = 最旧在前 */
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest')
 
   /* 工具流程展开状态 */
   const [expandedToolIds, setExpandedToolIds] = useState<Set<string>>(new Set())
@@ -710,15 +713,32 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
           </div>
         )}
 
+        {/* 排序控制 */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+          <Text type="secondary" style={{ fontSize: 11 }}>共 {rounds.length} 个 Prompt</Text>
+          <Button
+            type="text"
+            size="small"
+            icon={sortOrder === 'newest' ? <SortDescendingOutlined /> : <SortAscendingOutlined />}
+            onClick={() => setSortOrder(prev => prev === 'newest' ? 'oldest' : 'newest')}
+            style={{ fontSize: 11 }}
+          >
+            {sortOrder === 'newest' ? '最新优先' : '最早优先'}
+          </Button>
+        </div>
+
         {/* Prompt 列表 */}
         <div style={{ maxHeight: 520, overflow: 'auto' }}>
-          {rounds.map((r, idx) => {
+          {(sortOrder === 'newest' ? [...rounds].reverse() : rounds).map((r) => {
+            /* 使用 round 原始 index 确保点击时定位正确 */
+            const originalIdx = r.index
             const promptText = getUserPromptText(r.userMessage)
             const ts = toEpochMs(r.timestamp as any)
+            const aiReplyCount = r.assistantMessages.filter(m => m.role === 'assistant').length
 
             return (
               <div
-                key={idx}
+                key={originalIdx}
                 style={{
                   padding: '12px 16px',
                   borderRadius: 8,
@@ -728,7 +748,7 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
                   cursor: 'pointer',
                   transition: 'all 0.2s'
                 }}
-                onClick={() => handlePromptClick(idx)}
+                onClick={() => handlePromptClick(originalIdx)}
                 onMouseEnter={e => {
                   (e.currentTarget as HTMLDivElement).style.borderColor = '#1677ff'
                   ;(e.currentTarget as HTMLDivElement).style.background = isDark ? '#1e2a3a' : '#f0f5ff'
@@ -740,7 +760,7 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
               >
                 {/* 头部：轮次编号 + 时间 */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                  <Tag color="blue" style={{ fontSize: 11 }}>第 {idx + 1} 轮</Tag>
+                  <Tag color="blue" style={{ fontSize: 11 }}>第 {originalIdx + 1} 轮</Tag>
                   <Text type="secondary" style={{ fontSize: 11 }}>
                     <ClockCircleOutlined style={{ marginRight: 4 }} />
                     {ts > 0 ? new Date(ts).toLocaleString('zh-CN') : ''}
@@ -768,7 +788,7 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
                 {/* 底部：回复数 + 查看详情提示 */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 6 }}>
                   <Text type="secondary" style={{ fontSize: 11 }}>
-                    {r.assistantMessages.length} 条 AI 回复
+                    {aiReplyCount} 条 AI 回复
                   </Text>
                   <Text type="secondary" style={{ fontSize: 11 }}>
                     点击查看完整对话 <RightOutlined style={{ fontSize: 10 }} />
@@ -816,7 +836,7 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
               </Tag>
             )}
             <Tag style={{ fontSize: 10 }}>
-              {round.assistantMessages.length} 条回复
+              {round.assistantMessages.filter(m => m.role === 'assistant').length} 条回复
             </Tag>
           </div>
         )}
@@ -830,7 +850,6 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
             options={[
               { value: 'round', label: '对话', icon: <MessageOutlined /> },
               { value: 'tool-flow', label: `工具 (${currentToolFlow.length})`, icon: <NodeIndexOutlined /> },
-              { value: 'all', label: '全部消息', icon: <UnorderedListOutlined /> },
               { value: 'images', label: `图片 (${allImages.length})`, icon: <PictureOutlined />, disabled: allImages.length === 0 },
               { value: 'pastes', label: `粘贴 (${sessionPastes.length})`, icon: <FileTextOutlined />, disabled: sessionPastes.length === 0 }
             ]}
@@ -841,32 +860,6 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
         <div style={{ maxHeight: 450, overflow: 'auto' }}>
           {viewMode === 'round' && renderRoundContent()}
           {viewMode === 'tool-flow' && renderToolFlow(currentToolFlow)}
-          {viewMode === 'all' && round && (() => {
-            /* 仅展示当前轮次的所有消息 */
-            const roundMsgs = [round.userMessage, ...round.assistantMessages]
-            return (
-              <>
-                {roundMsgs.map((msg, index) => (
-                  <div key={index} className="mb-4">
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4, flexWrap: 'wrap' }}>
-                      <Tag color={msg.role === 'user' ? 'blue' : 'green'} style={{ fontSize: 11 }}>
-                        {msg.role === 'user' ? '用户' : 'AI'}
-                      </Tag>
-                      {renderSubTypeTag(msg.subType)}
-                      <Text type="secondary" style={{ fontSize: 10 }}>
-                        {new Date(msg.timestamp).toLocaleString('zh-CN')}
-                      </Text>
-                    </div>
-                    <div className="pl-3 border-l-2 border-gray-200">
-                      {renderContent(msg.content)}
-                    </div>
-                    {index < roundMsgs.length - 1 && <Divider style={{ margin: '8px 0' }} />}
-                  </div>
-                ))}
-              </>
-            )
-          })()}
-
           {/* 图片资源视图（仅当前轮次的内联图片） */}
           {viewMode === 'images' && (
             <div>
