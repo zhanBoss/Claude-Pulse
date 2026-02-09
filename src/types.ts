@@ -57,6 +57,7 @@ export interface FullConversation {
   has_tool_use?: boolean
   has_errors?: boolean
   tool_use_count?: number
+  tool_usage?: Record<string, number> // { "Read": 5, "Write": 3, "Bash": 2 }
 }
 
 // 会话元数据（轻量级）
@@ -72,6 +73,7 @@ export interface SessionMetadata {
   has_tool_use?: boolean
   has_errors?: boolean
   tool_use_count?: number
+  tool_usage?: Record<string, number> // { "Read": 5, "Write": 3, "Bash": 2 }
 }
 
 // 常用命令

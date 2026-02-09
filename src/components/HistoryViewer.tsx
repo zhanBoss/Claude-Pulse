@@ -72,6 +72,7 @@ interface GroupedRecord {
   has_tool_use?: boolean
   has_errors?: boolean
   tool_use_count?: number
+  tool_usage?: Record<string, number>
 }
 
 type DateRange = 'all' | '1d' | '7d' | '30d' | 'custom'
@@ -237,7 +238,8 @@ function HistoryViewer({ onOpenSettings, darkMode, onSendToChat }: HistoryViewer
         total_cost_usd: session.total_cost_usd,
         has_tool_use: session.has_tool_use,
         has_errors: session.has_errors,
-        tool_use_count: session.tool_use_count
+        tool_use_count: session.tool_use_count,
+        tool_usage: session.tool_usage
       }))
       .sort((a, b) => b.latestTimestamp - a.latestTimestamp) // 按时间降序排序，最新的在前面
   }, [searchedSessions])
@@ -803,9 +805,25 @@ function HistoryViewer({ onOpenSettings, darkMode, onSendToChat }: HistoryViewer
                             </Tag>
                           )}
                           {group.has_tool_use && (
-                            <Tag icon={<ToolOutlined />} color="purple" style={{ fontSize: 11 }}>
-                              工具调用 {group.tool_use_count && `×${group.tool_use_count}`}
-                            </Tag>
+                            <Tooltip
+                              title={
+                                group.tool_usage && Object.keys(group.tool_usage).length > 0 ? (
+                                  <div>
+                                    {Object.entries(group.tool_usage)
+                                      .sort(([, a], [, b]) => b - a)
+                                      .map(([tool, count]) => (
+                                        <div key={tool} style={{ fontSize: 11 }}>
+                                          {tool}: {count}次
+                                        </div>
+                                      ))}
+                                  </div>
+                                ) : undefined
+                              }
+                            >
+                              <Tag icon={<ToolOutlined />} color="purple" style={{ fontSize: 11 }}>
+                                工具调用 {group.tool_use_count && `×${group.tool_use_count}`}
+                              </Tag>
+                            </Tooltip>
                           )}
                           {group.has_errors && (
                             <Tag icon={<WarningOutlined />} color="red" style={{ fontSize: 11 }}>

@@ -207,6 +207,20 @@ const ConversationDetailModal = ({
                 <Tag icon={<ToolOutlined />} color="purple">
                   包含工具调用 {conversation.tool_use_count && `(${conversation.tool_use_count}次)`}
                 </Tag>
+                {conversation.tool_usage && Object.keys(conversation.tool_usage).length > 0 && (
+                  <div style={{ marginTop: 8 }}>
+                    <Text type="secondary" style={{ fontSize: 12 }}>工具使用频率：</Text>
+                    <div style={{ marginTop: 4, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                      {Object.entries(conversation.tool_usage)
+                        .sort(([, a], [, b]) => b - a)
+                        .map(([tool, count]) => (
+                          <Tag key={tool} style={{ fontSize: 11 }}>
+                            {tool}: {count}次
+                          </Tag>
+                        ))}
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </div>

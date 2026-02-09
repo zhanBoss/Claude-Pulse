@@ -846,6 +846,7 @@ ipcMain.handle('read-history-metadata', async () => {
         let hasToolUse = false
         let hasErrors = false
         let toolUseCount = 0
+        const toolUsageMap = new Map<string, number>()
 
         for (const sessionLine of sessionLines) {
           try {
@@ -864,7 +865,7 @@ ipcMain.handle('read-history-metadata', async () => {
               totalCost += calculateCost(usage, model)
             }
 
-            // 检查工具调用
+            // 检查工具调用并统计工具类型
             if (entry.response && entry.response.content) {
               const content = Array.isArray(entry.response.content)
                 ? entry.response.content
@@ -874,6 +875,10 @@ ipcMain.handle('read-history-metadata', async () => {
                 if (c.type === 'tool_use') {
                   hasToolUse = true
                   toolUseCount++
+                  // 统计工具名称使用频率
+                  if (c.name) {
+                    toolUsageMap.set(c.name, (toolUsageMap.get(c.name) || 0) + 1)
+                  }
                 }
               }
             }
@@ -895,13 +900,17 @@ ipcMain.handle('read-history-metadata', async () => {
           }
         }
 
+        // 转换工具使用统计为对象
+        const toolUsage = toolUsageMap.size > 0 ? Object.fromEntries(toolUsageMap) : undefined
+
         return {
           ...session,
           total_tokens: totalTokens > 0 ? totalTokens : undefined,
           total_cost_usd: totalCost > 0 ? totalCost : undefined,
           has_tool_use: hasToolUse || undefined,
           has_errors: hasErrors || undefined,
-          tool_use_count: toolUseCount > 0 ? toolUseCount : undefined
+          tool_use_count: toolUseCount > 0 ? toolUseCount : undefined,
+          tool_usage: toolUsage
         }
       } catch (err) {
         console.error(`提取会话 ${session.sessionId} 的元数据失败:`, err)
@@ -1038,6 +1047,7 @@ ipcMain.handle('read-full-conversation', async (_, sessionId: string, project: s
     let hasToolUse = false
     let hasErrors = false
     let toolUseCount = 0
+    const toolUsageMap = new Map<string, number>()
 
     for (const line of lines) {
       try {
@@ -1074,11 +1084,15 @@ ipcMain.handle('read-full-conversation', async (_, sessionId: string, project: s
             ? entry.response.content
             : [{ type: 'text', text: entry.response.content }]
 
-          // 检查工具调用
+          // 检查工具调用并统计工具类型
           for (const content of responseContent) {
             if (content.type === 'tool_use') {
               hasToolUse = true
               toolUseCount++
+              // 统计工具名称使用频率
+              if (content.name) {
+                toolUsageMap.set(content.name, (toolUsageMap.get(content.name) || 0) + 1)
+              }
             }
           }
 
@@ -1109,6 +1123,9 @@ ipcMain.handle('read-full-conversation', async (_, sessionId: string, project: s
       }
     }
 
+    // 转换工具使用统计为对象
+    const toolUsage = toolUsageMap.size > 0 ? Object.fromEntries(toolUsageMap) : undefined
+
     const conversation = {
       sessionId,
       project,
@@ -1117,7 +1134,8 @@ ipcMain.handle('read-full-conversation', async (_, sessionId: string, project: s
       total_cost_usd: totalCost > 0 ? totalCost : undefined,
       has_tool_use: hasToolUse || undefined,
       has_errors: hasErrors || undefined,
-      tool_use_count: toolUseCount > 0 ? toolUseCount : undefined
+      tool_use_count: toolUseCount > 0 ? toolUseCount : undefined,
+      tool_usage: toolUsage
     }
 
     return { success: true, conversation }
