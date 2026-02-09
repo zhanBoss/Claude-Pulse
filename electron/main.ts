@@ -1335,9 +1335,23 @@ ipcMain.handle('read-full-conversation', async (_, sessionId: string, project: s
           const trackedFiles = snapshot.trackedFileBackups || {}
           const filePaths = Object.keys(trackedFiles)
           if (filePaths.length > 0) {
+            // 安全处理 timestamp：确保它是字符串或数字
+            let timestampValue: string | number = ''
+            if (snapshot.timestamp) {
+              if (typeof snapshot.timestamp === 'string' || typeof snapshot.timestamp === 'number') {
+                timestampValue = snapshot.timestamp
+              } else if (typeof snapshot.timestamp === 'object' && 'timestamp' in snapshot.timestamp) {
+                // 如果是对象且包含 timestamp 字段，提取该字段
+                timestampValue = snapshot.timestamp.timestamp
+              } else {
+                // 其他情况使用 entry.timestamp 或当前时间
+                timestampValue = entry.timestamp || Date.now()
+              }
+            }
+
             fileEdits.push({
               messageId: entry.messageId || '',
-              timestamp: snapshot.timestamp || '',
+              timestamp: String(timestampValue),
               files: filePaths
             })
           }
@@ -1540,10 +1554,31 @@ ipcMain.handle(
             ) {
               const snapshot = entry.snapshot || {}
               const trackedFiles = snapshot.trackedFileBackups || {}
-              const fileContent = trackedFiles[filePath]
+              const fileMetadata = trackedFiles[filePath]
 
-              if (fileContent !== undefined) {
-                return { success: true, content: fileContent }
+              if (fileMetadata !== undefined) {
+                // fileMetadata 是一个对象: {backupFileName, version, backupTime}
+                // 需要读取实际的备份文件内容
+                if (typeof fileMetadata === 'object' && fileMetadata.backupFileName) {
+                  const backupFilePath = path.join(
+                    CLAUDE_DIR,
+                    'file-history',
+                    sessionId,
+                    fileMetadata.backupFileName
+                  )
+
+                  if (fs.existsSync(backupFilePath)) {
+                    const backupContent = fs.readFileSync(backupFilePath, 'utf-8')
+                    return { success: true, content: backupContent }
+                  } else {
+                    return { success: false, error: '备份文件不存在' }
+                  }
+                } else if (typeof fileMetadata === 'string') {
+                  // 旧版本可能直接存储字符串内容
+                  return { success: true, content: fileMetadata }
+                } else {
+                  return { success: false, error: '无效的文件快照格式' }
+                }
               }
             }
           } catch {
@@ -1590,9 +1625,28 @@ ipcMain.handle(
             ) {
               const snapshot = entry.snapshot || {}
               const trackedFiles = snapshot.trackedFileBackups || {}
-              if (trackedFiles[filePath] !== undefined) {
-                snapshotContent = trackedFiles[filePath]
-                break
+              const fileMetadata = trackedFiles[filePath]
+
+              if (fileMetadata !== undefined) {
+                // fileMetadata 是一个对象: {backupFileName, version, backupTime}
+                // 需要读取实际的备份文件内容
+                if (typeof fileMetadata === 'object' && fileMetadata.backupFileName) {
+                  const backupFilePath = path.join(
+                    CLAUDE_DIR,
+                    'file-history',
+                    sessionId,
+                    fileMetadata.backupFileName
+                  )
+
+                  if (fs.existsSync(backupFilePath)) {
+                    snapshotContent = fs.readFileSync(backupFilePath, 'utf-8')
+                    break
+                  }
+                } else if (typeof fileMetadata === 'string') {
+                  // 旧版本可能直接存储字符串内容
+                  snapshotContent = fileMetadata
+                  break
+                }
               }
             }
           } catch {

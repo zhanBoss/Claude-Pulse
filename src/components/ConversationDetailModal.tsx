@@ -281,7 +281,7 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
       'microcompaction-boundary': { color: 'geekblue', label: '压缩边界' },
       'queue-operation': { color: 'lime', label: '队列操作' }
     }
-    const config = subTypeConfig[subType] || { color: 'default', label: subType }
+    const config = subTypeConfig[subType] || { color: 'default', label: String(subType) }
     return (
       <Tag icon={<TagOutlined />} color={config.color} style={{ fontSize: 11 }}>
         {config.label}
@@ -576,11 +576,23 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
                   ),
                   children: (
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 200, overflowY: 'auto' }}>
-                      {conversation.fileEdits.map((edit, idx) => (
+                      {conversation.fileEdits.map((edit, idx) => {
+                        // 安全处理 timestamp：确保它是字符串或数字
+                        let timestampDisplay = '未知'
+                        if (edit.timestamp) {
+                          if (typeof edit.timestamp === 'string' || typeof edit.timestamp === 'number') {
+                            timestampDisplay = new Date(edit.timestamp).toLocaleString('zh-CN')
+                          } else if (typeof edit.timestamp === 'object' && 'timestamp' in edit.timestamp) {
+                            // 如果timestamp是对象且包含timestamp字段，使用该字段
+                            timestampDisplay = new Date((edit.timestamp as any).timestamp).toLocaleString('zh-CN')
+                          }
+                        }
+
+                        return (
                         <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                           <Text type="secondary" style={{ fontSize: 10 }}>
                             <ClockCircleOutlined style={{ marginRight: 2 }} />
-                            {edit.timestamp ? new Date(edit.timestamp).toLocaleString('zh-CN') : '未知'}
+                            {timestampDisplay}
                           </Text>
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
                             {edit.files.map((file, fIdx) => (
@@ -595,7 +607,8 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
                             ))}
                           </div>
                         </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   )
                 }]}
