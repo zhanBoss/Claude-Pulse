@@ -502,7 +502,7 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
               style={isDark ? vscDarkPlus : prism}
               language={langMatch[1]}
               PreTag="div"
-              customStyle={{ margin: '4px 0', borderRadius: 6, fontSize: 12 }}
+              customStyle={{ margin: '8px 0', borderRadius: 6, fontSize: 12 }}
               {...codeProps}
             >
               {String(children).replace(/\n$/, '')}
@@ -510,11 +510,11 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
           ) : (
             <code
               style={{
-                background: isDark ? '#2a2a2a' : '#f5f5f5',
-                padding: '1px 5px',
-                borderRadius: 3,
+                background: isDark ? '#2a2a2a' : '#eff1f3',
+                padding: '2px 6px',
+                borderRadius: 4,
                 fontSize: 12,
-                fontFamily: 'monospace'
+                fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, monospace'
               }}
               {...codeProps}
             >
@@ -523,7 +523,40 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
           )
         },
         pre({ children }) { return <>{children}</> },
-        p({ children }) { return <p style={{ marginBottom: 6, lineHeight: 1.6 }}>{children}</p> },
+        p({ children }) { return <p style={{ margin: '6px 0', lineHeight: 1.7 }}>{children}</p> },
+        h1({ children }) { return <h1 style={{ fontSize: 18, fontWeight: 600, margin: '12px 0 6px', borderBottom: `1px solid ${isDark ? '#303030' : '#e8e8e8'}`, paddingBottom: 6 }}>{children}</h1> },
+        h2({ children }) { return <h2 style={{ fontSize: 16, fontWeight: 600, margin: '10px 0 6px', borderBottom: `1px solid ${isDark ? '#303030' : '#e8e8e8'}`, paddingBottom: 4 }}>{children}</h2> },
+        h3({ children }) { return <h3 style={{ fontSize: 14, fontWeight: 600, margin: '8px 0 4px' }}>{children}</h3> },
+        ul({ children }) { return <ul style={{ margin: '4px 0', paddingLeft: 20, listStyleType: 'disc' }}>{children}</ul> },
+        ol({ children }) { return <ol style={{ margin: '4px 0', paddingLeft: 20 }}>{children}</ol> },
+        li({ children }) { return <li style={{ margin: '2px 0', lineHeight: 1.6 }}>{children}</li> },
+        strong({ children }) { return <strong style={{ fontWeight: 600 }}>{children}</strong> },
+        blockquote({ children }) {
+          return (
+            <blockquote style={{
+              margin: '6px 0',
+              paddingLeft: 12,
+              borderLeft: `3px solid ${isDark ? '#4a4a4a' : '#d0d0d0'}`,
+              color: isDark ? '#aaa' : '#666'
+            }}>
+              {children}
+            </blockquote>
+          )
+        },
+        table({ children }) {
+          return (
+            <div style={{ overflow: 'auto', margin: '8px 0' }}>
+              <table style={{
+                borderCollapse: 'collapse', width: '100%', fontSize: 12,
+                border: `1px solid ${isDark ? '#303030' : '#e8e8e8'}`
+              }}>
+                {children}
+              </table>
+            </div>
+          )
+        },
+        th({ children }) { return <th style={{ padding: '6px 10px', borderBottom: `2px solid ${isDark ? '#404040' : '#d0d0d0'}`, background: isDark ? '#1e1e2e' : '#f0f0f0', textAlign: 'left', fontWeight: 600 }}>{children}</th> },
+        td({ children }) { return <td style={{ padding: '5px 10px', borderBottom: `1px solid ${isDark ? '#303030' : '#e8e8e8'}` }}>{children}</td> },
         a({ href, children }) {
           return (
             <a
@@ -537,7 +570,8 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
               {children}
             </a>
           )
-        }
+        },
+        hr() { return <hr style={{ border: 'none', borderTop: `1px solid ${isDark ? '#303030' : '#e8e8e8'}`, margin: '10px 0' }} /> }
       }}
     >
       {text}
@@ -552,6 +586,14 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
         const hasImageRef = /\[Image #\d+\]/.test(text)
         const markdown = isMarkdown(text)
 
+        /* Markdown 内容需要卡片包裹，与工具调用/结果风格统一 */
+        const cardStyle: React.CSSProperties = markdown ? {
+          padding: '12px 16px',
+          borderRadius: 8,
+          border: `1px solid ${isDark ? '#303030' : '#e8e8e8'}`,
+          background: isDark ? '#1a1a2e' : '#fafbfc',
+        } : {}
+
         return (
           <div key={index} className="mb-2">
             {/* 复制按钮 */}
@@ -565,17 +607,17 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
               />
             </div>
             {hasImageRef ? (
-              /* 含有 [Image #N] 标记的文本，先处理图片标记再渲染 */
+              /* 含有 [Image #N] 标记的文本 */
               <div className="whitespace-pre-wrap text-sm" style={{ lineHeight: 1.6 }}>
                 {renderTextWithImages(text)}
               </div>
             ) : markdown ? (
-              /* Markdown 内容 → 格式化渲染（标题、列表、代码块等） */
-              <div className="text-sm" style={{ lineHeight: 1.6 }}>
+              /* Markdown 内容 → 卡片包裹 + 格式化渲染 */
+              <div style={cardStyle} className="text-sm markdown-content">
                 {renderMarkdownContent(text)}
               </div>
             ) : (
-              /* 纯文本 → 保留换行的等宽字体展示 */
+              /* 纯文本 → 保留换行 */
               <div className="whitespace-pre-wrap font-mono text-sm" style={{ lineHeight: 1.6 }}>
                 {text}
               </div>
