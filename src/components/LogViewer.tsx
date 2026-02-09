@@ -32,13 +32,13 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { ClaudeRecord } from '../types'
 import { getThemeVars } from '../theme'
-import FileViewer from './FileViewer'
 import { replacePastedContents } from '../utils/promptFormatter'
 import SmartContent from './SmartContent'
 import ElectronModal, { getElectronModalConfig } from './ElectronModal'
 import CopyTextModal from './CopyTextModal'
 import FormattedPromptModal from './FormattedPromptModal'
 import CopyableImage, { getCopyablePreviewConfig } from './CopyableImage'
+import ConversationDetailModal from './ConversationDetailModal'
 
 const { Text } = Typography
 
@@ -70,11 +70,6 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
   // 图片加载缓存
   const [imageCache, setImageCache] = useState<Map<string, string>>(new Map())
 
-  // 文件查看器状态
-  const [fileViewerVisible, setFileViewerVisible] = useState(false)
-  const [viewingFilePath, setViewingFilePath] = useState<string>('')
-  const [fileViewerReadOnly, setFileViewerReadOnly] = useState(false)
-
   // Prompt 和 Copy Text 弹窗状态
   const [promptModalVisible, setPromptModalVisible] = useState(false)
   const [promptModalContent, setPromptModalContent] = useState<string>('')
@@ -87,6 +82,11 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
   const [imagePreviewIndex, setImagePreviewIndex] = useState(0)
   const [imagePreviewList, setImagePreviewList] = useState<string[]>([])
   const [previewImageCache, setPreviewImageCache] = useState<Map<string, string>>(new Map())
+
+  // 完整对话弹窗状态
+  const [conversationModalVisible, setConversationModalVisible] = useState(false)
+  const [conversationSessionId, setConversationSessionId] = useState('')
+  const [conversationProject, setConversationProject] = useState('')
 
   // 搜索相关状态
   const [searchVisible, setSearchVisible] = useState(false)
@@ -103,7 +103,6 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
         // 关闭所有弹窗
         setPromptModalVisible(false)
         setCopyTextModalVisible(false)
-        setFileViewerVisible(false)
         setSummaryModalVisible(false)
         // 打开搜索
         setSearchVisible(true)
@@ -199,13 +198,6 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
     } catch (error) {
       message.error('打开文件夹失败')
     }
-  }
-
-  // 打开文件查看器
-  const handleOpenFile = (filePath: string, readOnly: boolean = false) => {
-    setViewingFilePath(filePath)
-    setFileViewerReadOnly(readOnly)
-    setFileViewerVisible(true)
   }
 
   // 防抖 effect
@@ -553,7 +545,6 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
                 // 关闭所有弹窗
                 setPromptModalVisible(false)
                 setCopyTextModalVisible(false)
-                setFileViewerVisible(false)
                 setSummaryModalVisible(false)
                 // 打开搜索
                 setSearchVisible(true)
@@ -639,6 +630,20 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
                       <Text type="secondary" style={{ fontSize: 12 }}>
                         {formatTime(group.latestTimestamp)}
                       </Text>
+                      {group.sessionId && !group.sessionId.startsWith('single-') && (
+                        <Tooltip title="查看完整对话（按轮次浏览）">
+                          <Button
+                            type="text"
+                            size="small"
+                            icon={<FileTextOutlined style={{ color: themeVars.primary }} />}
+                            onClick={() => {
+                              setConversationSessionId(group.sessionId)
+                              setConversationProject(group.project)
+                              setConversationModalVisible(true)
+                            }}
+                          />
+                        </Tooltip>
+                      )}
                       <Tooltip title="打开文件夹">
                         <Button
                           type="text"
@@ -994,13 +999,12 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
         </Image.PreviewGroup>
       )}
 
-      {/* 文件查看器 */}
-      <FileViewer
-        filePath={viewingFilePath}
-        darkMode={darkMode}
-        visible={fileViewerVisible}
-        onClose={() => setFileViewerVisible(false)}
-        readOnly={fileViewerReadOnly}
+      {/* 完整对话弹窗（按轮次浏览） */}
+      <ConversationDetailModal
+        visible={conversationModalVisible}
+        sessionId={conversationSessionId}
+        project={conversationProject}
+        onClose={() => setConversationModalVisible(false)}
       />
 
       {/* 搜索弹窗 */}
