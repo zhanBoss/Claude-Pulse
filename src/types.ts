@@ -90,6 +90,39 @@ export interface SessionMetadata {
   tool_usage?: Record<string, number> // { "Read": 5, "Write": 3, "Bash": 2 }
 }
 
+// 项目级别统计数据
+export interface ProjectStatistics {
+  project: string
+  projectName: string
+  sessionCount: number
+  totalRecords: number
+  totalTokens?: number
+  totalCost?: number
+  hasToolUse?: boolean
+  hasErrors?: boolean
+  toolUsage?: Record<string, number>
+  firstTimestamp: number
+  latestTimestamp: number
+}
+
+// 文件编辑快照
+export interface FileEditSnapshot {
+  messageId: string
+  timestamp: string
+  sessionId: string
+  project: string
+  files: FileEditEntry[]
+  isSnapshotUpdate: boolean
+}
+
+// 单个文件编辑记录
+export interface FileEditEntry {
+  filePath: string
+  contentLength: number
+  // 内容预览（前200字符）
+  preview?: string
+}
+
 // 常用命令
 export interface CommonCommand {
   id: string
@@ -198,6 +231,12 @@ export interface ElectronAPI {
     sessionId: string,
     project: string
   ) => Promise<{ success: boolean; conversation?: FullConversation; error?: string }>
+  // 读取项目级别统计数据
+  readProjectStatistics: () => Promise<{
+    success: boolean
+    projects?: ProjectStatistics[]
+    error?: string
+  }>
   getAppSettings: () => Promise<AppSettings>
   saveAppSettings: (settings: AppSettings) => Promise<{ success: boolean; error?: string }>
   exportRecords: (

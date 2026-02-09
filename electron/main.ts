@@ -932,6 +932,107 @@ ipcMain.handle('read-history-metadata', async () => {
   }
 })
 
+// 读取项目级别的统计数据
+ipcMain.handle('read-project-statistics', async () => {
+  try {
+    if (!fs.existsSync(HISTORY_FILE)) {
+      return { success: true, projects: [] }
+    }
+
+    // 先获取所有会话的元数据
+    const metadataResult = await ipcMain
+      .handlersMap.get('read-history-metadata')
+      ?.callback({} as any, {} as any)
+
+    if (!metadataResult || !metadataResult.success || !metadataResult.sessions) {
+      return { success: false, error: '无法加载会话数据' }
+    }
+
+    const sessions = metadataResult.sessions as any[]
+
+    // 按项目聚合
+    const projectMap = new Map<
+      string,
+      {
+        project: string
+        sessionCount: number
+        totalTokens: number
+        totalCost: number
+        totalRecords: number
+        toolUsageMap: Map<string, number>
+        hasToolUse: boolean
+        hasErrors: boolean
+        firstTimestamp: number
+        latestTimestamp: number
+      }
+    >()
+
+    for (const session of sessions) {
+      const projectKey = session.project
+
+      if (!projectMap.has(projectKey)) {
+        projectMap.set(projectKey, {
+          project: projectKey,
+          sessionCount: 0,
+          totalTokens: 0,
+          totalCost: 0,
+          totalRecords: 0,
+          toolUsageMap: new Map(),
+          hasToolUse: false,
+          hasErrors: false,
+          firstTimestamp: session.firstTimestamp,
+          latestTimestamp: session.latestTimestamp
+        })
+      }
+
+      const projectData = projectMap.get(projectKey)!
+      projectData.sessionCount++
+      projectData.totalRecords += session.recordCount || 0
+      projectData.totalTokens += session.total_tokens || 0
+      projectData.totalCost += session.total_cost_usd || 0
+      projectData.hasToolUse = projectData.hasToolUse || session.has_tool_use || false
+      projectData.hasErrors = projectData.hasErrors || session.has_errors || false
+      projectData.firstTimestamp = Math.min(projectData.firstTimestamp, session.firstTimestamp)
+      projectData.latestTimestamp = Math.max(projectData.latestTimestamp, session.latestTimestamp)
+
+      // 聚合工具使用统计
+      if (session.tool_usage) {
+        for (const [tool, count] of Object.entries(session.tool_usage)) {
+          projectData.toolUsageMap.set(
+            tool,
+            (projectData.toolUsageMap.get(tool) || 0) + (count as number)
+          )
+        }
+      }
+    }
+
+    // 转换为数组并格式化
+    const projects = Array.from(projectMap.values())
+      .map(project => ({
+        project: project.project,
+        projectName: path.basename(project.project),
+        sessionCount: project.sessionCount,
+        totalRecords: project.totalRecords,
+        totalTokens: project.totalTokens > 0 ? project.totalTokens : undefined,
+        totalCost: project.totalCost > 0 ? project.totalCost : undefined,
+        hasToolUse: project.hasToolUse || undefined,
+        hasErrors: project.hasErrors || undefined,
+        toolUsage:
+          project.toolUsageMap.size > 0 ? Object.fromEntries(project.toolUsageMap) : undefined,
+        firstTimestamp: project.firstTimestamp,
+        latestTimestamp: project.latestTimestamp
+      }))
+      .sort((a, b) => b.latestTimestamp - a.latestTimestamp)
+
+    console.log(`[Project Statistics] 聚合了 ${projects.length} 个项目的统计数据`)
+
+    return { success: true, projects }
+  } catch (error) {
+    console.error('读取项目统计时发生错误:', error)
+    return { success: false, error: (error as Error).message }
+  }
+})
+
 // 读取指定会话的详细记录（直接从 ~/.claude/history.jsonl 读取）
 ipcMain.handle('read-session-details', async (_, sessionId: string) => {
   try {
@@ -1155,6 +1256,127 @@ ipcMain.handle('read-full-conversation', async (_, sessionId: string, project: s
     return { success: false, error: (error as Error).message }
   }
 })
+
+// 读取文件编辑快照（从所有会话中提取 file-history-snapshot）
+ipcMain.handle('read-file-edits', async () => {
+  try {
+    const projectsDir = path.join(CLAUDE_DIR, 'projects')
+    if (!fs.existsSync(projectsDir)) {
+      return { success: true, edits: [] }
+    }
+
+    const edits: any[] = []
+    const projectFolders = fs.readdirSync(projectsDir)
+
+    for (const folder of projectFolders) {
+      const folderPath = path.join(projectsDir, folder)
+      if (!fs.statSync(folderPath).isDirectory()) continue
+
+      // 从目录名还原项目路径
+      const projectPath = '/' + folder.replace(/-/g, '/')
+
+      const sessionFiles = fs.readdirSync(folderPath).filter(f => f.endsWith('.jsonl'))
+
+      for (const sessionFile of sessionFiles) {
+        const sessionId = sessionFile.replace('.jsonl', '')
+        const filePath = path.join(folderPath, sessionFile)
+
+        try {
+          const content = fs.readFileSync(filePath, 'utf-8')
+          const lines = content.split('\n').filter(l => l.trim())
+
+          for (const line of lines) {
+            try {
+              const entry = JSON.parse(line)
+
+              if (entry.type === 'file-history-snapshot') {
+                const snapshot = entry.snapshot || {}
+                const trackedFiles = snapshot.trackedFileBackups || {}
+                const fileEntries = Object.entries(trackedFiles).map(([fp, content]) => ({
+                  filePath: fp,
+                  contentLength: typeof content === 'string' ? content.length : 0,
+                  preview: typeof content === 'string' ? content.slice(0, 200) : undefined
+                }))
+
+                if (fileEntries.length > 0) {
+                  edits.push({
+                    messageId: entry.messageId || '',
+                    timestamp: snapshot.timestamp || '',
+                    sessionId,
+                    project: projectPath,
+                    files: fileEntries,
+                    isSnapshotUpdate: entry.isSnapshotUpdate || false
+                  })
+                }
+              }
+            } catch {
+              // 跳过解析失败的行
+            }
+          }
+        } catch {
+          // 跳过无法读取的文件
+        }
+      }
+    }
+
+    // 按时间倒序排列
+    edits.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+
+    return { success: true, edits }
+  } catch (error) {
+    console.error('读取文件编辑快照失败:', error)
+    return { success: false, error: (error as Error).message }
+  }
+})
+
+// 读取文件快照内容（获取完整的文件备份内容）
+ipcMain.handle(
+  'read-file-snapshot-content',
+  async (_, sessionId: string, messageId: string, filePath: string) => {
+    try {
+      const projectsDir = path.join(CLAUDE_DIR, 'projects')
+      if (!fs.existsSync(projectsDir)) {
+        return { success: false, error: '项目目录不存在' }
+      }
+
+      // 在所有项目目录中查找对应的会话文件
+      const projectFolders = fs.readdirSync(projectsDir)
+
+      for (const folder of projectFolders) {
+        const sessionFile = path.join(projectsDir, folder, `${sessionId}.jsonl`)
+        if (!fs.existsSync(sessionFile)) continue
+
+        const content = fs.readFileSync(sessionFile, 'utf-8')
+        const lines = content.split('\n').filter(l => l.trim())
+
+        for (const line of lines) {
+          try {
+            const entry = JSON.parse(line)
+            if (
+              entry.type === 'file-history-snapshot' &&
+              entry.messageId === messageId
+            ) {
+              const snapshot = entry.snapshot || {}
+              const trackedFiles = snapshot.trackedFileBackups || {}
+              const fileContent = trackedFiles[filePath]
+
+              if (fileContent !== undefined) {
+                return { success: true, content: fileContent }
+              }
+            }
+          } catch {
+            // 跳过
+          }
+        }
+      }
+
+      return { success: false, error: '未找到对应的文件快照' }
+    } catch (error) {
+      console.error('读取文件快照内容失败:', error)
+      return { success: false, error: (error as Error).message }
+    }
+  }
+)
 
 // 读取历史记录（直接从 ~/.claude/history.jsonl 读取）
 ipcMain.handle('read-history', async () => {

@@ -37,6 +37,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   readFullConversation: (sessionId: string, project: string) =>
     ipcRenderer.invoke('read-full-conversation', sessionId, project),
 
+  // 读取文件编辑快照
+  readFileEdits: () => ipcRenderer.invoke('read-file-edits'),
+
+  // 读取文件快照内容
+  readFileSnapshotContent: (sessionId: string, messageId: string, filePath: string) =>
+    ipcRenderer.invoke('read-file-snapshot-content', sessionId, messageId, filePath),
+
   // 应用设置
   getAppSettings: () => ipcRenderer.invoke('get-app-settings'),
   saveAppSettings: (settings: { darkMode: boolean; autoStart: boolean }) =>

@@ -304,14 +304,14 @@ function HistoryViewer({ onOpenSettings, darkMode, onSendToChat }: HistoryViewer
     }
   }
 
-  const formatTime = (timestamp: number) => {
-    return dayjs(timestamp).format('YYYY-MM-DD HH:mm:ss')
-  }
-
   const getProjectName = (projectPath: string) => {
     if (!projectPath) return '未知项目'
     const parts = projectPath.split('/')
     return parts[parts.length - 1]
+  }
+
+  const formatTime = (timestamp: number) => {
+    return dayjs(timestamp).format('YYYY-MM-DD HH:mm:ss')
   }
 
   const handleCopy = async (text: string) => {
