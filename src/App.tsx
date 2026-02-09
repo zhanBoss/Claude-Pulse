@@ -19,7 +19,17 @@ import { ClaudeRecord } from './types'
 import { lightTheme, darkTheme, getThemeVars } from './theme'
 import 'antd/dist/reset.css'
 
-type Route = 'realtime' | 'history' | 'statistics' | 'recent-edits' | 'session-board' | 'prompts' | 'chat' | 'settings' | 'changelog' | 'about'
+type Route =
+  | 'realtime'
+  | 'history'
+  | 'statistics'
+  | 'recent-edits'
+  | 'session-board'
+  | 'prompts'
+  | 'chat'
+  | 'settings'
+  | 'changelog'
+  | 'about'
 
 function App() {
   const [isClaudeInstalled, setIsClaudeInstalled] = useState<boolean>(false)
@@ -72,26 +82,11 @@ function App() {
       setThemeMode(settings.themeMode)
     })
 
-    // 加载当天的实时记录，确保打开时能看到最近数据
-    window.electronAPI.readRecentRecords(24).then(result => {
-      if (result.success && result.records && result.records.length > 0) {
-        setRecords(result.records)
-      }
-    })
-
-    // 监听新记录（通过轮询监控 history.jsonl 的增量变化）
+    // 只展示打开软件后的实时记录，不加载历史数据
     const cleanup = window.electronAPI.onNewRecord(record => {
-      setRecords(prev => {
-        // 去重：避免初始加载和实时监控的重复
-        const isDuplicate = prev.some(
-          r => r.timestamp === record.timestamp && r.sessionId === record.sessionId
-        )
-        if (isDuplicate) return prev
-        return [record, ...prev]
-      })
+      setRecords(prev => [...prev, record])
     })
 
-    // 清理监听器
     return cleanup
   }, [])
 

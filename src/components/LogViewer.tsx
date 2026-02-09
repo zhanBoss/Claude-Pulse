@@ -9,18 +9,21 @@ import {
   message,
   Modal,
   Tooltip,
-  Input,
-  List
+  Input
 } from 'antd'
 import {
   CopyOutlined,
   FolderOpenOutlined,
+  DownOutlined,
+  UpOutlined,
   StarOutlined,
   ClearOutlined,
+  FileImageOutlined,
+  FileTextOutlined,
   ClockCircleOutlined,
   SearchOutlined,
   CloseOutlined,
-  CommentOutlined
+  RightOutlined
 } from '@ant-design/icons'
 import Highlighter from 'react-highlight-words'
 import ReactMarkdown from 'react-markdown'
@@ -41,18 +44,19 @@ interface LogViewerProps {
   onSendToChat?: (content: string) => void
 }
 
-interface GroupedSession {
+interface GroupedRecord {
   sessionId: string
   project: string
   records: ClaudeRecord[]
   latestTimestamp: number
-  firstPrompt: string
-  recordCount: number
 }
 
 const LogViewer = (props: LogViewerProps) => {
   const { records, onClear, onOpenSettings, darkMode } = props
   const themeVars = getThemeVars(darkMode)
+
+  // 每个 session 的展开/折叠状态
+  const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set())
 
   // AI 总结相关状态
   const [summarizing, setSummarizing] = useState(false)
@@ -63,6 +67,7 @@ const LogViewer = (props: LogViewerProps) => {
   const [conversationModalVisible, setConversationModalVisible] = useState(false)
   const [conversationSessionId, setConversationSessionId] = useState('')
   const [conversationProject, setConversationProject] = useState('')
+  const [conversationTimestamp, setConversationTimestamp] = useState<number | undefined>(undefined)
 
   // 搜索相关状态
   const [searchVisible, setSearchVisible] = useState(false)
@@ -99,46 +104,19 @@ const LogViewer = (props: LogViewerProps) => {
     return () => clearTimeout(timer)
   }, [searchKeyword])
 
-  const formatTime = (timestamp: number) => {
-    const date = new Date(timestamp)
-    const now = new Date()
-    const isToday =
-      date.getFullYear() === now.getFullYear() &&
-      date.getMonth() === now.getMonth() &&
-      date.getDate() === now.getDate()
-
-    if (isToday) {
-      return date.toLocaleTimeString('zh-CN', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit'
-      })
+  const toggleSession = (sessionId: string) => {
+    const newExpanded = new Set(expandedSessions)
+    if (newExpanded.has(sessionId)) {
+      newExpanded.delete(sessionId)
+    } else {
+      newExpanded.add(sessionId)
     }
-    return date.toLocaleString('zh-CN', {
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
+    setExpandedSessions(newExpanded)
   }
 
-  const getProjectName = (projectPath: string) => {
-    if (!projectPath) return '未知项目'
-    const parts = projectPath.split('/')
-    return parts[parts.length - 1]
-  }
-
-  const truncateText = (text: string, maxLength: number = 80) => {
-    if (!text) return ''
-    /* 去除换行，合并为单行 */
-    const singleLine = text.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim()
-    if (singleLine.length <= maxLength) return singleLine
-    return singleLine.substring(0, maxLength) + '...'
-  }
-
-  // 按 sessionId 分组记录为会话
-  const groupedSessions = useMemo(() => {
-    const groups = new Map<string, GroupedSession>()
+  // 按 sessionId 分组记录
+  const groupedRecords = useMemo(() => {
+    const groups = new Map<string, GroupedRecord>()
 
     records.forEach(record => {
       const key = record.sessionId || `single-${record.timestamp}`
@@ -148,39 +126,61 @@ const LogViewer = (props: LogViewerProps) => {
           sessionId: key,
           project: record.project,
           records: [],
-          latestTimestamp: record.timestamp,
-          firstPrompt: record.display || '',
-          recordCount: 0
+          latestTimestamp: record.timestamp
         })
       }
 
       const group = groups.get(key)!
       group.records.push(record)
-      group.recordCount += 1
       group.latestTimestamp = Math.max(group.latestTimestamp, record.timestamp)
-      // 第一条用户提问作为首条 prompt
-      if (!group.firstPrompt && record.display) {
-        group.firstPrompt = record.display
-      }
     })
 
     return Array.from(groups.values()).sort((a, b) => b.latestTimestamp - a.latestTimestamp)
   }, [records])
 
-  // 搜索过滤
-  const filteredSessions = useMemo(() => {
-    if (!debouncedKeyword.trim()) return groupedSessions
-    const keyword = debouncedKeyword.toLowerCase()
-    return groupedSessions.filter(session => {
-      // 项目名或 sessionId 匹配
-      if (session.project.toLowerCase().includes(keyword)) return true
-      if (session.sessionId.toLowerCase().includes(keyword)) return true
-      // prompt 内容匹配
-      return session.records.some(r => r.display?.toLowerCase().includes(keyword))
+  const formatTime = (timestamp: number) => {
+    return new Date(timestamp).toLocaleString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
     })
-  }, [groupedSessions, debouncedKeyword])
+  }
 
-  // 搜索 Prompt 内容匹配结果
+  const formatTimeShort = (timestamp: number) => {
+    return new Date(timestamp).toLocaleTimeString('zh-CN', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    })
+  }
+
+  const getProjectName = (projectPath: string) => {
+    if (!projectPath) return '未知项目'
+    const parts = projectPath.split('/')
+    return parts[parts.length - 1]
+  }
+
+  const handleCopy = async (text: string) => {
+    try {
+      await window.electronAPI.copyToClipboard(text)
+      message.success('已复制到剪贴板')
+    } catch {
+      message.error('复制失败')
+    }
+  }
+
+  const handleOpenFolder = async (folderPath: string) => {
+    try {
+      await window.electronAPI.openInFinder(folderPath)
+    } catch {
+      message.error('打开文件夹失败')
+    }
+  }
+
+  // 搜索 Prompt 内容
   const searchResults = useMemo(() => {
     if (!debouncedKeyword.trim()) return []
     const keyword = debouncedKeyword.toLowerCase()
@@ -210,26 +210,30 @@ const LogViewer = (props: LogViewerProps) => {
       }
     })
 
-    return results.slice(0, 20)
+    return results
   }, [records, debouncedKeyword])
 
-  const handleOpenFolder = async (folderPath: string) => {
-    try {
-      await window.electronAPI.openInFinder(folderPath)
-    } catch {
-      message.error('打开文件夹失败')
-    }
+  /* 点击搜索结果 → 打开完整对话弹窗 */
+  const handleViewSearchResult = (result: { record: ClaudeRecord; sessionId: string; project: string }) => {
+    setConversationSessionId(result.sessionId)
+    setConversationProject(result.project)
+    setConversationTimestamp(result.record.timestamp)
+    setConversationModalVisible(true)
+    setSearchVisible(false)
+    setSearchKeyword('')
   }
 
-  /* 点击会话卡片 → 打开完整对话弹窗 */
-  const handleSessionClick = (session: GroupedSession) => {
-    setConversationSessionId(session.sessionId)
-    setConversationProject(session.project)
+  /* 点击 Prompt 条目 → 打开完整对话弹窗 */
+  const handlePromptClick = (record: ClaudeRecord, group: GroupedRecord) => {
+    if (group.sessionId.startsWith('single-')) return
+    setConversationSessionId(group.sessionId)
+    setConversationProject(group.project)
+    setConversationTimestamp(record.timestamp)
     setConversationModalVisible(true)
   }
 
   // AI 总结单个会话
-  const handleSummarizeSession = async (session: GroupedSession) => {
+  const handleSummarizeSession = async (session: GroupedRecord) => {
     if (session.records.length === 0) {
       message.warning('该会话没有对话记录')
       return
@@ -334,53 +338,6 @@ const LogViewer = (props: LogViewerProps) => {
     }
   }
 
-  const renderMarkdown = (content: string) => (
-    <ReactMarkdown
-      components={{
-        code({ node, inline, className, children, ...codeProps }: any) {
-          const match = /language-(\w+)/.exec(className || '')
-          return !inline && match ? (
-            <SyntaxHighlighter
-              style={darkMode ? vscDarkPlus : prism}
-              language={match[1]}
-              PreTag="div"
-              customStyle={{
-                margin: 0,
-                borderRadius: 6,
-                fontSize: 13,
-                background: themeVars.bgCode
-              }}
-              {...codeProps}
-            >
-              {String(children).replace(/\n$/, '')}
-            </SyntaxHighlighter>
-          ) : (
-            <code
-              style={{
-                background: themeVars.codeBg,
-                padding: '2px 6px',
-                borderRadius: 3,
-                fontSize: 12,
-                fontFamily: 'monospace'
-              }}
-              {...codeProps}
-            >
-              {children}
-            </code>
-          )
-        },
-        p({ children }) {
-          return <p style={{ marginBottom: 8, lineHeight: 1.6 }}>{children}</p>
-        },
-        pre({ children }) {
-          return <>{children}</>
-        }
-      }}
-    >
-      {content}
-    </ReactMarkdown>
-  )
-
   return (
     <div
       style={{
@@ -394,7 +351,7 @@ const LogViewer = (props: LogViewerProps) => {
       <div
         style={
           {
-            padding: '12px 16px',
+            padding: '16px',
             borderBottom: `1px solid ${themeVars.borderSecondary}`,
             background: themeVars.bgSection,
             display: 'flex',
@@ -406,7 +363,7 @@ const LogViewer = (props: LogViewerProps) => {
         }
       >
         <Text type="secondary" style={{ fontSize: 12 }}>
-          共 {filteredSessions.length} 个会话，{records.length} 条记录
+          共 {groupedRecords.length} 个会话，{records.length} 条记录
         </Text>
         <Space style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
           <Tooltip title="搜索 Prompt (Cmd+F / Ctrl+F)">
@@ -436,11 +393,11 @@ const LogViewer = (props: LogViewerProps) => {
         style={{
           flex: 1,
           overflow: 'auto',
-          padding: '16px 24px',
+          padding: 16,
           minHeight: 0
         }}
       >
-        {filteredSessions.length === 0 ? (
+        {groupedRecords.length === 0 ? (
           <Empty
             image={Empty.PRESENTED_IMAGE_SIMPLE}
             description={
@@ -454,105 +411,203 @@ const LogViewer = (props: LogViewerProps) => {
             style={{ marginTop: 100 }}
           />
         ) : (
-          <List
-            grid={{ gutter: 16, column: 2 }}
-            dataSource={filteredSessions}
-            renderItem={session => (
-              <List.Item style={{ marginBottom: 8 }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            {groupedRecords.map(group => {
+              const isExpanded = expandedSessions.has(group.sessionId)
+              const showCollapse = group.records.length > 3
+              const displayRecords =
+                isExpanded || !showCollapse ? group.records : group.records.slice(0, 3)
+
+              return (
                 <Card
-                  hoverable
+                  key={group.sessionId}
                   size="small"
-                  onClick={() => handleSessionClick(session)}
                   title={
-                    <Space>
-                      <Tag color="blue">{getProjectName(session.project)}</Tag>
-                      {session.sessionId && !session.sessionId.startsWith('single-') && (
-                        <Text code style={{ fontSize: 11 }}>
-                          {session.sessionId.slice(0, 8)}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <FolderOpenOutlined style={{ fontSize: 14, color: themeVars.primary }} />
+                      <Text strong style={{ fontSize: 14 }}>
+                        {getProjectName(group.project)}
+                      </Text>
+                      {group.sessionId && !group.sessionId.startsWith('single-') && (
+                        <Text code style={{ fontSize: 11, color: themeVars.textTertiary }}>
+                          #{group.sessionId.slice(0, 8)}
                         </Text>
                       )}
+                      <Tag color="default" style={{ fontSize: 11 }}>
+                        {group.records.length}条
+                      </Tag>
+                    </div>
+                  }
+                  extra={
+                    <Space size="small">
+                      <Text type="secondary" style={{ fontSize: 12 }}>
+                        {formatTime(group.latestTimestamp)}
+                      </Text>
+                      <Tooltip title="打开文件夹">
+                        <Button
+                          type="text"
+                          size="small"
+                          icon={<FolderOpenOutlined />}
+                          onClick={() => handleOpenFolder(group.project)}
+                        />
+                      </Tooltip>
+                      <Tooltip title="AI 总结此会话">
+                        <Button
+                          type="text"
+                          size="small"
+                          icon={<StarOutlined />}
+                          loading={summarizing}
+                          onClick={() => handleSummarizeSession(group)}
+                        />
+                      </Tooltip>
                     </Space>
                   }
-                  extra={<ClockCircleOutlined style={{ color: themeVars.textTertiary }} />}
-                  actions={[
-                    <Tooltip key="summarize" title="AI 总结">
-                      <Button
-                        type="text"
-                        size="small"
-                        icon={<StarOutlined />}
-                        loading={summarizing}
-                        onClick={e => {
-                          e.stopPropagation()
-                          handleSummarizeSession(session)
-                        }}
-                      >
-                        AI 总结
-                      </Button>
-                    </Tooltip>,
-                    <Tooltip key="folder" title="打开项目文件夹">
-                      <Button
-                        type="text"
-                        size="small"
-                        icon={<FolderOpenOutlined />}
-                        onClick={e => {
-                          e.stopPropagation()
-                          handleOpenFolder(session.project)
-                        }}
-                      >
-                        打开
-                      </Button>
-                    </Tooltip>
-                  ]}
+                  styles={{ body: { padding: 12 } }}
                 >
-                  <Space direction="vertical" size="small" style={{ width: '100%' }}>
-                    {/* 时间和记录数 */}
-                    <Text type="secondary" style={{ fontSize: 12 }}>
-                      {formatTime(session.latestTimestamp)}
-                    </Text>
-                    <Space wrap size={4}>
-                      <Tag style={{ fontSize: 11 }}>
-                        <CommentOutlined style={{ marginRight: 4 }} />
-                        {session.recordCount} 轮对话
-                      </Tag>
-                    </Space>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {displayRecords.map((record, recordIndex) => {
+                      const hasImages = record.images && record.images.length > 0
+                      const hasCopyText =
+                        record.pastedContents && Object.keys(record.pastedContents).length > 0
+                      const isClickable = !group.sessionId.startsWith('single-')
 
-                    {/* 首条 Prompt 预览 */}
-                    {session.firstPrompt && (
-                      <Text
-                        style={{
-                          fontSize: 12,
-                          color: themeVars.textSecondary,
-                          display: '-webkit-box',
-                          WebkitLineClamp: 2,
-                          WebkitBoxOrient: 'vertical',
-                          overflow: 'hidden',
-                          lineHeight: '18px'
-                        }}
+                      return (
+                        <div
+                          key={recordIndex}
+                          style={{
+                            padding: '12px 16px',
+                            borderRadius: 8,
+                            border: `1px solid ${darkMode ? '#303030' : '#f0f0f0'}`,
+                            background: darkMode ? '#1a1a1a' : '#fafafa',
+                            cursor: isClickable ? 'pointer' : 'default',
+                            transition: 'all 0.2s'
+                          }}
+                          onClick={() => isClickable && handlePromptClick(record, group)}
+                          onMouseEnter={e => {
+                            if (!isClickable) return
+                            ;(e.currentTarget as HTMLDivElement).style.borderColor = '#1677ff'
+                            ;(e.currentTarget as HTMLDivElement).style.background = darkMode ? '#1e2a3a' : '#f0f5ff'
+                          }}
+                          onMouseLeave={e => {
+                            if (!isClickable) return
+                            ;(e.currentTarget as HTMLDivElement).style.borderColor = darkMode ? '#303030' : '#f0f0f0'
+                            ;(e.currentTarget as HTMLDivElement).style.background = darkMode ? '#1a1a1a' : '#fafafa'
+                          }}
+                        >
+                          {/* 头部：轮次编号 + 时间 + 资源标签 */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                            <Tag color="blue" style={{ fontSize: 11 }}>
+                              第 {recordIndex + (isExpanded || !showCollapse ? 1 : 1)} 轮
+                            </Tag>
+                            <Text type="secondary" style={{ fontSize: 11 }}>
+                              <ClockCircleOutlined style={{ marginRight: 4 }} />
+                              {formatTime(record.timestamp)}
+                            </Text>
+                            <div style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
+                              {hasImages && (
+                                <Tag style={{ fontSize: 10 }}>
+                                  <FileImageOutlined style={{ marginRight: 2 }} />
+                                  {record.images!.length} 张图片
+                                </Tag>
+                              )}
+                              {hasCopyText && (
+                                <Tag style={{ fontSize: 10 }}>
+                                  <FileTextOutlined style={{ marginRight: 2 }} />
+                                  {Object.keys(record.pastedContents!).length} 个 Copy Text
+                                </Tag>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Prompt 文本预览 */}
+                          <Text
+                            style={{
+                              fontSize: 13,
+                              lineHeight: '20px',
+                              display: '-webkit-box',
+                              WebkitLineClamp: 3,
+                              WebkitBoxOrient: 'vertical',
+                              overflow: 'hidden'
+                            }}
+                          >
+                            {record.display || '(空消息)'}
+                          </Text>
+
+                          {/* 底部：AI 回复提示 + 查看完整对话 / 复制 */}
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              marginTop: 6
+                            }}
+                          >
+                            <Text type="secondary" style={{ fontSize: 11 }}>
+                              1 条 AI 回复
+                            </Text>
+                            <Space size={8}>
+                              {isClickable && (
+                                <Text
+                                  type="secondary"
+                                  style={{ fontSize: 11, cursor: 'pointer' }}
+                                >
+                                  点击查看完整对话 <RightOutlined style={{ fontSize: 10 }} />
+                                </Text>
+                              )}
+                              <Tooltip title="复制 Prompt">
+                                <Button
+                                  type="text"
+                                  size="small"
+                                  icon={<CopyOutlined />}
+                                  onClick={e => {
+                                    e.stopPropagation()
+                                    handleCopy(record.display || '')
+                                  }}
+                                  style={{ fontSize: 11, padding: '0 4px', height: 20 }}
+                                >
+                                  复制
+                                </Button>
+                              </Tooltip>
+                            </Space>
+                          </div>
+                        </div>
+                      )
+                    })}
+
+                    {/* 展开/收起按钮 */}
+                    {showCollapse && (
+                      <Button
+                        type="link"
+                        size="small"
+                        icon={isExpanded ? <UpOutlined /> : <DownOutlined />}
+                        onClick={() => toggleSession(group.sessionId)}
+                        style={{ padding: 0, fontSize: 12 }}
                       >
-                        {truncateText(session.firstPrompt, 120)}
-                      </Text>
+                        {isExpanded ? '收起' : `展开剩余 ${group.records.length - 3} 条`}
+                      </Button>
                     )}
 
-                    {/* 项目路径 */}
-                    <Text
-                      code
+                    {/* Session 底部路径 */}
+                    <div
                       style={{
+                        padding: '8px 12px',
+                        background: themeVars.codeBg,
+                        borderRadius: 4,
                         fontSize: 11,
+                        color: themeVars.textTertiary,
+                        fontFamily: 'monospace',
                         cursor: 'pointer',
-                        color: themeVars.textTertiary
+                        wordBreak: 'break-all'
                       }}
-                      onClick={e => {
-                        e.stopPropagation()
-                        handleOpenFolder(session.project)
-                      }}
+                      onClick={() => handleOpenFolder(group.project)}
                     >
-                      {truncateText(session.project, 40)}
-                    </Text>
-                  </Space>
+                      {group.project}
+                    </div>
+                  </div>
                 </Card>
-              </List.Item>
-            )}
-          />
+              )
+            })}
+          </div>
         )}
       </div>
 
@@ -583,14 +638,60 @@ const LogViewer = (props: LogViewerProps) => {
           } as React.CSSProperties
         }}
       >
-        <div style={{ fontSize: 14, lineHeight: 1.8 }}>{renderMarkdown(summaryContent)}</div>
+        <div style={{ fontSize: 14, lineHeight: 1.8 }}>
+          <ReactMarkdown
+            components={{
+              code({ node, inline, className, children, ...codeProps }: any) {
+                const match = /language-(\w+)/.exec(className || '')
+                return !inline && match ? (
+                  <SyntaxHighlighter
+                    style={darkMode ? vscDarkPlus : prism}
+                    language={match[1]}
+                    PreTag="div"
+                    customStyle={{
+                      margin: 0,
+                      borderRadius: 6,
+                      fontSize: 13,
+                      background: themeVars.bgCode
+                    }}
+                    {...codeProps}
+                  >
+                    {String(children).replace(/\n$/, '')}
+                  </SyntaxHighlighter>
+                ) : (
+                  <code
+                    style={{
+                      background: themeVars.codeBg,
+                      padding: '2px 6px',
+                      borderRadius: 3,
+                      fontSize: 12,
+                      fontFamily: 'monospace'
+                    }}
+                    {...codeProps}
+                  >
+                    {children}
+                  </code>
+                )
+              },
+              p({ children }) {
+                return <p style={{ marginBottom: 8, lineHeight: 1.6 }}>{children}</p>
+              },
+              pre({ children }) {
+                return <>{children}</>
+              }
+            }}
+          >
+            {summaryContent}
+          </ReactMarkdown>
+        </div>
       </ElectronModal>
 
-      {/* 完整对话弹窗（按轮次浏览） */}
+      {/* 完整对话弹窗（按轮次浏览，自动定位到对应 Prompt） */}
       <ConversationDetailModal
         visible={conversationModalVisible}
         sessionId={conversationSessionId}
         project={conversationProject}
+        initialTimestamp={conversationTimestamp}
         onClose={() => setConversationModalVisible(false)}
       />
 
@@ -612,17 +713,14 @@ const LogViewer = (props: LogViewerProps) => {
         }}
       >
         <div style={{ padding: '16px 20px' }}>
-          {/* 搜索输入框 */}
           <div style={{ marginBottom: 16 }}>
             <Input
               ref={searchInputRef}
               size="large"
-              placeholder="搜索 Prompt 内容、项目名称..."
+              placeholder="搜索 Prompt 内容..."
               value={searchKeyword}
               onChange={e => setSearchKeyword(e.target.value)}
-              prefix={
-                <SearchOutlined style={{ fontSize: 18, color: themeVars.textSecondary }} />
-              }
+              prefix={<SearchOutlined style={{ fontSize: 18, color: themeVars.textSecondary }} />}
               suffix={
                 searchKeyword && (
                   <CloseOutlined
@@ -631,14 +729,10 @@ const LogViewer = (props: LogViewerProps) => {
                   />
                 )
               }
-              style={{
-                borderRadius: 8,
-                fontSize: 15
-              }}
+              style={{ borderRadius: 8, fontSize: 15 }}
             />
           </div>
 
-          {/* 搜索结果 */}
           <div style={{ maxHeight: '400px', overflow: 'auto' }}>
             {!searchKeyword ? (
               <div
@@ -663,15 +757,7 @@ const LogViewer = (props: LogViewerProps) => {
                 {searchResults.map((result, index) => (
                   <div
                     key={index}
-                    onClick={() => {
-                      setSearchVisible(false)
-                      setSearchKeyword('')
-                      if (result.sessionId) {
-                        setConversationSessionId(result.sessionId)
-                        setConversationProject(result.project)
-                        setConversationModalVisible(true)
-                      }
-                    }}
+                    onClick={() => handleViewSearchResult(result)}
                     style={{
                       padding: '12px 16px',
                       background: themeVars.bgSection,
@@ -699,11 +785,11 @@ const LogViewer = (props: LogViewerProps) => {
                         gap: 8
                       }}
                     >
-                      <Tag color="blue" style={{ fontSize: 10 }}>
-                        {getProjectName(result.project)}
-                      </Tag>
                       <ClockCircleOutlined style={{ fontSize: 11 }} />
-                      {formatTime(result.record.timestamp)}
+                      {formatTimeShort(result.record.timestamp)}
+                      <span style={{ opacity: 0.5 }}>·</span>
+                      <FolderOpenOutlined style={{ fontSize: 11 }} />
+                      {getProjectName(result.project)}
                     </div>
                     <div
                       style={{
@@ -735,7 +821,6 @@ const LogViewer = (props: LogViewerProps) => {
             )}
           </div>
 
-          {/* 底部匹配统计 */}
           {searchResults.length > 0 && (
             <div
               style={{
@@ -749,8 +834,6 @@ const LogViewer = (props: LogViewerProps) => {
               }}
             >
               找到 {searchResults.length} 条匹配结果
-              {filteredSessions.length > 0 &&
-                `，涉及 ${filteredSessions.length} 个会话`}
             </div>
           )}
         </div>

@@ -887,7 +887,7 @@ const HistoryViewer = (props: HistoryViewerProps) => {
             <Input
               ref={searchInputRef}
               size="large"
-              placeholder="搜索 Prompt 内容、项目名称或 Session ID..."
+              placeholder="搜索 Prompt 内容..."
               value={searchKeyword}
               onChange={e => setSearchKeyword(e.target.value)}
               prefix={<SearchOutlined style={{ fontSize: 18, color: themeVars.textSecondary }} />}
@@ -904,7 +904,7 @@ const HistoryViewer = (props: HistoryViewerProps) => {
           {!searchKeyword ? (
             <div style={{ textAlign: 'center', padding: '20px', color: themeVars.textTertiary }}>
               <SearchOutlined style={{ fontSize: 36, marginBottom: 8, opacity: 0.25 }} />
-              <div style={{ fontSize: 13, marginBottom: 4 }}>搜索 Prompt 内容、项目名称或 Session ID</div>
+              <div style={{ fontSize: 13, marginBottom: 4 }}>输入关键词搜索 Prompt 内容</div>
               <div style={{ fontSize: 12, opacity: 0.7 }}>提示：按 ESC 关闭搜索</div>
             </div>
           ) : (
