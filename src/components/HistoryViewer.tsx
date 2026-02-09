@@ -35,7 +35,9 @@ import {
   ThunderboltOutlined,
   WarningOutlined,
   BarChartOutlined,
-  DollarOutlined
+  DollarOutlined,
+  SwapOutlined,
+  CheckOutlined
 } from '@ant-design/icons'
 import Highlighter from 'react-highlight-words'
 import ReactMarkdown from 'react-markdown'
@@ -121,6 +123,28 @@ function HistoryViewer({ onOpenSettings, darkMode, onSendToChat }: HistoryViewer
   const [conversationModalVisible, setConversationModalVisible] = useState(false)
   const [conversationSessionId, setConversationSessionId] = useState('')
   const [conversationProject, setConversationProject] = useState('')
+
+  // 会话对比模式
+  const [compareMode, setCompareMode] = useState(false)
+  const [selectedForCompare, setSelectedForCompare] = useState<Set<string>>(new Set())
+  const [compareModalVisible, setCompareModalVisible] = useState(false)
+
+  /* 切换会话对比选中 */
+  const toggleCompareSession = (sessionId: string) => {
+    setSelectedForCompare(prev => {
+      const next = new Set(prev)
+      if (next.has(sessionId)) {
+        next.delete(sessionId)
+      } else {
+        if (next.size >= 5) {
+          message.warning('最多选择 5 个会话进行对比')
+          return prev
+        }
+        next.add(sessionId)
+      }
+      return next
+    })
+  }
 
   // Session Modal 关闭处理
   const handleCloseSessionModal = () => {
@@ -674,6 +698,30 @@ function HistoryViewer({ onOpenSettings, darkMode, onSendToChat }: HistoryViewer
             />
           </Tooltip>
           <Button
+            type={compareMode ? 'primary' : 'default'}
+            icon={<SwapOutlined />}
+            onClick={() => {
+              if (compareMode) {
+                setCompareMode(false)
+                setSelectedForCompare(new Set())
+              } else {
+                setCompareMode(true)
+              }
+            }}
+            size="small"
+          >
+            {compareMode ? `对比 (${selectedForCompare.size})` : '对比'}
+          </Button>
+          {compareMode && selectedForCompare.size >= 2 && (
+            <Button
+              type="primary"
+              size="small"
+              onClick={() => setCompareModalVisible(true)}
+            >
+              开始对比
+            </Button>
+          )}
+          <Button
             icon={<ReloadOutlined />}
             onClick={loadHistoryMetadata}
             loading={loading}
@@ -859,9 +907,34 @@ function HistoryViewer({ onOpenSettings, darkMode, onSendToChat }: HistoryViewer
                     <Card
                       hoverable
                       size="small"
-                      onClick={() => handleSessionClick(group)}
+                      onClick={() => {
+                        if (compareMode) {
+                          toggleCompareSession(group.sessionId)
+                        } else {
+                          handleSessionClick(group)
+                        }
+                      }}
                       title={
                         <Space>
+                          {compareMode && (
+                            <div
+                              style={{
+                                width: 18,
+                                height: 18,
+                                borderRadius: 4,
+                                border: `2px solid ${selectedForCompare.has(group.sessionId) ? '#1677ff' : '#d9d9d9'}`,
+                                background: selectedForCompare.has(group.sessionId) ? '#1677ff' : 'transparent',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                transition: 'all 0.2s'
+                              }}
+                            >
+                              {selectedForCompare.has(group.sessionId) && (
+                                <CheckOutlined style={{ color: '#fff', fontSize: 10 }} />
+                              )}
+                            </div>
+                          )}
                           <Tag color="blue">{getProjectName(group.project)}</Tag>
                           {group.sessionId && !group.sessionId.startsWith('single-') && (
                             <Text code style={{ fontSize: 11 }}>
@@ -871,6 +944,10 @@ function HistoryViewer({ onOpenSettings, darkMode, onSendToChat }: HistoryViewer
                         </Space>
                       }
                       extra={<ClockCircleOutlined style={{ color: themeVars.textTertiary }} />}
+                      style={compareMode && selectedForCompare.has(group.sessionId)
+                        ? { borderColor: '#1677ff', borderWidth: 2 }
+                        : undefined
+                      }
                       actions={[
                         <Button
                           key="full-conversation"
@@ -1449,6 +1526,197 @@ function HistoryViewer({ onOpenSettings, darkMode, onSendToChat }: HistoryViewer
         project={conversationProject}
         onClose={() => setConversationModalVisible(false)}
       />
+
+      {/* 会话对比弹窗 */}
+      <Modal
+        title={
+          <Space>
+            <SwapOutlined />
+            <span>会话对比</span>
+            <Tag color="blue">{selectedForCompare.size} 个会话</Tag>
+          </Space>
+        }
+        open={compareModalVisible}
+        onCancel={() => setCompareModalVisible(false)}
+        width={950}
+        footer={[
+          <Button key="close" type="primary" onClick={() => setCompareModalVisible(false)}>
+            关闭
+          </Button>
+        ]}
+      >
+        {(() => {
+          const compareData = groupedRecords.filter(g => selectedForCompare.has(g.sessionId))
+          if (compareData.length < 2) return <Empty description="请至少选择 2 个会话" />
+
+          const metrics = [
+            { label: '消息数', key: 'recordCount', format: (v: number) => v.toString() },
+            { label: 'Token 总量', key: 'total_tokens', format: (v: number) => v?.toLocaleString() || '-' },
+            { label: '成本 (USD)', key: 'total_cost_usd', format: (v: number) => v ? `$${v.toFixed(4)}` : '-' },
+            { label: '工具调用', key: 'tool_use_count', format: (v: number) => v?.toLocaleString() || '-' }
+          ]
+
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {/* 并排统计对比 */}
+              <Card size="small" title={<Text style={{ fontSize: 13 }}>统计对比</Text>}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                  {/* 表头 */}
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: `120px repeat(${compareData.length}, 1fr)`,
+                      gap: 8,
+                      padding: '8px 12px',
+                      borderBottom: `1px solid ${themeVars.border}`,
+                      fontSize: 12,
+                      fontWeight: 600,
+                      color: themeVars.textSecondary
+                    }}
+                  >
+                    <div>指标</div>
+                    {compareData.map(s => (
+                      <div key={s.sessionId} style={{ textAlign: 'center' }}>
+                        <Tag color="blue" style={{ fontSize: 10 }}>{getProjectName(s.project)}</Tag>
+                        <br />
+                        <Text code style={{ fontSize: 10 }}>{s.sessionId.slice(0, 8)}</Text>
+                      </div>
+                    ))}
+                  </div>
+                  {/* 行 - 时间 */}
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: `120px repeat(${compareData.length}, 1fr)`,
+                      gap: 8,
+                      padding: '6px 12px',
+                      fontSize: 12,
+                      background: themeVars.bgSection,
+                      borderRadius: 4
+                    }}
+                  >
+                    <div style={{ fontWeight: 500 }}>时间</div>
+                    {compareData.map(s => (
+                      <div key={s.sessionId} style={{ textAlign: 'center', fontSize: 11, color: themeVars.textSecondary }}>
+                        {formatTime(s.latestTimestamp)}
+                      </div>
+                    ))}
+                  </div>
+                  {/* 数据行 */}
+                  {metrics.map(metric => {
+                    const values = compareData.map(s => (s as any)[metric.key] as number || 0)
+                    const maxVal = Math.max(...values)
+                    return (
+                      <div
+                        key={metric.label}
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: `120px repeat(${compareData.length}, 1fr)`,
+                          gap: 8,
+                          padding: '6px 12px',
+                          fontSize: 12,
+                          background: themeVars.bgSection,
+                          borderRadius: 4
+                        }}
+                      >
+                        <div style={{ fontWeight: 500 }}>{metric.label}</div>
+                        {compareData.map(s => {
+                          const val = (s as any)[metric.key] as number || 0
+                          const isMax = val === maxVal && compareData.length > 1 && val > 0
+                          return (
+                            <div key={s.sessionId} style={{ textAlign: 'center', fontWeight: isMax ? 600 : 400 }}>
+                              {metric.format(val)}
+                              {isMax && (
+                                <Tag color="gold" style={{ fontSize: 10, marginLeft: 4, padding: '0 3px', lineHeight: '14px' }}>
+                                  MAX
+                                </Tag>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )
+                  })}
+                </div>
+              </Card>
+
+              {/* 工具使用对比 */}
+              {compareData.some(s => s.tool_usage && Object.keys(s.tool_usage).length > 0) && (
+                <Card size="small" title={<Text style={{ fontSize: 13 }}>工具使用对比</Text>}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                    {(() => {
+                      const allTools = new Set<string>()
+                      compareData.forEach(s => {
+                        if (s.tool_usage) Object.keys(s.tool_usage).forEach(t => allTools.add(t))
+                      })
+                      const toolList = Array.from(allTools).sort()
+
+                      return (
+                        <>
+                          <div
+                            style={{
+                              display: 'grid',
+                              gridTemplateColumns: `120px repeat(${compareData.length}, 1fr)`,
+                              gap: 8,
+                              padding: '6px 12px',
+                              borderBottom: `1px solid ${themeVars.border}`,
+                              fontSize: 12,
+                              fontWeight: 600,
+                              color: themeVars.textSecondary
+                            }}
+                          >
+                            <div>工具</div>
+                            {compareData.map(s => (
+                              <div key={s.sessionId} style={{ textAlign: 'center' }}>
+                                <Text code style={{ fontSize: 10 }}>{s.sessionId.slice(0, 8)}</Text>
+                              </div>
+                            ))}
+                          </div>
+                          {toolList.map(tool => {
+                            const values = compareData.map(s => s.tool_usage?.[tool] || 0)
+                            const maxVal = Math.max(...values)
+                            return (
+                              <div
+                                key={tool}
+                                style={{
+                                  display: 'grid',
+                                  gridTemplateColumns: `120px repeat(${compareData.length}, 1fr)`,
+                                  gap: 8,
+                                  padding: '4px 12px',
+                                  fontSize: 12,
+                                  borderRadius: 4
+                                }}
+                              >
+                                <div style={{ fontFamily: 'monospace', fontSize: 11 }}>{tool}</div>
+                                {compareData.map(s => {
+                                  const val = s.tool_usage?.[tool] || 0
+                                  const isMax = val === maxVal && val > 0
+                                  return (
+                                    <div
+                                      key={s.sessionId}
+                                      style={{
+                                        textAlign: 'center',
+                                        fontWeight: isMax ? 600 : 400,
+                                        color: val === 0 ? themeVars.textTertiary : themeVars.text
+                                      }}
+                                    >
+                                      {val > 0 ? val : '-'}
+                                    </div>
+                                  )
+                                })}
+                              </div>
+                            )
+                          })}
+                        </>
+                      )
+                    })()}
+                  </div>
+                </Card>
+              )}
+            </div>
+          )
+        })()}
+      </Modal>
     </div>
   )
 }
