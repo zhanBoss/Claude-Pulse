@@ -26,9 +26,10 @@ import {
 } from '@ant-design/icons'
 import { FileEditSnapshot } from '../types'
 import { getThemeVars } from '../theme'
+import ConversationDetailModal from './ConversationDetailModal'
 import dayjs from 'dayjs'
 
-const { Text, Paragraph } = Typography
+const { Text } = Typography
 
 interface RecentEditsViewProps {
   darkMode: boolean
@@ -47,6 +48,11 @@ const RecentEditsView = (props: RecentEditsViewProps) => {
   const [previewLoading, setPreviewLoading] = useState(false)
   const [previewContent, setPreviewContent] = useState('')
   const [previewFilePath, setPreviewFilePath] = useState('')
+
+  // 完整对话弹窗
+  const [conversationModalVisible, setConversationModalVisible] = useState(false)
+  const [conversationSessionId, setConversationSessionId] = useState('')
+  const [conversationProject, setConversationProject] = useState('')
 
   useEffect(() => {
     loadEdits()
@@ -367,17 +373,32 @@ const RecentEditsView = (props: RecentEditsViewProps) => {
                             </Space>
                           </div>
                         </div>
-                        <Tooltip title="查看快照内容">
-                          <Button
-                            type="text"
-                            size="small"
-                            icon={<EyeOutlined />}
-                            onClick={e => {
-                              e.stopPropagation()
-                              handleViewSnapshot(file.sessionId, file.messageId, file.filePath)
-                            }}
-                          />
-                        </Tooltip>
+                        <Space direction="vertical" size={0}>
+                          <Tooltip title="查看快照内容">
+                            <Button
+                              type="text"
+                              size="small"
+                              icon={<EyeOutlined />}
+                              onClick={e => {
+                                e.stopPropagation()
+                                handleViewSnapshot(file.sessionId, file.messageId, file.filePath)
+                              }}
+                            />
+                          </Tooltip>
+                          <Tooltip title="查看相关会话">
+                            <Button
+                              type="text"
+                              size="small"
+                              icon={<FileOutlined />}
+                              onClick={e => {
+                                e.stopPropagation()
+                                setConversationSessionId(file.sessionId)
+                                setConversationProject(file.project)
+                                setConversationModalVisible(true)
+                              }}
+                            />
+                          </Tooltip>
+                        </Space>
                       </div>
                     </Card>
                   </List.Item>
@@ -442,6 +463,14 @@ const RecentEditsView = (props: RecentEditsViewProps) => {
           </pre>
         )}
       </Modal>
+
+      {/* 完整对话弹窗 */}
+      <ConversationDetailModal
+        visible={conversationModalVisible}
+        sessionId={conversationSessionId}
+        project={conversationProject}
+        onClose={() => setConversationModalVisible(false)}
+      />
     </div>
   )
 }
