@@ -184,6 +184,18 @@ export interface ClaudeConfigBackup {
   updatedAt: number
 }
 
+// Token 价格配置（用户自定义）
+export interface TokenPricingConfig {
+  // 输入 token 价格（USD per Million Tokens）
+  inputPrice: number
+  // 输出 token 价格（USD per Million Tokens）
+  outputPrice: number
+  // 缓存写入价格（USD per Million Tokens）
+  cacheWritePrice: number
+  // 缓存读取价格（USD per Million Tokens）
+  cacheReadPrice: number
+}
+
 // 自动清理缓存配置
 export interface AutoCleanupConfig {
   // 是否启用自动清理
@@ -210,6 +222,8 @@ export interface AppSettings {
   claudeConfigBackups?: ClaudeConfigBackup[]
   // 自动清理缓存配置
   autoCleanup?: AutoCleanupConfig
+  // Token 价格配置（用户自定义）
+  tokenPricing?: TokenPricingConfig
 }
 
 export interface ExportOptions {

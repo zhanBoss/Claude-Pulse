@@ -118,7 +118,7 @@ const ConfigEditor = forwardRef<ConfigEditorRef, ConfigEditorProps>(({ darkMode 
   if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 150 }}>
-        <Spin size="large" tip="加载配置中..." />
+        <Spin size="large" tip="加载配置中..."><div style={{ padding: 40 }} /></Spin>
       </div>
     )
   }

@@ -691,7 +691,7 @@ const HistoryViewer = (props: HistoryViewerProps) => {
           {/* Session 列表 */}
           {loading ? (
             <div style={{ textAlign: 'center', padding: 60 }}>
-              <Spin size="large" tip="加载中..." />
+              <Spin size="large" tip="加载中..."><div style={{ padding: 40 }} /></Spin>
             </div>
           ) : groupedRecords.length === 0 ? (
             <Empty description="所选时间范围内没有记录" style={{ padding: 60 }} />

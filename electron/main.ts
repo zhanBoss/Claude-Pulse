@@ -35,51 +35,10 @@ let autoCleanupTimer: ReturnType<typeof setInterval> | null = null
 // ========== 粘贴内容展开工具函数 ==========
 
 /**
- * Claude API 定价模型（2024年1月更新）
- * 价格单位：USD per Million Tokens (MTok)
- */
-const CLAUDE_PRICING = {
-  // Claude 3.5 Sonnet (claude-3-5-sonnet-20241022)
-  'claude-3-5-sonnet-20241022': {
-    input: 3.0, // $3 per MTok
-    output: 15.0, // $15 per MTok
-    cache_write: 3.75, // $3.75 per MTok
-    cache_read: 0.3 // $0.30 per MTok
-  },
-  // Claude 3.5 Haiku (claude-3-5-haiku-20241022)
-  'claude-3-5-haiku-20241022': {
-    input: 1.0, // $1 per MTok
-    output: 5.0, // $5 per MTok
-    cache_write: 1.25, // $1.25 per MTok
-    cache_read: 0.1 // $0.10 per MTok
-  },
-  // Claude 3 Opus
-  'claude-3-opus-20240229': {
-    input: 15.0,
-    output: 75.0,
-    cache_write: 18.75,
-    cache_read: 1.5
-  },
-  // Claude 3 Sonnet
-  'claude-3-sonnet-20240229': {
-    input: 3.0,
-    output: 15.0,
-    cache_write: 3.75,
-    cache_read: 0.3
-  },
-  // Claude 3 Haiku
-  'claude-3-haiku-20240307': {
-    input: 0.25,
-    output: 1.25,
-    cache_write: 0.3,
-    cache_read: 0.03
-  }
-} as const
-
-/**
  * 计算单次 API 调用的成本（USD）
+ * 基于用户配置的价格或默认价格（Claude 3.5 Sonnet）
  * @param usage - Token 使用量
- * @param model - 模型名称
+ * @param customPricing - 用户自定义价格配置（可选）
  * @returns 成本（USD）
  */
 const calculateCost = (
@@ -89,15 +48,25 @@ const calculateCost = (
     cache_creation_input_tokens?: number
     cache_read_input_tokens?: number
   },
-  model?: string
+  customPricing?: {
+    inputPrice: number
+    outputPrice: number
+    cacheWritePrice: number
+    cacheReadPrice: number
+  }
 ): number => {
   if (!usage) return 0
 
-  // 如果没有指定模型或模型不在定价表中，使用默认定价（Claude 3.5 Sonnet）
-  const pricing =
-    model && model in CLAUDE_PRICING
-      ? CLAUDE_PRICING[model as keyof typeof CLAUDE_PRICING]
-      : CLAUDE_PRICING['claude-3-5-sonnet-20241022']
+  // 默认价格：Claude 3.5 Sonnet (2024年1月价格)
+  const defaultPricing = {
+    inputPrice: 3.0,      // $3 per MTok
+    outputPrice: 15.0,    // $15 per MTok
+    cacheWritePrice: 3.75, // $3.75 per MTok
+    cacheReadPrice: 0.3    // $0.30 per MTok
+  }
+
+  // 使用用户配置的价格，如果没有则使用默认价格
+  const pricing = customPricing || defaultPricing
 
   const inputTokens = usage.input_tokens || 0
   const outputTokens = usage.output_tokens || 0
@@ -106,10 +75,10 @@ const calculateCost = (
 
   // 计算各部分成本（单位：USD）
   // 价格是 per Million Tokens，所以除以 1,000,000
-  const inputCost = (inputTokens * pricing.input) / 1_000_000
-  const outputCost = (outputTokens * pricing.output) / 1_000_000
-  const cacheWriteCost = (cacheWriteTokens * pricing.cache_write) / 1_000_000
-  const cacheReadCost = (cacheReadTokens * pricing.cache_read) / 1_000_000
+  const inputCost = (inputTokens * pricing.inputPrice) / 1_000_000
+  const outputCost = (outputTokens * pricing.outputPrice) / 1_000_000
+  const cacheWriteCost = (cacheWriteTokens * pricing.cacheWritePrice) / 1_000_000
+  const cacheReadCost = (cacheReadTokens * pricing.cacheReadPrice) / 1_000_000
 
   return inputCost + outputCost + cacheWriteCost + cacheReadCost
 }
@@ -848,6 +817,10 @@ ipcMain.handle('read-history-metadata', async () => {
       return { success: true, sessions: [] }
     }
 
+    // 获取用户配置的 Token 价格
+    const settings = (store.get('appSettings') || {}) as any
+    const tokenPricing = settings.tokenPricing || undefined
+
     /* 检查缓存是否有效 */
     const currentStats = fs.statSync(HISTORY_FILE)
     if (
@@ -890,7 +863,10 @@ ipcMain.handle('read-history-metadata', async () => {
 
         if (isNaN(timestamp)) continue
 
-        const sessionId = record.sessionId || `single-${timestamp}`
+        // 使用记录中的 sessionId（UUID 格式），如果缺失则跳过该记录
+        const sessionId = record.sessionId
+        if (!sessionId) continue // 没有 sessionId 的记录无法定位会话文件
+
         const project = record.project || ''
 
         if (sessionMap.has(sessionId)) {
@@ -964,19 +940,18 @@ ipcMain.handle('read-history-metadata', async () => {
               hasErrors = true
             }
 
-            // 提取助手响应中的 Token 使用量和成本
-            if (entry.response && entry.response.usage) {
-              const usage = entry.response.usage
-              const model = entry.response.model
+            // 提取助手响应中的 Token 使用量和成本（数据在 message.usage 中）
+            if (entry.message && entry.message.usage) {
+              const usage = entry.message.usage
               totalTokens += (usage.input_tokens || 0) + (usage.output_tokens || 0)
-              totalCost += calculateCost(usage, model)
+              totalCost += calculateCost(usage, tokenPricing)
             }
 
-            // 检查工具调用并统计工具类型
-            if (entry.response && entry.response.content) {
-              const content = Array.isArray(entry.response.content)
-                ? entry.response.content
-                : [entry.response.content]
+            // 检查工具调用并统计工具类型（数据在 message.content 中）
+            if (entry.message && entry.message.content) {
+              const content = Array.isArray(entry.message.content)
+                ? entry.message.content
+                : [entry.message.content]
 
               for (const c of content) {
                 if (c.type === 'tool_use') {
@@ -1091,6 +1066,10 @@ ipcMain.handle('read-project-statistics', async () => {
       return { success: true, projects: [] }
     }
 
+    // 获取用户配置的 Token 价格
+    const settings = (store.get('appSettings') || {}) as any
+    const tokenPricing = settings.tokenPricing || undefined
+
     // 读取 history.jsonl 文件
     const content = fs.readFileSync(HISTORY_FILE, 'utf-8')
     const lines = content.split('\n').filter(line => line.trim())
@@ -1145,7 +1124,7 @@ ipcMain.handle('read-project-statistics', async () => {
                     (entry.response.usage.cache_read_input_tokens || 0)
 
                   // 计算成本
-                  totalCost += calculateCost(entry.response.usage, entry.response.model)
+                  totalCost += calculateCost(entry.response.usage, tokenPricing)
                 }
 
                 // 检查工具调用
@@ -1438,9 +1417,16 @@ ipcMain.handle('read-full-conversation', async (_, sessionId: string, project: s
 
         // 提取用户消息
         if (entry.message && entry.message.role && entry.message.content) {
-          const messageContent = Array.isArray(entry.message.content)
-            ? entry.message.content
-            : [{ type: 'text', text: entry.message.content }]
+          /* 安全处理 content：可能是 string / array / object(如 file-history metadata) */
+          let messageContent: any[]
+          if (Array.isArray(entry.message.content)) {
+            messageContent = entry.message.content
+          } else if (typeof entry.message.content === 'string') {
+            messageContent = [{ type: 'text', text: entry.message.content }]
+          } else {
+            // content 是对象（如 {backupFileName, version, backupTime}）等非标准格式
+            messageContent = [{ type: 'text', text: JSON.stringify(entry.message.content) }]
+          }
 
           // 检查工具结果
           for (const content of messageContent) {
@@ -1459,9 +1445,15 @@ ipcMain.handle('read-full-conversation', async (_, sessionId: string, project: s
 
         // 提取助手响应（包含 Token 和成本信息）
         if (entry.response && entry.response.role && entry.response.content) {
-          const responseContent = Array.isArray(entry.response.content)
-            ? entry.response.content
-            : [{ type: 'text', text: entry.response.content }]
+          /* 安全处理 response content：可能是 string / array / object */
+          let responseContent: any[]
+          if (Array.isArray(entry.response.content)) {
+            responseContent = entry.response.content
+          } else if (typeof entry.response.content === 'string') {
+            responseContent = [{ type: 'text', text: entry.response.content }]
+          } else {
+            responseContent = [{ type: 'text', text: JSON.stringify(entry.response.content) }]
+          }
 
           // 检查工具调用并统计工具类型
           for (const content of responseContent) {

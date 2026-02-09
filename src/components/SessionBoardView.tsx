@@ -162,7 +162,7 @@ const SessionBoardView = (props: SessionBoardViewProps) => {
   if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-        <Spin size="large" tip="加载会话数据..." />
+        <Spin size="large" tip="加载会话数据..."><div style={{ padding: 40 }} /></Spin>
       </div>
     )
   }

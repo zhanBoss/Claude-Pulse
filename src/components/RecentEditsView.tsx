@@ -283,7 +283,7 @@ const RecentEditsView = (props: RecentEditsViewProps) => {
   if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-        <Spin size="large" tip="加载文件编辑记录..." />
+        <Spin size="large" tip="加载文件编辑记录..."><div style={{ padding: 40 }} /></Spin>
       </div>
     )
   }
@@ -551,7 +551,7 @@ const RecentEditsView = (props: RecentEditsViewProps) => {
         )}
         {previewLoading || diffLoading ? (
           <div style={{ textAlign: 'center', padding: 40 }}>
-            <Spin size="large" tip="加载中..." />
+            <Spin size="large" tip="加载中..."><div style={{ padding: 40 }} /></Spin>
           </div>
         ) : showDiff ? (
           /* Diff 视图 */

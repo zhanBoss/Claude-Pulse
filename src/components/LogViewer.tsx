@@ -9,7 +9,8 @@ import {
   message,
   Modal,
   Tooltip,
-  Input
+  Input,
+  Image
 } from 'antd'
 import {
   CopyOutlined,
@@ -35,6 +36,100 @@ import ElectronModal, { getElectronModalConfig } from './ElectronModal'
 import ConversationDetailModal from './ConversationDetailModal'
 
 const { Text } = Typography
+
+/* 图片缩略图组件：异步加载图片并转换为 dataUrl */
+interface ImageThumbnailProps {
+  imagePath: string
+  index: number
+  themeVars: ReturnType<typeof getThemeVars>
+}
+
+const ImageThumbnail = (props: ImageThumbnailProps) => {
+  const { imagePath, index, themeVars } = props
+  const [dataUrl, setDataUrl] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(false)
+
+  useEffect(() => {
+    let mounted = true
+    
+    const loadImage = async () => {
+      try {
+        const result = await window.electronAPI.readImage(imagePath)
+        if (mounted) {
+          if (result.success && result.data) {
+            setDataUrl(result.data)
+          } else {
+            setError(true)
+          }
+          setLoading(false)
+        }
+      } catch {
+        if (mounted) {
+          setError(true)
+          setLoading(false)
+        }
+      }
+    }
+
+    loadImage()
+    return () => { mounted = false }
+  }, [imagePath])
+
+  if (loading) {
+    return (
+      <div
+        style={{
+          width: 60,
+          height: 60,
+          borderRadius: 6,
+          border: `1px solid ${themeVars.itemBorder}`,
+          background: themeVars.bgSection,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}
+      >
+        <FileImageOutlined style={{ fontSize: 20, color: themeVars.textTertiary }} />
+      </div>
+    )
+  }
+
+  if (error || !dataUrl) {
+    return (
+      <div
+        style={{
+          width: 60,
+          height: 60,
+          borderRadius: 6,
+          border: `1px solid ${themeVars.itemBorder}`,
+          background: themeVars.bgSection,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}
+      >
+        <FileImageOutlined style={{ fontSize: 20, color: themeVars.textTertiary, opacity: 0.5 }} />
+      </div>
+    )
+  }
+
+  return (
+    <Image
+      src={dataUrl}
+      alt={`Image #${index + 1}`}
+      width={60}
+      height={60}
+      style={{
+        objectFit: 'cover',
+        borderRadius: 6,
+        border: `1px solid ${themeVars.itemBorder}`,
+        cursor: 'pointer'
+      }}
+      preview={{ mask: null }}
+    />
+  )
+}
 
 interface LogViewerProps {
   records: ClaudeRecord[]
@@ -518,6 +613,30 @@ const LogViewer = (props: LogViewerProps) => {
                               )}
                             </div>
                           </div>
+
+                          {/* 图片缩略图预览列表（在 Prompt 文本上方） */}
+                          {hasImages && (
+                            <div
+                              style={{
+                                marginBottom: 10,
+                                display: 'flex',
+                                gap: 8,
+                                flexWrap: 'wrap'
+                              }}
+                              onClick={e => e.stopPropagation()}
+                            >
+                              <Image.PreviewGroup>
+                                {record.images!.map((imgPath, imgIndex) => (
+                                  <ImageThumbnail
+                                    key={imgIndex}
+                                    imagePath={imgPath}
+                                    index={imgIndex}
+                                    themeVars={themeVars}
+                                  />
+                                ))}
+                              </Image.PreviewGroup>
+                            </div>
+                          )}
 
                           {/* Prompt 文本预览 */}
                           <Text

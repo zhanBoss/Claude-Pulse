@@ -21,9 +21,10 @@ import {
   ExclamationCircleOutlined,
   CodeOutlined,
   PlayCircleOutlined,
-  RobotOutlined
+  RobotOutlined,
+  DollarOutlined
 } from '@ant-design/icons'
-import { AppSettings } from '../types'
+import { AppSettings, TokenPricingConfig } from '../types'
 import { getThemeVars } from '../theme'
 import ConfigFileEditor from './ConfigFileEditor'
 import ConfigEditor, { ConfigEditorRef } from './ConfigEditor'
@@ -134,6 +135,7 @@ function SettingsView({
   // 导航项配置
   const navItems = [
     { id: 'general', label: '通用', icon: <BulbOutlined /> },
+    { id: 'token-pricing', label: 'Token 价格', icon: <DollarOutlined /> },
     { id: 'claude-config', label: 'Claude Code', icon: <CodeOutlined /> },
     { id: 'record-control', label: '对话记录', icon: <PlayCircleOutlined /> },
     { id: 'ai-config', label: 'AI 功能', icon: <RobotOutlined /> }
@@ -715,7 +717,225 @@ function SettingsView({
             </Space>
           </Card>
 
-          {/* 卡片 2: Claude Code 配置 */}
+          {/* 卡片 2: Token 价格配置 */}
+          <Card
+            id="token-pricing"
+            onMouseEnter={() => setHoveredSection('token-pricing')}
+            onMouseLeave={() => setHoveredSection(null)}
+            title={
+              <Space size={10}>
+                <DollarOutlined style={{ color: themeVars.primary, fontSize: 18 }} />
+                <span style={{ fontSize: 15, fontWeight: 600 }}>Token 价格配置</span>
+              </Space>
+            }
+            style={{
+              backgroundColor: themeVars.bgContainer,
+              borderColor: themeVars.border,
+              borderRadius: 12,
+              boxShadow: darkMode
+                ? '0 2px 8px rgba(0, 0, 0, 0.15)'
+                : '0 2px 8px rgba(0, 0, 0, 0.06)',
+              transition: 'all 0.3s ease'
+            }}
+            styles={{
+              header: {
+                borderBottom: `1px solid ${themeVars.borderSecondary}`,
+                padding: '16px 20px'
+              },
+              body: {
+                padding: '20px'
+              }
+            }}
+          >
+            <Space direction="vertical" size={20} style={{ width: '100%' }}>
+              <div>
+                <Text
+                  type="secondary"
+                  style={{
+                    fontSize: 13,
+                    color: themeVars.textSecondary,
+                    lineHeight: 1.6,
+                    display: 'block',
+                    marginBottom: 16
+                  }}
+                >
+                  配置 Token 价格以计算使用成本。价格单位为 USD per Million Tokens (MTok)。
+                  <br />
+                  如果不设置，将使用默认价格（Claude 3.5 Sonnet: 输入 $3/MTok，输出 $15/MTok）
+                </Text>
+              </div>
+
+              <div>
+                <Text
+                  style={{
+                    color: themeVars.text,
+                    fontWeight: 500,
+                    fontSize: 14
+                  }}
+                >
+                  输入 Token 价格 (USD/MTok)
+                </Text>
+                <Input
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  placeholder="3.0 (默认值)"
+                  value={settings.tokenPricing?.inputPrice ?? ''}
+                  onChange={e => {
+                    const value = e.target.value === '' ? undefined : parseFloat(e.target.value)
+                    const newSettings = {
+                      ...settings,
+                      tokenPricing: {
+                        ...settings.tokenPricing,
+                        inputPrice: value ?? 3.0,
+                        outputPrice: settings.tokenPricing?.outputPrice ?? 15.0,
+                        cacheWritePrice: settings.tokenPricing?.cacheWritePrice ?? 3.75,
+                        cacheReadPrice: settings.tokenPricing?.cacheReadPrice ?? 0.3
+                      } as TokenPricingConfig
+                    }
+                    setSettings(newSettings)
+                    saveSettingsImmediately(newSettings)
+                  }}
+                  style={{
+                    marginTop: 8
+                  }}
+                />
+              </div>
+
+              <div>
+                <Text
+                  style={{
+                    color: themeVars.text,
+                    fontWeight: 500,
+                    fontSize: 14
+                  }}
+                >
+                  输出 Token 价格 (USD/MTok)
+                </Text>
+                <Input
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  placeholder="15.0 (默认值)"
+                  value={settings.tokenPricing?.outputPrice ?? ''}
+                  onChange={e => {
+                    const value = e.target.value === '' ? undefined : parseFloat(e.target.value)
+                    const newSettings = {
+                      ...settings,
+                      tokenPricing: {
+                        ...settings.tokenPricing,
+                        inputPrice: settings.tokenPricing?.inputPrice ?? 3.0,
+                        outputPrice: value ?? 15.0,
+                        cacheWritePrice: settings.tokenPricing?.cacheWritePrice ?? 3.75,
+                        cacheReadPrice: settings.tokenPricing?.cacheReadPrice ?? 0.3
+                      } as TokenPricingConfig
+                    }
+                    setSettings(newSettings)
+                    saveSettingsImmediately(newSettings)
+                  }}
+                  style={{
+                    marginTop: 8
+                  }}
+                />
+              </div>
+
+              <div>
+                <Text
+                  style={{
+                    color: themeVars.text,
+                    fontWeight: 500,
+                    fontSize: 14
+                  }}
+                >
+                  缓存写入价格 (USD/MTok)
+                </Text>
+                <Input
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  placeholder="3.75 (默认值)"
+                  value={settings.tokenPricing?.cacheWritePrice ?? ''}
+                  onChange={e => {
+                    const value = e.target.value === '' ? undefined : parseFloat(e.target.value)
+                    const newSettings = {
+                      ...settings,
+                      tokenPricing: {
+                        ...settings.tokenPricing,
+                        inputPrice: settings.tokenPricing?.inputPrice ?? 3.0,
+                        outputPrice: settings.tokenPricing?.outputPrice ?? 15.0,
+                        cacheWritePrice: value ?? 3.75,
+                        cacheReadPrice: settings.tokenPricing?.cacheReadPrice ?? 0.3
+                      } as TokenPricingConfig
+                    }
+                    setSettings(newSettings)
+                    saveSettingsImmediately(newSettings)
+                  }}
+                  style={{
+                    marginTop: 8
+                  }}
+                />
+              </div>
+
+              <div>
+                <Text
+                  style={{
+                    color: themeVars.text,
+                    fontWeight: 500,
+                    fontSize: 14
+                  }}
+                >
+                  缓存读取价格 (USD/MTok)
+                </Text>
+                <Input
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  placeholder="0.3 (默认值)"
+                  value={settings.tokenPricing?.cacheReadPrice ?? ''}
+                  onChange={e => {
+                    const value = e.target.value === '' ? undefined : parseFloat(e.target.value)
+                    const newSettings = {
+                      ...settings,
+                      tokenPricing: {
+                        ...settings.tokenPricing,
+                        inputPrice: settings.tokenPricing?.inputPrice ?? 3.0,
+                        outputPrice: settings.tokenPricing?.outputPrice ?? 15.0,
+                        cacheWritePrice: settings.tokenPricing?.cacheWritePrice ?? 3.75,
+                        cacheReadPrice: value ?? 0.3
+                      } as TokenPricingConfig
+                    }
+                    setSettings(newSettings)
+                    saveSettingsImmediately(newSettings)
+                  }}
+                  style={{
+                    marginTop: 8
+                  }}
+                />
+              </div>
+
+              <Divider style={{ margin: '4px 0' }} />
+
+              <div>
+                <Button
+                  type="default"
+                  block
+                  onClick={() => {
+                    const newSettings = {
+                      ...settings,
+                      tokenPricing: undefined
+                    }
+                    setSettings(newSettings)
+                    saveSettingsImmediately(newSettings)
+                    message.success('已重置为默认价格')
+                  }}
+                >
+                  重置为默认价格
+                </Button>
+              </div>
+            </Space>
+          </Card>
+
+          {/* 卡片 3: Claude Code 配置 */}
           <Card
             id="claude-config"
             onMouseEnter={() => setHoveredSection('claude-config')}

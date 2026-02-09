@@ -62,7 +62,19 @@ const StatisticsView = (props: StatisticsViewProps) => {
     setLoading(true)
     try {
       const result = await window.electronAPI.readHistoryMetadata()
+      console.log('[前端] 收到统计数据:', result)
       if (result.success && result.sessions) {
+        console.log(`[前端] 会话数: ${result.sessions.length}`)
+        // 打印前3个会话的统计数据
+        result.sessions.slice(0, 3).forEach((s, i) => {
+          console.log(`[前端] 会话 ${i+1}:`, {
+            sessionId: s.sessionId,
+            tokens: s.total_tokens,
+            cost: s.total_cost_usd,
+            tools: s.tool_use_count,
+            toolUsage: s.tool_usage
+          })
+        })
         setSessions(result.sessions)
       }
     } catch (error) {
@@ -75,6 +87,7 @@ const StatisticsView = (props: StatisticsViewProps) => {
 
   // 全局汇总统计
   const globalStats = useMemo(() => {
+    console.log('[前端] 计算 globalStats, sessions 数量:', sessions.length)
     let totalTokens = 0
     let totalCost = 0
     let totalSessions = sessions.length
@@ -83,14 +96,20 @@ const StatisticsView = (props: StatisticsViewProps) => {
     const projects = new Set<string>()
 
     for (const s of sessions) {
-      totalTokens += s.total_tokens || 0
-      totalCost += s.total_cost_usd || 0
-      totalToolUse += s.tool_use_count || 0
+      const tokens = s.total_tokens || 0
+      const cost = s.total_cost_usd || 0
+      const tools = s.tool_use_count || 0
+
+      console.log(`[前端] 会话 ${s.sessionId?.slice(0, 8)}: tokens=${tokens}, cost=${cost}, tools=${tools}`)
+
+      totalTokens += tokens
+      totalCost += cost
+      totalToolUse += tools
       if (s.has_errors) sessionsWithErrors++
       projects.add(s.project)
     }
 
-    return {
+    const result = {
       totalTokens,
       totalCost,
       totalSessions,
@@ -98,6 +117,8 @@ const StatisticsView = (props: StatisticsViewProps) => {
       sessionsWithErrors,
       projectCount: projects.size
     }
+    console.log('[前端] globalStats 计算结果:', result)
+    return result
   }, [sessions])
 
   // 项目级别统计
@@ -297,7 +318,7 @@ const StatisticsView = (props: StatisticsViewProps) => {
   if (loading) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
-        <Spin size="large" tip="加载统计数据..." />
+        <Spin size="large" tip="加载统计数据..."><div style={{ padding: 40 }} /></Spin>
       </div>
     )
   }

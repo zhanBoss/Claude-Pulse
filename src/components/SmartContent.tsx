@@ -1,4 +1,5 @@
 import { Typography } from 'antd'
+import { FileImageOutlined } from '@ant-design/icons'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
@@ -146,7 +147,9 @@ const SmartContent = (props: SmartContentProps) => {
               fontWeight: 500,
               cursor: 'pointer',
               border: `1px solid ${darkMode ? 'rgba(217, 119, 87, 0.3)' : 'rgba(217, 119, 87, 0.25)'}`,
-              display: 'inline-block',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
               transition: 'all 0.2s',
               marginRight: 6,
               verticalAlign: 'middle'
@@ -177,7 +180,8 @@ const SmartContent = (props: SmartContentProps) => {
             }}
             title={`点击预览图片 #${imageNumber}`}
           >
-            {part}
+            <FileImageOutlined style={{ fontSize: 14 }} />
+            [Image #{imageNumber}]
           </span>
         )
       }

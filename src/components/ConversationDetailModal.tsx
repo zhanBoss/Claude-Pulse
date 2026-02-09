@@ -190,7 +190,7 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
     if (msg.subType && internalSubTypes.has(msg.subType)) return false
 
     /* 内容全部是 tool_result 的 user 消息是工具结果回传，不是用户输入 */
-    const hasText = msg.content.some(c => c.type === 'text' && c.text && c.text.trim().length > 0)
+    const hasText = msg.content.some(c => c.type === 'text' && c.text && typeof c.text === 'string' && c.text.trim().length > 0)
     const hasImage = msg.content.some(c => c.type === 'image')
     const allToolResults = msg.content.length > 0 && msg.content.every(c => c.type === 'tool_result')
 
@@ -398,7 +398,9 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
   const getUserPromptText = (msg: FullMessage): string => {
     const texts: string[] = []
     for (const c of msg.content) {
-      if (c.type === 'text' && c.text) texts.push(c.text)
+      if (c.type === 'text' && c.text) {
+        texts.push(typeof c.text === 'string' ? c.text : JSON.stringify(c.text))
+      }
     }
     return texts.join('\n')
   }
@@ -411,7 +413,7 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
     for (const msg of round.assistantMessages) {
       text += `========== AI 助手 ==========\n\n`
       for (const c of msg.content) {
-        if (c.type === 'text' && c.text) text += c.text + '\n'
+        if (c.type === 'text' && c.text) text += (typeof c.text === 'string' ? c.text : JSON.stringify(c.text)) + '\n'
         else if (c.type === 'tool_use') text += `[工具调用: ${c.name}]\n`
         else if (c.type === 'tool_result') text += `[工具结果]\n`
       }
@@ -696,7 +698,8 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
   const renderContent = (content: MessageContent[]) => {
     return content.map((item, index) => {
       if (item.type === 'text' && item.text) {
-        const text = item.text
+        /* 安全处理：item.text 可能是对象（如 file-history metadata），需确保为字符串 */
+        const text = typeof item.text === 'string' ? item.text : JSON.stringify(item.text, null, 2)
         const hasImageRef = /\[Image #\d+\]/.test(text)
         const markdown = isMarkdown(text)
 
@@ -1353,7 +1356,7 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
     >
       {loading && (
         <div className="text-center py-8">
-          <Spin size="large" tip="加载中..." />
+          <Spin size="large" tip="加载中..."><div style={{ padding: 40 }} /></Spin>
         </div>
       )}
 

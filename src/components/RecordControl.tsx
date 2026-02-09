@@ -291,7 +291,7 @@ const RecordControl = forwardRef<RecordControlRef, RecordControlProps>((props, r
   if (loading) {
     return (
       <div style={{ textAlign: 'center', padding: 40 }}>
-        <Spin tip="加载中..." />
+        <Spin tip="加载中..."><div style={{ padding: 40 }} /></Spin>
       </div>
     )
   }
