@@ -225,6 +225,34 @@ const StatisticsView = (props: StatisticsViewProps) => {
       }))
   }, [selectedProjects, projectStats])
 
+  /* 工具成功率统计 */
+  const toolSuccessStats = useMemo(() => {
+    const usageMap = new Map<string, number>()
+    const errorMap = new Map<string, number>()
+
+    for (const s of sessions) {
+      if (s.tool_usage) {
+        for (const [tool, count] of Object.entries(s.tool_usage)) {
+          usageMap.set(tool, (usageMap.get(tool) || 0) + count)
+        }
+      }
+      if (s.tool_errors) {
+        for (const [tool, count] of Object.entries(s.tool_errors)) {
+          errorMap.set(tool, (errorMap.get(tool) || 0) + count)
+        }
+      }
+    }
+
+    return Array.from(usageMap.entries())
+      .map(([name, total]) => {
+        const errors = errorMap.get(name) || 0
+        const success = total - errors
+        const successRate = total > 0 ? (success / total) * 100 : 100
+        return { name, total, success, errors, successRate }
+      })
+      .sort((a, b) => b.total - a.total)
+  }, [sessions])
+
   // 项目 Token 使用量柱状图数据
   const projectChartData = useMemo(() => {
     return projectStats.slice(0, 10).map(p => ({
@@ -524,6 +552,83 @@ const StatisticsView = (props: StatisticsViewProps) => {
                     </div>
                   )
                 })}
+              </div>
+            </Card>
+          )}
+
+          {/* 工具成功率统计 */}
+          {toolSuccessStats.length > 0 && (
+            <Card
+              size="small"
+              title={
+                <Space>
+                  <ToolOutlined />
+                  <Text style={{ fontSize: 13 }}>工具成功率</Text>
+                </Space>
+              }
+            >
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {/* 表头 */}
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '140px 1fr 80px 80px 80px 100px',
+                    gap: 8,
+                    padding: '6px 12px',
+                    borderBottom: `1px solid ${themeVars.border}`,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: themeVars.textSecondary
+                  }}
+                >
+                  <div>工具名称</div>
+                  <div>成功率</div>
+                  <div style={{ textAlign: 'right' }}>总调用</div>
+                  <div style={{ textAlign: 'right' }}>成功</div>
+                  <div style={{ textAlign: 'right' }}>失败</div>
+                  <div style={{ textAlign: 'right' }}>成功率</div>
+                </div>
+                {toolSuccessStats.slice(0, 20).map(tool => (
+                  <div
+                    key={tool.name}
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '140px 1fr 80px 80px 80px 100px',
+                      gap: 8,
+                      padding: '6px 12px',
+                      borderRadius: 4,
+                      fontSize: 12,
+                      background: themeVars.bgSection,
+                      alignItems: 'center'
+                    }}
+                  >
+                    <div style={{ fontFamily: 'monospace', fontWeight: 500 }}>{tool.name}</div>
+                    <div style={{ height: 12, background: darkMode ? '#333' : '#eee', borderRadius: 6, overflow: 'hidden' }}>
+                      <div
+                        style={{
+                          width: `${tool.successRate}%`,
+                          height: '100%',
+                          background: tool.successRate >= 90 ? '#52c41a' : tool.successRate >= 70 ? '#faad14' : '#f5222d',
+                          borderRadius: 6,
+                          transition: 'width 0.3s'
+                        }}
+                      />
+                    </div>
+                    <div style={{ textAlign: 'right' }}>{tool.total.toLocaleString()}</div>
+                    <div style={{ textAlign: 'right', color: '#52c41a' }}>{tool.success.toLocaleString()}</div>
+                    <div style={{ textAlign: 'right', color: tool.errors > 0 ? '#f5222d' : themeVars.textTertiary }}>
+                      {tool.errors.toLocaleString()}
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <Tag
+                        color={tool.successRate >= 90 ? 'green' : tool.successRate >= 70 ? 'orange' : 'red'}
+                        style={{ fontSize: 11, margin: 0 }}
+                      >
+                        {tool.successRate.toFixed(1)}%
+                      </Tag>
+                    </div>
+                  </div>
+                ))}
               </div>
             </Card>
           )}

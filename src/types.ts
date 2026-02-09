@@ -32,6 +32,7 @@ export interface MessageContent {
   // 工具结果
   tool_use_id?: string
   content?: string | any[]
+  is_error?: boolean
 }
 
 // 消息子类型
@@ -94,6 +95,7 @@ export interface SessionMetadata {
   has_errors?: boolean
   tool_use_count?: number
   tool_usage?: Record<string, number> // { "Read": 5, "Write": 3, "Bash": 2 }
+  tool_errors?: Record<string, number> // { "Bash": 2, "Write": 1 } 各工具错误次数
 }
 
 // 项目级别统计数据

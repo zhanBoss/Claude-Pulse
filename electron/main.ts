@@ -848,6 +848,9 @@ ipcMain.handle('read-history-metadata', async () => {
         let hasErrors = false
         let toolUseCount = 0
         const toolUsageMap = new Map<string, number>()
+        const toolErrorsMap = new Map<string, number>()
+        /* 用于匹配 tool_use id -> tool name */
+        const toolIdToName = new Map<string, string>()
 
         for (const sessionLine of sessionLines) {
           try {
@@ -879,6 +882,10 @@ ipcMain.handle('read-history-metadata', async () => {
                   // 统计工具名称使用频率
                   if (c.name) {
                     toolUsageMap.set(c.name, (toolUsageMap.get(c.name) || 0) + 1)
+                    // 记录 tool_use id -> name 映射
+                    if (c.id) {
+                      toolIdToName.set(c.id, c.name)
+                    }
                   }
                 }
               }
@@ -893,6 +900,11 @@ ipcMain.handle('read-history-metadata', async () => {
               for (const c of content) {
                 if (c.type === 'tool_result') {
                   hasToolUse = true
+                  // 统计工具错误
+                  if (c.is_error && c.tool_use_id) {
+                    const toolName = toolIdToName.get(c.tool_use_id) || 'unknown'
+                    toolErrorsMap.set(toolName, (toolErrorsMap.get(toolName) || 0) + 1)
+                  }
                 }
               }
             }
@@ -903,6 +915,7 @@ ipcMain.handle('read-history-metadata', async () => {
 
         // 转换工具使用统计为对象
         const toolUsage = toolUsageMap.size > 0 ? Object.fromEntries(toolUsageMap) : undefined
+        const toolErrors = toolErrorsMap.size > 0 ? Object.fromEntries(toolErrorsMap) : undefined
 
         return {
           ...session,
@@ -911,7 +924,8 @@ ipcMain.handle('read-history-metadata', async () => {
           has_tool_use: hasToolUse || undefined,
           has_errors: hasErrors || undefined,
           tool_use_count: toolUseCount > 0 ? toolUseCount : undefined,
-          tool_usage: toolUsage
+          tool_usage: toolUsage,
+          tool_errors: toolErrors
         }
       } catch (err) {
         console.error(`提取会话 ${session.sessionId} 的元数据失败:`, err)
