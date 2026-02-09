@@ -289,6 +289,7 @@ let autoCleanupTickTimer: ReturnType<typeof setInterval> | null = null
 const CLAUDE_DIR = path.join(os.homedir(), '.claude')
 const HISTORY_FILE = path.join(CLAUDE_DIR, 'history.jsonl')
 const SETTINGS_FILE = path.join(CLAUDE_DIR, 'settings.json')
+const PROJECTS_DIR = path.join(CLAUDE_DIR, 'projects')
 
 function createWindow() {
   /* 应用图标路径：开发模式使用 build 目录，打包后使用 resources 目录 */
@@ -939,16 +940,103 @@ ipcMain.handle('read-project-statistics', async () => {
       return { success: true, projects: [] }
     }
 
-    // 先获取所有会话的元数据
-    const metadataResult = await ipcMain
-      .handlersMap.get('read-history-metadata')
-      ?.callback({} as any, {} as any)
+    // 读取 history.jsonl 文件
+    const content = fs.readFileSync(HISTORY_FILE, 'utf-8')
+    const lines = content.split('\n').filter(line => line.trim())
+    const records = lines.map(line => JSON.parse(line))
 
-    if (!metadataResult || !metadataResult.success || !metadataResult.sessions) {
-      return { success: false, error: '无法加载会话数据' }
+    // 按 project 和 sessionId 分组会话
+    const sessionMap = new Map<string, any[]>()
+
+    for (const record of records) {
+      const key = `${record.project}|${record.sessionId}`
+      if (!sessionMap.has(key)) {
+        sessionMap.set(key, [])
+      }
+      sessionMap.get(key)!.push(record)
     }
 
-    const sessions = metadataResult.sessions as any[]
+    // 提取每个会话的元数据（包含 Token 统计）
+    const sessions: any[] = []
+
+    for (const [key, records] of sessionMap.entries()) {
+      const [project, sessionId] = key.split('|')
+      const firstTimestamp = records[0].timestamp
+      const latestTimestamp = records[records.length - 1].timestamp
+
+      let totalTokens = 0
+      let totalCost = 0
+      let hasToolUse = false
+      let hasErrors = false
+      const toolUsageMap = new Map<string, number>()
+
+      // 读取对应的 projects/{sessionId}.jsonl
+      if (project && project.trim() !== '') {
+        const projectFolderName = getProjectFolderName(project)
+        const projectsDir = path.join(CLAUDE_DIR, 'projects')
+        const projectFile = path.join(projectsDir, projectFolderName, `${sessionId}.jsonl`)
+
+        if (fs.existsSync(projectFile)) {
+          try {
+            const projectContent = fs.readFileSync(projectFile, 'utf-8')
+            const projectLines = projectContent.split('\n').filter(line => line.trim())
+
+            for (const line of projectLines) {
+              try {
+                const entry = JSON.parse(line)
+
+                // 聚合 Token 统计
+                if (entry.response?.usage) {
+                  totalTokens +=
+                    (entry.response.usage.input_tokens || 0) +
+                    (entry.response.usage.output_tokens || 0) +
+                    (entry.response.usage.cache_creation_input_tokens || 0) +
+                    (entry.response.usage.cache_read_input_tokens || 0)
+
+                  // 计算成本
+                  totalCost += calculateCost(entry.response.usage, entry.response.model)
+                }
+
+                // 检查工具调用
+                if (entry.response?.content && Array.isArray(entry.response.content)) {
+                  for (const c of entry.response.content) {
+                    if (c.type === 'tool_use') {
+                      hasToolUse = true
+                      if (c.name) {
+                        toolUsageMap.set(c.name, (toolUsageMap.get(c.name) || 0) + 1)
+                      }
+                    }
+                  }
+                }
+
+                // 检查错误
+                if (entry.response?.stop_reason === 'error' || entry.response?.error) {
+                  hasErrors = true
+                }
+              } catch {
+                // 忽略单行解析错误
+              }
+            }
+          } catch {
+            // 忽略文件读取错误
+          }
+        }
+      }
+
+      sessions.push({
+        sessionId,
+        project,
+        firstTimestamp,
+        latestTimestamp,
+        recordCount: records.length,
+        total_tokens: totalTokens > 0 ? totalTokens : undefined,
+        total_cost_usd: totalCost > 0 ? totalCost : undefined,
+        has_tool_use: hasToolUse || undefined,
+        has_errors: hasErrors || undefined,
+        tool_use_count: toolUsageMap.size > 0 ? Array.from(toolUsageMap.values()).reduce((a, b) => a + b, 0) : undefined,
+        tool_usage: toolUsageMap.size > 0 ? Object.fromEntries(toolUsageMap) : undefined
+      })
+    }
 
     // 按项目聚合
     const projectMap = new Map<

@@ -37,6 +37,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   readFullConversation: (sessionId: string, project: string) =>
     ipcRenderer.invoke('read-full-conversation', sessionId, project),
 
+  // 读取项目级别统计数据
+  readProjectStatistics: () => ipcRenderer.invoke('read-project-statistics'),
+
   // 读取文件编辑快照
   readFileEdits: () => ipcRenderer.invoke('read-file-edits'),
 
