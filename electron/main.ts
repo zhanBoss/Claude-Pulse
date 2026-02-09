@@ -1051,7 +1051,7 @@ ipcMain.handle('read-project-statistics', async () => {
       // 读取对应的 projects/{sessionId}.jsonl
       if (project && project.trim() !== '') {
         const projectFolderName = getProjectFolderName(project)
-        const projectsDir = path.join(CLAUDE_DIR, 'projects')
+        const projectsDir = PROJECTS_DIR
         const projectFile = path.join(projectsDir, projectFolderName, `${sessionId}.jsonl`)
 
         if (fs.existsSync(projectFile)) {
@@ -1442,7 +1442,7 @@ ipcMain.handle('read-full-conversation', async (_, sessionId: string, project: s
 // 读取文件编辑快照（从所有会话中提取 file-history-snapshot）
 ipcMain.handle('read-file-edits', async () => {
   try {
-    const projectsDir = path.join(CLAUDE_DIR, 'projects')
+    const projectsDir = PROJECTS_DIR
     if (!fs.existsSync(projectsDir)) {
       return { success: true, edits: [] }
     }
@@ -1516,7 +1516,7 @@ ipcMain.handle(
   'read-file-snapshot-content',
   async (_, sessionId: string, messageId: string, filePath: string) => {
     try {
-      const projectsDir = path.join(CLAUDE_DIR, 'projects')
+      const projectsDir = PROJECTS_DIR
       if (!fs.existsSync(projectsDir)) {
         return { success: false, error: '项目目录不存在' }
       }
@@ -1566,7 +1566,7 @@ ipcMain.handle(
   async (_, sessionId: string, messageId: string, filePath: string) => {
     try {
       // 先获取快照内容
-      const projectsDir = path.join(CLAUDE_DIR, 'projects')
+      const projectsDir = PROJECTS_DIR
       if (!fs.existsSync(projectsDir)) {
         return { success: false, error: '项目目录不存在' }
       }
@@ -2413,7 +2413,7 @@ ipcMain.handle('clear-all-cache', async () => {
     }
 
     // 2. 清除 ~/.claude/projects/
-    const projectsDir = path.join(CLAUDE_DIR, 'projects')
+    const projectsDir = PROJECTS_DIR
     if (fs.existsSync(projectsDir)) {
       fs.rmSync(projectsDir, { recursive: true, force: true })
       fs.mkdirSync(projectsDir, { recursive: true })
@@ -2517,7 +2517,7 @@ const cleanupByAge = (retainMs: number): number => {
   }
 
   // 2. 清理 ~/.claude/projects/ 中过期的会话文件
-  const projectsDir = path.join(CLAUDE_DIR, 'projects')
+  const projectsDir = PROJECTS_DIR
   if (fs.existsSync(projectsDir)) {
     try {
       const projectFolders = fs.readdirSync(projectsDir)
