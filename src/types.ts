@@ -226,6 +226,7 @@ export interface ElectronAPI {
   onNewRecord: (callback: (record: ClaudeRecord) => void) => () => void
   copyToClipboard: (text: string) => Promise<{ success: boolean; error?: string }>
   openInFinder: (path: string) => Promise<{ success: boolean; error?: string }>
+  readRecentRecords: (hoursAgo?: number) => Promise<{ success: boolean; records?: ClaudeRecord[]; error?: string }>
   readHistory: () => Promise<{ success: boolean; records?: ClaudeRecord[]; error?: string }>
   readHistoryMetadata: () => Promise<{
     success: boolean

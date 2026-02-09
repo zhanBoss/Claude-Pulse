@@ -371,9 +371,7 @@ app.whenReady().then(() => {
 })
 
 app.on('window-all-closed', () => {
-  if (historyWatcher) {
-    historyWatcher.close()
-  }
+  stopHistoryMonitor()
   // 清理自动清理定时器
   if (autoCleanupTimer) {
     clearInterval(autoCleanupTimer)
@@ -631,32 +629,43 @@ ipcMain.handle('open-external', async (_, url: string) => {
   }
 })
 
-// 启动历史记录监控（直接监控 ~/.claude/history.jsonl，无需 savePath）
+/* 轮询定时器，替代不可靠的 fs.watch */
+let pollingTimer: ReturnType<typeof setInterval> | null = null
+const POLLING_INTERVAL_MS = 2000 // 每 2 秒检查一次
+
+// 启动历史记录监控（使用轮询替代 fs.watch，确保 macOS 下可靠检测文件变化）
 function startHistoryMonitor() {
-  if (historyWatcher) {
-    historyWatcher.close()
-  }
+  stopHistoryMonitor()
 
   if (!fs.existsSync(HISTORY_FILE)) {
     console.log('[监控] history.jsonl 不存在，等待创建...')
+    // 文件不存在时也启动轮询，等待文件创建
+    pollingTimer = setInterval(() => {
+      if (fs.existsSync(HISTORY_FILE)) {
+        lastFileSize = 0 // 从头开始读取
+        console.log('[监控] history.jsonl 已创建，开始监控')
+        readNewLines()
+      }
+    }, POLLING_INTERVAL_MS)
     return
   }
 
   // 获取当前文件大小
   const stats = fs.statSync(HISTORY_FILE)
   lastFileSize = stats.size
+  console.log(`[监控] 开始轮询监控 history.jsonl，当前大小: ${lastFileSize}`)
 
-  /* 去抖动定时器，避免短时间内多次触发文件读取 */
-  let debounceTimer: NodeJS.Timeout | null = null
-
-  historyWatcher = fs.watch(HISTORY_FILE, (eventType: string) => {
-    if (eventType === 'change') {
-      if (debounceTimer) clearTimeout(debounceTimer)
-      debounceTimer = setTimeout(() => {
+  pollingTimer = setInterval(() => {
+    try {
+      if (!fs.existsSync(HISTORY_FILE)) return
+      const currentStats = fs.statSync(HISTORY_FILE)
+      if (currentStats.size > lastFileSize) {
         readNewLines()
-      }, 200)
+      }
+    } catch (error) {
+      console.error('[监控] 轮询检查文件失败:', error)
     }
-  })
+  }, POLLING_INTERVAL_MS)
 }
 
 // 停止历史记录监控
@@ -664,6 +673,10 @@ function stopHistoryMonitor() {
   if (historyWatcher) {
     historyWatcher.close()
     historyWatcher = null
+  }
+  if (pollingTimer) {
+    clearInterval(pollingTimer)
+    pollingTimer = null
   }
 }
 
@@ -767,6 +780,66 @@ async function processRecord(record: any) {
     console.error('Failed to process record:', error)
   }
 }
+
+// 读取最近的实时记录（用于实时对话页面加载当天数据）
+ipcMain.handle('read-recent-records', async (_, hoursAgo: number = 24) => {
+  try {
+    if (!fs.existsSync(HISTORY_FILE)) {
+      return { success: true, records: [] }
+    }
+
+    const content = fs.readFileSync(HISTORY_FILE, 'utf-8')
+    const lines = content.split('\n').filter((line: string) => line.trim())
+    const cutoffTime = Date.now() - hoursAgo * 60 * 60 * 1000
+
+    const recentRecords: any[] = []
+
+    for (const line of lines) {
+      try {
+        const record = JSON.parse(line)
+        if (record.timestamp >= cutoffTime) {
+          // 展开粘贴内容
+          const expandedPastedContents: Record<string, any> = {}
+          if (record.pastedContents && typeof record.pastedContents === 'object') {
+            for (const [key, value] of Object.entries(record.pastedContents)) {
+              if (value && typeof value === 'object' && (value as any).contentHash) {
+                const contentHash = (value as any).contentHash
+                const pasteFilePath = path.join(CLAUDE_DIR, 'paste-cache', `${contentHash}.txt`)
+                try {
+                  if (fs.existsSync(pasteFilePath)) {
+                    expandedPastedContents[key] = {
+                      ...value,
+                      content: fs.readFileSync(pasteFilePath, 'utf-8')
+                    }
+                  } else {
+                    expandedPastedContents[key] = value
+                  }
+                } catch {
+                  expandedPastedContents[key] = value
+                }
+              } else {
+                expandedPastedContents[key] = value
+              }
+            }
+          }
+
+          recentRecords.push({
+            ...record,
+            pastedContents: expandedPastedContents
+          })
+        }
+      } catch {
+        /* 跳过解析失败的行 */
+      }
+    }
+
+    console.log(`[实时记录] 加载最近 ${hoursAgo} 小时的记录: ${recentRecords.length} 条`)
+    return { success: true, records: recentRecords }
+  } catch (error) {
+    console.error('[实时记录] 加载失败:', error)
+    return { success: false, error: (error as Error).message, records: [] }
+  }
+})
 
 // 读取历史记录元数据（从 history.jsonl 聚合会话信息，确保与 readSessionDetails 数据源一致）
 ipcMain.handle('read-history-metadata', async () => {

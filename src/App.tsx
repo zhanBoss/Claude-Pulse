@@ -72,12 +72,23 @@ function App() {
       setThemeMode(settings.themeMode)
     })
 
-    // 注意：实时对话页面不加载历史记录，只显示当前会话的新记录
-    // 历史记录在 HistoryViewer 组件中按需加载
+    // 加载当天的实时记录，确保打开时能看到最近数据
+    window.electronAPI.readRecentRecords(24).then(result => {
+      if (result.success && result.records && result.records.length > 0) {
+        setRecords(result.records)
+      }
+    })
 
-    // 监听新记录
+    // 监听新记录（通过轮询监控 history.jsonl 的增量变化）
     const cleanup = window.electronAPI.onNewRecord(record => {
-      setRecords(prev => [record, ...prev])
+      setRecords(prev => {
+        // 去重：避免初始加载和实时监控的重复
+        const isDuplicate = prev.some(
+          r => r.timestamp === record.timestamp && r.sessionId === record.sessionId
+        )
+        if (isDuplicate) return prev
+        return [record, ...prev]
+      })
     })
 
     // 清理监听器

@@ -91,11 +91,19 @@ const HistoryViewer = (props: HistoryViewerProps) => {
   const [conversationModalVisible, setConversationModalVisible] = useState(false)
   const [conversationSessionId, setConversationSessionId] = useState('')
   const [conversationProject, setConversationProject] = useState('')
+  const [conversationTimestamp, setConversationTimestamp] = useState<number | undefined>(undefined)
 
   // AI 总结
   const [summarizing, setSummarizing] = useState(false)
   const [summaryContent, setSummaryContent] = useState<string>('')
   const [summaryModalVisible, setSummaryModalVisible] = useState(false)
+
+  // 项目筛选
+  const [selectedProject, setSelectedProject] = useState<string | null>(null)
+
+  // 搜索用的全部记录
+  const [allRecords, setAllRecords] = useState<Array<{ timestamp: number; display: string; project: string; sessionId?: string }>>([])
+  const [recordsLoaded, setRecordsLoaded] = useState(false)
 
   // 会话对比
   const [compareMode, setCompareMode] = useState(false)
@@ -122,13 +130,17 @@ const HistoryViewer = (props: HistoryViewerProps) => {
     loadHistoryMetadata()
   }, [])
 
-  // 快捷键
+  // 快捷键（Prompt 列表打开时不响应搜索快捷键）
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      /* 对话详情弹窗打开时，不拦截 Cmd+F */
+      if (conversationModalVisible) return
+
       if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
         e.preventDefault()
         setSummaryModalVisible(false)
         setSearchVisible(true)
+        loadAllRecordsIfNeeded()
         setTimeout(() => searchInputRef.current?.focus(), 100)
       }
       if (e.key === 'Escape' && searchVisible) {
@@ -138,7 +150,19 @@ const HistoryViewer = (props: HistoryViewerProps) => {
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [searchVisible])
+  }, [searchVisible, conversationModalVisible])
+
+  /* 按需加载全部记录（用于 prompt 文本搜索） */
+  const loadAllRecordsIfNeeded = async () => {
+    if (recordsLoaded) return
+    try {
+      const result = await window.electronAPI.readHistory()
+      if (result.success && result.records) {
+        setAllRecords(result.records)
+        setRecordsLoaded(true)
+      }
+    } catch { /* 静默失败 */ }
+  }
 
   const loadHistoryMetadata = async () => {
     setLoading(true)
@@ -177,16 +201,49 @@ const HistoryViewer = (props: HistoryViewerProps) => {
     )
   }, [sessions, dateRange, customDateRange])
 
-  // 搜索过滤
+  // 项目筛选
+  const projectFilteredSessions = useMemo(() => {
+    if (!selectedProject) return filteredSessions
+    return filteredSessions.filter(s => s.project === selectedProject)
+  }, [filteredSessions, selectedProject])
+
+  // 搜索过滤（搜索 prompt 文本）
   const searchedSessions = useMemo(() => {
-    if (!searchKeyword.trim()) return filteredSessions
+    if (!searchKeyword.trim()) return projectFilteredSessions
     const keyword = searchKeyword.toLowerCase()
-    return filteredSessions.filter(
+    /* 先按项目名/sessionId 匹配 */
+    const byMeta = projectFilteredSessions.filter(
       session =>
         session.project.toLowerCase().includes(keyword) ||
         session.sessionId.toLowerCase().includes(keyword)
     )
-  }, [filteredSessions, searchKeyword])
+    /* 再按 prompt 文本匹配（需要 allRecords 已加载） */
+    if (allRecords.length > 0) {
+      const matchedSessionIds = new Set(byMeta.map(s => s.sessionId))
+      const promptMatched = allRecords
+        .filter(r => r.display?.toLowerCase().includes(keyword) && r.sessionId && !matchedSessionIds.has(r.sessionId))
+        .map(r => r.sessionId!)
+      const promptMatchedSet = new Set(promptMatched)
+      const byPrompt = projectFilteredSessions.filter(s => promptMatchedSet.has(s.sessionId))
+      return [...byMeta, ...byPrompt]
+    }
+    return byMeta
+  }, [projectFilteredSessions, searchKeyword, allRecords])
+
+  /* 搜索结果：匹配的 prompt 文本预览（最多显示 20 条） */
+  const searchResults = useMemo(() => {
+    if (!searchKeyword.trim() || allRecords.length === 0) return []
+    const keyword = searchKeyword.toLowerCase()
+    return allRecords
+      .filter(r => r.display?.toLowerCase().includes(keyword))
+      .slice(0, 20)
+      .map(r => ({
+        display: r.display,
+        project: r.project,
+        sessionId: r.sessionId || '',
+        timestamp: r.timestamp
+      }))
+  }, [allRecords, searchKeyword])
 
   // 转换格式
   const groupedRecords = useMemo(() => {
@@ -218,7 +275,7 @@ const HistoryViewer = (props: HistoryViewerProps) => {
     return parts[parts.length - 1]
   }
 
-  // 项目统计
+  /* 项目统计（基于日期筛选后的全部数据，不受项目筛选和搜索影响） */
   const projectStats = useMemo(() => {
     const statsMap = new Map<string, {
       project: string
@@ -229,30 +286,30 @@ const HistoryViewer = (props: HistoryViewerProps) => {
       toolUseCount: number
     }>()
 
-    for (const group of groupedRecords) {
-      const existing = statsMap.get(group.project)
+    for (const session of filteredSessions) {
+      const existing = statsMap.get(session.project)
       if (existing) {
         existing.sessionCount += 1
-        existing.totalTokens += group.total_tokens || 0
-        existing.totalCost += group.total_cost_usd || 0
-        existing.toolUseCount += group.tool_use_count || 0
+        existing.totalTokens += session.total_tokens || 0
+        existing.totalCost += session.total_cost_usd || 0
+        existing.toolUseCount += session.tool_use_count || 0
       } else {
-        statsMap.set(group.project, {
-          project: group.project,
-          projectName: getProjectName(group.project),
+        statsMap.set(session.project, {
+          project: session.project,
+          projectName: getProjectName(session.project),
           sessionCount: 1,
-          totalTokens: group.total_tokens || 0,
-          totalCost: group.total_cost_usd || 0,
-          toolUseCount: group.tool_use_count || 0
+          totalTokens: session.total_tokens || 0,
+          totalCost: session.total_cost_usd || 0,
+          toolUseCount: session.tool_use_count || 0
         })
       }
     }
     return Array.from(statsMap.values()).sort((a, b) => b.totalTokens - a.totalTokens)
-  }, [groupedRecords])
+  }, [filteredSessions])
 
   useEffect(() => {
     setCurrentPage(1)
-  }, [dateRange, customDateRange, searchKeyword])
+  }, [dateRange, customDateRange, searchKeyword, selectedProject])
 
   const handlePageChange = (page: number, newPageSize?: number) => {
     setCurrentPage(page)
@@ -442,12 +499,13 @@ const HistoryViewer = (props: HistoryViewerProps) => {
             ` | 第 ${currentPage}/${Math.ceil(groupedRecords.length / pageSize)} 页`}
         </Text>
         <Space style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-          <Tooltip title="搜索会话 (Cmd+F / Ctrl+F)">
+          <Tooltip title="搜索 Prompt (Cmd+F / Ctrl+F)">
             <Button
               icon={<SearchOutlined />}
               onClick={() => {
                 setSummaryModalVisible(false)
                 setSearchVisible(true)
+                loadAllRecordsIfNeeded()
                 setTimeout(() => searchInputRef.current?.focus(), 100)
               }}
               size="small"
@@ -530,10 +588,11 @@ const HistoryViewer = (props: HistoryViewerProps) => {
             </Space>
           </Card>
 
-          {/* 项目级别统计 */}
+          {/* 项目级别统计（点击项目可筛选） */}
           {!loading && projectStats.length > 0 && (
             <Collapse
               size="small"
+              defaultActiveKey={['project-stats']}
               items={[{
                 key: 'project-stats',
                 label: (
@@ -548,39 +607,85 @@ const HistoryViewer = (props: HistoryViewerProps) => {
                 ),
                 children: (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    {projectStats.map(stat => (
-                      <div key={stat.project} style={{
-                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                        padding: '6px 12px', borderRadius: 6,
-                        background: themeVars.bgSection, border: `1px solid ${themeVars.borderSecondary}`
-                      }}>
-                        <Space>
-                          <Tag color="blue" style={{ fontSize: 11 }}>{stat.projectName}</Tag>
-                          <Text type="secondary" style={{ fontSize: 11 }}>{stat.sessionCount} 个会话</Text>
-                        </Space>
-                        <Space size={4}>
-                          {stat.totalTokens > 0 && (
-                            <Tag icon={<ThunderboltOutlined />} color="blue" style={{ fontSize: 11 }}>
-                              {stat.totalTokens.toLocaleString()} tokens
+                    {projectStats.map(stat => {
+                      const isActive = selectedProject === stat.project
+                      return (
+                        <div
+                          key={stat.project}
+                          onClick={e => {
+                            e.stopPropagation()
+                            setSelectedProject(isActive ? null : stat.project)
+                          }}
+                          style={{
+                            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                            padding: '6px 12px', borderRadius: 6,
+                            background: isActive ? (darkMode ? 'rgba(22,119,255,0.12)' : '#e6f4ff') : themeVars.bgSection,
+                            border: `1px solid ${isActive ? '#1677ff' : themeVars.borderSecondary}`,
+                            cursor: 'pointer',
+                            transition: 'all 0.2s'
+                          }}
+                        >
+                          <Space>
+                            <Tag color={isActive ? 'blue' : 'default'} style={{ fontSize: 11 }}>
+                              {isActive && <CheckOutlined style={{ marginRight: 4 }} />}
+                              {stat.projectName}
                             </Tag>
-                          )}
-                          {stat.totalCost > 0 && (
-                            <Tag icon={<DollarOutlined />} color="green" style={{ fontSize: 11 }}>
-                              ${stat.totalCost.toFixed(4)}
-                            </Tag>
-                          )}
-                          {stat.toolUseCount > 0 && (
-                            <Tag icon={<ToolOutlined />} color="purple" style={{ fontSize: 11 }}>
-                              工具 ×{stat.toolUseCount}
-                            </Tag>
-                          )}
-                        </Space>
-                      </div>
-                    ))}
+                            <Text type="secondary" style={{ fontSize: 11 }}>{stat.sessionCount} 个会话</Text>
+                          </Space>
+                          <Space size={4}>
+                            {stat.totalTokens > 0 && (
+                              <Tag icon={<ThunderboltOutlined />} color="blue" style={{ fontSize: 11 }}>
+                                {stat.totalTokens.toLocaleString()} tokens
+                              </Tag>
+                            )}
+                            {stat.totalCost > 0 && (
+                              <Tag icon={<DollarOutlined />} color="green" style={{ fontSize: 11 }}>
+                                ${stat.totalCost.toFixed(4)}
+                              </Tag>
+                            )}
+                            {stat.toolUseCount > 0 && (
+                              <Tag icon={<ToolOutlined />} color="purple" style={{ fontSize: 11 }}>
+                                工具 ×{stat.toolUseCount}
+                              </Tag>
+                            )}
+                          </Space>
+                        </div>
+                      )
+                    })}
                   </div>
                 )
               }]}
             />
+          )}
+
+          {/* 当前项目筛选提示 */}
+          {selectedProject && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '6px 12px',
+              borderRadius: 6,
+              background: darkMode ? 'rgba(22,119,255,0.08)' : '#f0f5ff',
+              border: `1px solid ${darkMode ? '#1e3a5f' : '#d6e4ff'}`
+            }}>
+              <FolderOpenOutlined style={{ color: '#1677ff', fontSize: 13 }} />
+              <Text style={{ fontSize: 12 }}>
+                筛选项目: <Text strong style={{ fontSize: 12 }}>{getProjectName(selectedProject)}</Text>
+              </Text>
+              <Text type="secondary" style={{ fontSize: 11 }}>
+                ({projectFilteredSessions.length} 个会话)
+              </Text>
+              <Button
+                type="text"
+                size="small"
+                icon={<CloseOutlined />}
+                onClick={() => setSelectedProject(null)}
+                style={{ marginLeft: 'auto', fontSize: 10, color: themeVars.textTertiary }}
+              >
+                清除
+              </Button>
+            </div>
           )}
 
           {/* Session 列表 */}
@@ -738,7 +843,11 @@ const HistoryViewer = (props: HistoryViewerProps) => {
         visible={conversationModalVisible}
         sessionId={conversationSessionId}
         project={conversationProject}
-        onClose={() => setConversationModalVisible(false)}
+        initialTimestamp={conversationTimestamp}
+        onClose={() => {
+          setConversationModalVisible(false)
+          setConversationTimestamp(undefined)
+        }}
       />
 
       {/* AI 总结弹窗 */}
@@ -769,16 +878,16 @@ const HistoryViewer = (props: HistoryViewerProps) => {
         onCancel={() => { setSearchVisible(false); setSearchKeyword('') }}
         footer={null}
         closable={false}
-        width={640}
-        style={{ top: '15%' }}
+        width={680}
+        style={{ top: '12%' }}
         styles={{ body: { padding: 0 } as React.CSSProperties }}
       >
         <div style={{ padding: '16px 20px' }}>
-          <div style={{ marginBottom: 16 }}>
+          <div style={{ marginBottom: 12 }}>
             <Input
               ref={searchInputRef}
               size="large"
-              placeholder="搜索项目名称或 Session ID..."
+              placeholder="搜索 Prompt 内容、项目名称或 Session ID..."
               value={searchKeyword}
               onChange={e => setSearchKeyword(e.target.value)}
               prefix={<SearchOutlined style={{ fontSize: 18, color: themeVars.textSecondary }} />}
@@ -791,21 +900,92 @@ const HistoryViewer = (props: HistoryViewerProps) => {
               style={{ borderRadius: 8, fontSize: 15 }}
             />
           </div>
-          <div style={{ textAlign: 'center', padding: '20px', color: themeVars.textTertiary }}>
-            {!searchKeyword ? (
-              <>
-                <SearchOutlined style={{ fontSize: 36, marginBottom: 8, opacity: 0.25 }} />
-                <div style={{ fontSize: 13, marginBottom: 4 }}>输入项目名称或 Session ID 筛选会话</div>
-                <div style={{ fontSize: 12, opacity: 0.7 }}>提示：按 ESC 关闭搜索</div>
-              </>
-            ) : searchedSessions.length === 0 ? (
-              <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="未找到匹配的会话" style={{ padding: '10px 0' }} />
-            ) : (
-              <div style={{ fontSize: 13, color: themeVars.textSecondary }}>
-                找到 {searchedSessions.length} 个匹配的会话，已在列表中筛选显示
-              </div>
-            )}
-          </div>
+
+          {!searchKeyword ? (
+            <div style={{ textAlign: 'center', padding: '20px', color: themeVars.textTertiary }}>
+              <SearchOutlined style={{ fontSize: 36, marginBottom: 8, opacity: 0.25 }} />
+              <div style={{ fontSize: 13, marginBottom: 4 }}>搜索 Prompt 内容、项目名称或 Session ID</div>
+              <div style={{ fontSize: 12, opacity: 0.7 }}>提示：按 ESC 关闭搜索</div>
+            </div>
+          ) : (
+            <div style={{ maxHeight: 400, overflow: 'auto' }}>
+              {/* Prompt 文本匹配结果 */}
+              {searchResults.length > 0 && (
+                <div style={{ marginBottom: 8 }}>
+                  <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 6, paddingLeft: 2 }}>
+                    匹配的 Prompt ({searchResults.length > 19 ? '20+' : searchResults.length} 条)
+                  </Text>
+                  {searchResults.map((r, idx) => {
+                    const kw = searchKeyword.toLowerCase()
+                    const lowerDisplay = r.display.toLowerCase()
+                    const matchIdx = lowerDisplay.indexOf(kw)
+                    /* 截取匹配前后文本作为预览 */
+                    const start = Math.max(0, matchIdx - 30)
+                    const end = Math.min(r.display.length, matchIdx + kw.length + 60)
+                    const snippet = r.display.slice(start, end)
+
+                    /* 将 snippet 拆分为：匹配前 | 匹配高亮 | 匹配后 */
+                    const relIdx = matchIdx - start
+                    const before = (start > 0 ? '...' : '') + snippet.slice(0, relIdx)
+                    const matched = snippet.slice(relIdx, relIdx + kw.length)
+                    const after = snippet.slice(relIdx + kw.length) + (end < r.display.length ? '...' : '')
+
+                    return (
+                      <div
+                        key={idx}
+                        onClick={() => {
+                          setSearchVisible(false)
+                          setSearchKeyword('')
+                          if (r.sessionId) {
+                            setConversationSessionId(r.sessionId)
+                            setConversationProject(r.project)
+                            setConversationTimestamp(r.timestamp)
+                            setConversationModalVisible(true)
+                          }
+                        }}
+                        style={{
+                          padding: '8px 12px',
+                          borderRadius: 6,
+                          border: `1px solid ${themeVars.borderSecondary}`,
+                          marginBottom: 6,
+                          cursor: 'pointer',
+                          transition: 'background 0.15s',
+                          background: 'transparent'
+                        }}
+                        onMouseEnter={e => { e.currentTarget.style.background = darkMode ? 'rgba(255,255,255,0.04)' : '#f5f5f5' }}
+                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                          <Tag color="blue" style={{ fontSize: 10 }}>{getProjectName(r.project)}</Tag>
+                          <Text type="secondary" style={{ fontSize: 10 }}>
+                            {new Date(r.timestamp).toLocaleString('zh-CN')}
+                          </Text>
+                        </div>
+                        <Text style={{ fontSize: 12, lineHeight: '18px' }}>
+                          {before}
+                          <span style={{ color: '#1677ff', fontWeight: 600, background: darkMode ? 'rgba(22,119,255,0.15)' : 'rgba(22,119,255,0.1)', borderRadius: 2, padding: '0 1px' }}>
+                            {matched}
+                          </span>
+                          {after}
+                        </Text>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              {/* 会话级匹配统计 */}
+              {searchedSessions.length > 0 ? (
+                <div style={{ padding: '8px 2px', color: themeVars.textSecondary }}>
+                  <Text type="secondary" style={{ fontSize: 11 }}>
+                    共匹配 {searchedSessions.length} 个会话，已在列表中筛选显示
+                  </Text>
+                </div>
+              ) : (
+                <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="未找到匹配结果" style={{ padding: '10px 0' }} />
+              )}
+            </div>
+          )}
         </div>
       </ElectronModal>
 

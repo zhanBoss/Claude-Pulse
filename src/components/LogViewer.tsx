@@ -8,19 +8,15 @@ import {
   Card,
   message,
   Modal,
-  Image,
   Tooltip,
-  Input
+  Input,
+  List
 } from 'antd'
 import {
   CopyOutlined,
   FolderOpenOutlined,
-  DownOutlined,
-  UpOutlined,
   StarOutlined,
   ClearOutlined,
-  FileImageOutlined,
-  FileTextOutlined,
   ClockCircleOutlined,
   SearchOutlined,
   CloseOutlined,
@@ -32,12 +28,7 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus, prism } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { ClaudeRecord } from '../types'
 import { getThemeVars } from '../theme'
-import { replacePastedContents } from '../utils/promptFormatter'
-import SmartContent from './SmartContent'
 import ElectronModal, { getElectronModalConfig } from './ElectronModal'
-import CopyTextModal from './CopyTextModal'
-import FormattedPromptModal from './FormattedPromptModal'
-import CopyableImage, { getCopyablePreviewConfig } from './CopyableImage'
 import ConversationDetailModal from './ConversationDetailModal'
 
 const { Text } = Typography
@@ -50,16 +41,17 @@ interface LogViewerProps {
   onSendToChat?: (content: string) => void
 }
 
-interface GroupedRecord {
+interface GroupedSession {
   sessionId: string
   project: string
   records: ClaudeRecord[]
   latestTimestamp: number
+  firstPrompt: string
+  recordCount: number
 }
 
-function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }: LogViewerProps) {
-  // 每个 session 的展开/折叠状态
-  const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set())
+const LogViewer = (props: LogViewerProps) => {
+  const { records, onClear, onOpenSettings, darkMode } = props
   const themeVars = getThemeVars(darkMode)
 
   // AI 总结相关状态
@@ -67,27 +59,10 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
   const [summaryContent, setSummaryContent] = useState<string>('')
   const [summaryModalVisible, setSummaryModalVisible] = useState(false)
 
-  // 图片加载缓存
-  const [imageCache, setImageCache] = useState<Map<string, string>>(new Map())
-
-  // Prompt 和 Copy Text 弹窗状态
-  const [promptModalVisible, setPromptModalVisible] = useState(false)
-  const [promptModalContent, setPromptModalContent] = useState<string>('')
-  const [promptModalImages, setPromptModalImages] = useState<string[]>([]) // 对话详情的图片
-  const [copyTextModalVisible, setCopyTextModalVisible] = useState(false)
-  const [copyTextModalContent, setCopyTextModalContent] = useState<Record<string, any>>({})
-
-  // 图片预览状态
-  const [imagePreviewVisible, setImagePreviewVisible] = useState(false)
-  const [imagePreviewIndex, setImagePreviewIndex] = useState(0)
-  const [imagePreviewList, setImagePreviewList] = useState<string[]>([])
-  const [previewImageCache, setPreviewImageCache] = useState<Map<string, string>>(new Map())
-
   // 完整对话弹窗状态
   const [conversationModalVisible, setConversationModalVisible] = useState(false)
   const [conversationSessionId, setConversationSessionId] = useState('')
   const [conversationProject, setConversationProject] = useState('')
-  const [conversationTimestamp, setConversationTimestamp] = useState<number | undefined>(undefined)
 
   // 搜索相关状态
   const [searchVisible, setSearchVisible] = useState(false)
@@ -98,21 +73,14 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
   // 监听 Cmd+F 快捷键
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Cmd+F (Mac) 或 Ctrl+F (Windows/Linux)
+      if (conversationModalVisible) return
+
       if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
         e.preventDefault()
-        // 关闭所有弹窗
-        setPromptModalVisible(false)
-        setCopyTextModalVisible(false)
         setSummaryModalVisible(false)
-        // 打开搜索
         setSearchVisible(true)
-        // 延迟聚焦，确保输入框已渲染
-        setTimeout(() => {
-          searchInputRef.current?.focus()
-        }, 100)
+        setTimeout(() => searchInputRef.current?.focus(), 100)
       }
-      // ESC 关闭搜索框
       if (e.key === 'Escape' && searchVisible) {
         setSearchVisible(false)
         setSearchKeyword('')
@@ -121,60 +89,36 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [searchVisible])
+  }, [searchVisible, conversationModalVisible])
 
-  const toggleSession = (sessionId: string) => {
-    const newExpanded = new Set(expandedSessions)
-    if (newExpanded.has(sessionId)) {
-      newExpanded.delete(sessionId)
-    } else {
-      newExpanded.add(sessionId)
-    }
-    setExpandedSessions(newExpanded)
-  }
-
-  const formatTimeShort = (timestamp: number) => {
-    const date = new Date(timestamp)
-    return date.toLocaleTimeString('zh-CN', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    })
-  }
-
-  // 按 sessionId 分组记录
-  const groupedRecords = useMemo(() => {
-    const groups = new Map<string, GroupedRecord>()
-
-    records.forEach(record => {
-      const key = record.sessionId || `single-${record.timestamp}`
-
-      if (!groups.has(key)) {
-        groups.set(key, {
-          sessionId: key,
-          project: record.project,
-          records: [],
-          latestTimestamp: record.timestamp
-        })
-      }
-
-      const group = groups.get(key)!
-      group.records.push(record)
-      group.latestTimestamp = Math.max(group.latestTimestamp, record.timestamp)
-    })
-
-    return Array.from(groups.values()).sort((a, b) => b.latestTimestamp - a.latestTimestamp)
-  }, [records])
+  // 防抖搜索
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedKeyword(searchKeyword)
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchKeyword])
 
   const formatTime = (timestamp: number) => {
     const date = new Date(timestamp)
+    const now = new Date()
+    const isToday =
+      date.getFullYear() === now.getFullYear() &&
+      date.getMonth() === now.getMonth() &&
+      date.getDate() === now.getDate()
+
+    if (isToday) {
+      return date.toLocaleTimeString('zh-CN', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+      })
+    }
     return date.toLocaleString('zh-CN', {
-      year: 'numeric',
       month: '2-digit',
       day: '2-digit',
       hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
+      minute: '2-digit'
     })
   }
 
@@ -184,35 +128,61 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
     return parts[parts.length - 1]
   }
 
-  const handleCopy = async (text: string) => {
-    try {
-      await window.electronAPI.copyToClipboard(text)
-      message.success('已复制到剪贴板')
-    } catch (error) {
-      message.error('复制失败')
-    }
+  const truncateText = (text: string, maxLength: number = 80) => {
+    if (!text) return ''
+    /* 去除换行，合并为单行 */
+    const singleLine = text.replace(/\n/g, ' ').replace(/\s+/g, ' ').trim()
+    if (singleLine.length <= maxLength) return singleLine
+    return singleLine.substring(0, maxLength) + '...'
   }
 
-  const handleOpenFolder = async (folderPath: string) => {
-    try {
-      await window.electronAPI.openInFinder(folderPath)
-    } catch (error) {
-      message.error('打开文件夹失败')
-    }
-  }
+  // 按 sessionId 分组记录为会话
+  const groupedSessions = useMemo(() => {
+    const groups = new Map<string, GroupedSession>()
 
-  // 防抖 effect
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedKeyword(searchKeyword)
-    }, 300)
-    return () => clearTimeout(timer)
-  }, [searchKeyword])
+    records.forEach(record => {
+      const key = record.sessionId || `single-${record.timestamp}`
 
-  // 搜索 Prompt 内容
+      if (!groups.has(key)) {
+        groups.set(key, {
+          sessionId: key,
+          project: record.project,
+          records: [],
+          latestTimestamp: record.timestamp,
+          firstPrompt: record.display || '',
+          recordCount: 0
+        })
+      }
+
+      const group = groups.get(key)!
+      group.records.push(record)
+      group.recordCount += 1
+      group.latestTimestamp = Math.max(group.latestTimestamp, record.timestamp)
+      // 第一条用户提问作为首条 prompt
+      if (!group.firstPrompt && record.display) {
+        group.firstPrompt = record.display
+      }
+    })
+
+    return Array.from(groups.values()).sort((a, b) => b.latestTimestamp - a.latestTimestamp)
+  }, [records])
+
+  // 搜索过滤
+  const filteredSessions = useMemo(() => {
+    if (!debouncedKeyword.trim()) return groupedSessions
+    const keyword = debouncedKeyword.toLowerCase()
+    return groupedSessions.filter(session => {
+      // 项目名或 sessionId 匹配
+      if (session.project.toLowerCase().includes(keyword)) return true
+      if (session.sessionId.toLowerCase().includes(keyword)) return true
+      // prompt 内容匹配
+      return session.records.some(r => r.display?.toLowerCase().includes(keyword))
+    })
+  }, [groupedSessions, debouncedKeyword])
+
+  // 搜索 Prompt 内容匹配结果
   const searchResults = useMemo(() => {
     if (!debouncedKeyword.trim()) return []
-
     const keyword = debouncedKeyword.toLowerCase()
     const results: Array<{
       record: ClaudeRecord
@@ -221,16 +191,13 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
       matchText: string
     }> = []
 
-    // 搜索所有记录的 display 内容
     records.forEach(record => {
       const content = record.display?.toLowerCase() || ''
       if (content.includes(keyword)) {
-        // 获取匹配上下文（前后50个字符）
         const index = content.indexOf(keyword)
-        const start = Math.max(0, index - 50)
-        const end = Math.min(content.length, index + keyword.length + 50)
+        const start = Math.max(0, index - 40)
+        const end = Math.min(content.length, index + keyword.length + 60)
         let matchText = record.display?.substring(start, end) || ''
-
         if (start > 0) matchText = '...' + matchText
         if (end < content.length) matchText = matchText + '...'
 
@@ -243,20 +210,26 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
       }
     })
 
-    return results
+    return results.slice(0, 20)
   }, [records, debouncedKeyword])
 
-  // 查看搜索结果详情
-  const handleViewSearchResult = (record: ClaudeRecord) => {
-    setPromptModalContent(record.display || '')
-    setPromptModalImages(record.images || [])
-    setPromptModalVisible(true)
-    setSearchVisible(false)
-    setSearchKeyword('')
+  const handleOpenFolder = async (folderPath: string) => {
+    try {
+      await window.electronAPI.openInFinder(folderPath)
+    } catch {
+      message.error('打开文件夹失败')
+    }
   }
 
-  // 处理单个会话总结
-  const handleSummarizeSession = async (session: GroupedRecord) => {
+  /* 点击会话卡片 → 打开完整对话弹窗 */
+  const handleSessionClick = (session: GroupedSession) => {
+    setConversationSessionId(session.sessionId)
+    setConversationProject(session.project)
+    setConversationModalVisible(true)
+  }
+
+  // AI 总结单个会话
+  const handleSummarizeSession = async (session: GroupedSession) => {
     if (session.records.length === 0) {
       message.warning('该会话没有对话记录')
       return
@@ -265,19 +238,15 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
     setSummarizing(true)
 
     try {
-      // 检查 AI 配置
       const settings = await window.electronAPI.getAppSettings()
 
-      // 使用 aiSummary 配置（总结配置）
       if (!settings.aiSummary.enabled) {
         Modal.confirm({
           title: '启用 AI 总结功能',
           content: 'AI 总结功能尚未启用，是否前往设置？',
           okText: '去设置',
           cancelText: '取消',
-          onOk: () => {
-            onOpenSettings?.()
-          },
+          onOk: () => onOpenSettings?.(),
           ...getElectronModalConfig()
         })
         setSummarizing(false)
@@ -288,45 +257,34 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
       if (!currentProvider || !currentProvider.apiKey) {
         Modal.confirm({
           title: '配置 API Key',
-          content: `尚未配置 API Key，是否前往设置？`,
+          content: '尚未配置 API Key，是否前往设置？',
           okText: '去设置',
           cancelText: '取消',
-          onOk: () => {
-            onOpenSettings?.()
-          },
+          onOk: () => onOpenSettings?.(),
           ...getElectronModalConfig()
         })
         setSummarizing(false)
         return
       }
 
-      // 先打开弹窗，显示"正在生成总结..."
       setSummaryContent('正在生成总结...')
       setSummaryModalVisible(true)
 
       let fullSummary = ''
 
-      // 调用流式总结接口
       await window.electronAPI.summarizeRecordsStream(
-        {
-          records: session.records,
-          type: 'detailed'
-        },
-        // onChunk: 接收到新内容时追加
+        { records: session.records, type: 'detailed' },
         (chunk: string) => {
           fullSummary += chunk
           setSummaryContent(fullSummary)
         },
-        // onComplete: 总结完成
         () => {
           setSummarizing(false)
         },
-        // onError: 出错时处理
         (error: string) => {
           setSummarizing(false)
           setSummaryModalVisible(false)
 
-          // 显示详细的错误信息
           if (error.includes('余额不足') || error.includes('402')) {
             Modal.error({
               title: 'AI 总结失败',
@@ -353,9 +311,7 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
                 </div>
               ),
               okText: '前往设置',
-              onOk: () => {
-                onOpenSettings?.()
-              },
+              onOk: () => onOpenSettings?.(),
               ...getElectronModalConfig()
             })
           } else {
@@ -369,30 +325,61 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
     }
   }
 
-  // 复制总结内容
   const handleCopySummary = async () => {
     try {
       await window.electronAPI.copyToClipboard(summaryContent)
       message.success('已复制到剪贴板')
-    } catch (error) {
+    } catch {
       message.error('复制失败')
     }
   }
 
-  // 图片组件 - 使用可复制图片组件
-  const ImageThumbnail = ({ imagePath, index }: { imagePath: string; index: number }) => {
-    return (
-      <CopyableImage
-        imagePath={imagePath}
-        index={index}
-        darkMode={darkMode}
-        imageCache={imageCache}
-        onCacheUpdate={(path, data) => {
-          setImageCache(prev => new Map(prev).set(path, data))
-        }}
-      />
-    )
-  }
+  const renderMarkdown = (content: string) => (
+    <ReactMarkdown
+      components={{
+        code({ node, inline, className, children, ...codeProps }: any) {
+          const match = /language-(\w+)/.exec(className || '')
+          return !inline && match ? (
+            <SyntaxHighlighter
+              style={darkMode ? vscDarkPlus : prism}
+              language={match[1]}
+              PreTag="div"
+              customStyle={{
+                margin: 0,
+                borderRadius: 6,
+                fontSize: 13,
+                background: themeVars.bgCode
+              }}
+              {...codeProps}
+            >
+              {String(children).replace(/\n$/, '')}
+            </SyntaxHighlighter>
+          ) : (
+            <code
+              style={{
+                background: themeVars.codeBg,
+                padding: '2px 6px',
+                borderRadius: 3,
+                fontSize: 12,
+                fontFamily: 'monospace'
+              }}
+              {...codeProps}
+            >
+              {children}
+            </code>
+          )
+        },
+        p({ children }) {
+          return <p style={{ marginBottom: 8, lineHeight: 1.6 }}>{children}</p>
+        },
+        pre({ children }) {
+          return <>{children}</>
+        }
+      }}
+    >
+      {content}
+    </ReactMarkdown>
+  )
 
   return (
     <div
@@ -403,11 +390,11 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
         background: themeVars.bgContainer
       }}
     >
-      {/* 操作栏 - 顶部 */}
+      {/* 操作栏 */}
       <div
         style={
           {
-            padding: '16px',
+            padding: '12px 16px',
             borderBottom: `1px solid ${themeVars.borderSecondary}`,
             background: themeVars.bgSection,
             display: 'flex',
@@ -419,22 +406,16 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
         }
       >
         <Text type="secondary" style={{ fontSize: 12 }}>
-          共 {groupedRecords.length} 个会话，{records.length} 条记录
+          共 {filteredSessions.length} 个会话，{records.length} 条记录
         </Text>
         <Space style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
           <Tooltip title="搜索 Prompt (Cmd+F / Ctrl+F)">
             <Button
               icon={<SearchOutlined />}
               onClick={() => {
-                // 关闭所有弹窗
-                setPromptModalVisible(false)
-                setCopyTextModalVisible(false)
                 setSummaryModalVisible(false)
-                // 打开搜索
                 setSearchVisible(true)
-                setTimeout(() => {
-                  searchInputRef.current?.focus()
-                }, 100)
+                setTimeout(() => searchInputRef.current?.focus(), 100)
               }}
               size="small"
             />
@@ -450,15 +431,16 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
         </Space>
       </div>
 
+      {/* 内容区域 */}
       <div
         style={{
           flex: 1,
           overflow: 'auto',
-          padding: 16,
+          padding: '16px 24px',
           minHeight: 0
         }}
       >
-        {groupedRecords.length === 0 ? (
+        {filteredSessions.length === 0 ? (
           <Empty
             image={Empty.PRESENTED_IMAGE_SIMPLE}
             description={
@@ -472,272 +454,105 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
             style={{ marginTop: 100 }}
           />
         ) : (
-          <Space vertical size="middle" style={{ width: '100%' }}>
-            {groupedRecords.map(group => {
-              const isExpanded = expandedSessions.has(group.sessionId)
-              const showCollapse = group.records.length > 3
-              const displayRecords =
-                isExpanded || !showCollapse ? group.records : group.records.slice(0, 3)
-
-              return (
+          <List
+            grid={{ gutter: 16, column: 2 }}
+            dataSource={filteredSessions}
+            renderItem={session => (
+              <List.Item style={{ marginBottom: 8 }}>
                 <Card
-                  key={group.sessionId}
+                  hoverable
                   size="small"
+                  onClick={() => handleSessionClick(session)}
                   title={
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <FolderOpenOutlined style={{ fontSize: 14, color: themeVars.primary }} />
-                      <Text strong style={{ fontSize: 14 }}>
-                        {getProjectName(group.project)}
-                      </Text>
-                      {group.sessionId && !group.sessionId.startsWith('single-') && (
-                        <Text code style={{ fontSize: 11, color: themeVars.textTertiary }}>
-                          #{group.sessionId.slice(0, 8)}
+                    <Space>
+                      <Tag color="blue">{getProjectName(session.project)}</Tag>
+                      {session.sessionId && !session.sessionId.startsWith('single-') && (
+                        <Text code style={{ fontSize: 11 }}>
+                          {session.sessionId.slice(0, 8)}
                         </Text>
                       )}
-                      <Tag color="default" style={{ fontSize: 11 }}>
-                        {group.records.length}条
-                      </Tag>
-                    </div>
-                  }
-                  extra={
-                    <Space size="small">
-                      <Text type="secondary" style={{ fontSize: 12 }}>
-                        {formatTime(group.latestTimestamp)}
-                      </Text>
-                      <Tooltip title="打开文件夹">
-                        <Button
-                          type="text"
-                          size="small"
-                          icon={<FolderOpenOutlined />}
-                          onClick={() => handleOpenFolder(group.project)}
-                        />
-                      </Tooltip>
-                      <Tooltip title="AI 总结此会话">
-                        <Button
-                          type="text"
-                          size="small"
-                          icon={<StarOutlined />}
-                          loading={summarizing}
-                          onClick={() => handleSummarizeSession(group)}
-                        />
-                      </Tooltip>
                     </Space>
                   }
-                  styles={{ body: { padding: 12 } }}
-                >
-                  <Space vertical size="small" style={{ width: '100%' }}>
-                    {displayRecords.map((record, recordIndex) => {
-                      const hasImages = record.images && record.images.length > 0
-                      const hasCopyText =
-                        record.pastedContents && Object.keys(record.pastedContents).length > 0
-                      const hasResources = hasImages || hasCopyText
-                      // 在列表视图中显示原始 prompt（不展开 Copy Text）
-                      const displayPrompt = record.display
-                      // 完整 prompt（用于详情弹窗，展开 Copy Text）
-                      const fullPrompt = replacePastedContents(
-                        record.display,
-                        record.pastedContents || {}
-                      )
-                      const lines = displayPrompt.split('\n')
-                      const isPromptLong = lines.length > 3
-
-                      return (
-                        <Card
-                          key={recordIndex}
-                          size="small"
-                          styles={{ body: { padding: 12 } }}
-                          style={{
-                            background: themeVars.bgSection,
-                            border: `1px solid ${themeVars.borderSecondary}`
-                          }}
-                        >
-                          {/* 资源信息栏 */}
-                          {hasResources && (
-                            <div style={{ marginBottom: 12 }}>
-                              <Space size="middle">
-                                {hasImages && (
-                                  <Text
-                                    style={{
-                                      fontSize: 13,
-                                      color: themeVars.textSecondary
-                                    }}
-                                  >
-                                    <FileImageOutlined style={{ marginRight: 4 }} />
-                                    {record.images!.length}张图片
-                                  </Text>
-                                )}
-                                {hasCopyText && (
-                                  <Text
-                                    style={{
-                                      fontSize: 13,
-                                      color: themeVars.textSecondary,
-                                      cursor: 'pointer'
-                                    }}
-                                    onClick={() => {
-                                      setCopyTextModalContent(record.pastedContents || {})
-                                      setCopyTextModalVisible(true)
-                                    }}
-                                  >
-                                    <FileTextOutlined style={{ marginRight: 4 }} />
-                                    {Object.keys(record.pastedContents!).length}个Copy Text
-                                  </Text>
-                                )}
-                              </Space>
-
-                              {/* 图片网格 - 默认显示 */}
-                              {hasImages && (
-                                <Image.PreviewGroup preview={getCopyablePreviewConfig(darkMode)}>
-                                  <div
-                                    style={{
-                                      display: 'flex',
-                                      gap: 8,
-                                      marginTop: 8,
-                                      flexWrap: 'wrap'
-                                    }}
-                                  >
-                                    {record.images!.map((imagePath, imgIndex) => (
-                                      <ImageThumbnail
-                                        key={imgIndex}
-                                        imagePath={imagePath}
-                                        index={imgIndex}
-                                      />
-                                    ))}
-                                  </div>
-                                </Image.PreviewGroup>
-                              )}
-                            </div>
-                          )}
-
-                          {/* Prompt 内容 */}
-                          <div style={{ marginBottom: 8 }}>
-                            <SmartContent
-                              content={displayPrompt}
-                              darkMode={darkMode}
-                              maxLines={isPromptLong ? 3 : undefined}
-                              onClick={
-                                isPromptLong
-                                  ? () => {
-                                      setPromptModalContent(fullPrompt)
-                                      setPromptModalImages(record.images || [])
-                                      setPromptModalVisible(true)
-                                    }
-                                  : undefined
-                              }
-                              hasPastedContents={hasCopyText}
-                              onPastedTextClick={_pastedTextKey => {
-                                // 打开 Copy Text 弹窗并滚动到对应的内容
-                                setCopyTextModalContent(record.pastedContents || {})
-                                setCopyTextModalVisible(true)
-                              }}
-                              images={record.images}
-                              onImageClick={imageNumber => {
-                                // 找到对应编号的图片并打开预览
-                                if (record.images && record.images.length > 0) {
-                                  // 图片编号从 1 开始，数组索引从 0 开始
-                                  const imageIndex = imageNumber - 1
-                                  if (imageIndex >= 0 && imageIndex < record.images.length) {
-                                    setImagePreviewList(record.images)
-                                    setImagePreviewIndex(imageIndex)
-                                    setImagePreviewVisible(true)
-                                  }
-                                }
-                              }}
-                            />
-                          </div>
-
-                          {/* 底部信息栏 */}
-                          <div
-                            style={{
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'center',
-                              paddingTop: 8,
-                              borderTop: `1px solid ${themeVars.borderSecondary}`
-                            }}
-                          >
-                            <Text type="secondary" style={{ fontSize: 11 }}>
-                              <ClockCircleOutlined style={{ marginRight: 4 }} />
-                              {formatTimeShort(record.timestamp)}
-                            </Text>
-                            <Space size={4}>
-                              {group.sessionId && !group.sessionId.startsWith('single-') && (
-                                <Tooltip title="查看该 Prompt 的完整对话上下文">
-                                  <Button
-                                    type="text"
-                                    size="small"
-                                    icon={<CommentOutlined style={{ color: themeVars.primary }} />}
-                                    onClick={() => {
-                                      setConversationSessionId(group.sessionId)
-                                      setConversationProject(group.project)
-                                      setConversationTimestamp(record.timestamp)
-                                      setConversationModalVisible(true)
-                                    }}
-                                    style={{ fontSize: 11, padding: '0 4px', height: 20 }}
-                                  >
-                                    完整对话
-                                  </Button>
-                                </Tooltip>
-                              )}
-                              {onSendToChat && (
-                                <Tooltip title="发送到AI助手">
-                                  <Button
-                                    type="text"
-                                    size="small"
-                                    icon={<CommentOutlined style={{ color: themeVars.textSecondary }} />}
-                                    onClick={() => onSendToChat(fullPrompt)}
-                                    style={{ fontSize: 11, padding: '0 4px', height: 20 }}
-                                  />
-                                </Tooltip>
-                              )}
-                              <Button
-                                type="text"
-                                size="small"
-                                icon={<CopyOutlined />}
-                                onClick={() => handleCopy(fullPrompt)}
-                                style={{ fontSize: 11, padding: '0 4px', height: 20 }}
-                              >
-                                复制
-                              </Button>
-                            </Space>
-                          </div>
-                        </Card>
-                      )
-                    })}
-
-                    {/* 展开/收起按钮 */}
-                    {showCollapse && (
+                  extra={<ClockCircleOutlined style={{ color: themeVars.textTertiary }} />}
+                  actions={[
+                    <Tooltip key="summarize" title="AI 总结">
                       <Button
-                        type="link"
+                        type="text"
                         size="small"
-                        icon={isExpanded ? <UpOutlined /> : <DownOutlined />}
-                        onClick={() => toggleSession(group.sessionId)}
-                        style={{ padding: 0, fontSize: 12 }}
+                        icon={<StarOutlined />}
+                        loading={summarizing}
+                        onClick={e => {
+                          e.stopPropagation()
+                          handleSummarizeSession(session)
+                        }}
                       >
-                        {isExpanded ? '收起' : `展开剩余 ${group.records.length - 3} 条`}
+                        AI 总结
                       </Button>
+                    </Tooltip>,
+                    <Tooltip key="folder" title="打开项目文件夹">
+                      <Button
+                        type="text"
+                        size="small"
+                        icon={<FolderOpenOutlined />}
+                        onClick={e => {
+                          e.stopPropagation()
+                          handleOpenFolder(session.project)
+                        }}
+                      >
+                        打开
+                      </Button>
+                    </Tooltip>
+                  ]}
+                >
+                  <Space direction="vertical" size="small" style={{ width: '100%' }}>
+                    {/* 时间和记录数 */}
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                      {formatTime(session.latestTimestamp)}
+                    </Text>
+                    <Space wrap size={4}>
+                      <Tag style={{ fontSize: 11 }}>
+                        <CommentOutlined style={{ marginRight: 4 }} />
+                        {session.recordCount} 轮对话
+                      </Tag>
+                    </Space>
+
+                    {/* 首条 Prompt 预览 */}
+                    {session.firstPrompt && (
+                      <Text
+                        style={{
+                          fontSize: 12,
+                          color: themeVars.textSecondary,
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden',
+                          lineHeight: '18px'
+                        }}
+                      >
+                        {truncateText(session.firstPrompt, 120)}
+                      </Text>
                     )}
 
-                    {/* Session 底部路径 */}
-                    <div
+                    {/* 项目路径 */}
+                    <Text
+                      code
                       style={{
-                        padding: '8px 12px',
-                        background: themeVars.codeBg,
-                        borderRadius: 4,
                         fontSize: 11,
-                        color: themeVars.textTertiary,
-                        fontFamily: 'monospace',
                         cursor: 'pointer',
-                        wordBreak: 'break-all'
+                        color: themeVars.textTertiary
                       }}
-                      onClick={() => handleOpenFolder(group.project)}
+                      onClick={e => {
+                        e.stopPropagation()
+                        handleOpenFolder(session.project)
+                      }}
                     >
-                      {group.project}
-                    </div>
+                      {truncateText(session.project, 40)}
+                    </Text>
                   </Space>
                 </Card>
-              )
-            })}
-          </Space>
+              </List.Item>
+            )}
+          />
         )}
       </div>
 
@@ -768,122 +583,14 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
           } as React.CSSProperties
         }}
       >
-        <div style={{ fontSize: 14, lineHeight: 1.8 }}>
-          <ReactMarkdown
-            components={{
-              code({ node, inline, className, children, ...props }: any) {
-                const match = /language-(\w+)/.exec(className || '')
-                return !inline && match ? (
-                  <SyntaxHighlighter
-                    style={darkMode ? vscDarkPlus : prism}
-                    language={match[1]}
-                    PreTag="div"
-                    customStyle={{
-                      margin: 0,
-                      borderRadius: 6,
-                      fontSize: 13,
-                      background: themeVars.bgCode
-                    }}
-                    {...props}
-                  >
-                    {String(children).replace(/\n$/, '')}
-                  </SyntaxHighlighter>
-                ) : (
-                  <code
-                    style={{
-                      background: themeVars.codeBg,
-                      padding: '2px 6px',
-                      borderRadius: 3,
-                      fontSize: 12,
-                      fontFamily: 'monospace'
-                    }}
-                    {...props}
-                  >
-                    {children}
-                  </code>
-                )
-              },
-              p({ children }) {
-                return <p style={{ marginBottom: 8, lineHeight: 1.6 }}>{children}</p>
-              },
-              pre({ children }) {
-                return <>{children}</>
-              }
-            }}
-          >
-            {summaryContent}
-          </ReactMarkdown>
-        </div>
+        <div style={{ fontSize: 14, lineHeight: 1.8 }}>{renderMarkdown(summaryContent)}</div>
       </ElectronModal>
 
-      {/* Prompt 详情弹窗 */}
-      <FormattedPromptModal
-        visible={promptModalVisible}
-        onClose={() => setPromptModalVisible(false)}
-        content={promptModalContent}
-        darkMode={darkMode}
-        images={promptModalImages}
-        onImageClick={imageNumber => {
-          // 在详情弹窗中点击图片标签
-          if (promptModalImages && promptModalImages.length > 0) {
-            const imageIndex = imageNumber - 1
-            if (imageIndex >= 0 && imageIndex < promptModalImages.length) {
-              setImagePreviewList(promptModalImages)
-              setImagePreviewIndex(imageIndex)
-              setImagePreviewVisible(true)
-            }
-          }
-        }}
-      />
-
-      {/* Copy Text 详情弹窗 */}
-      <CopyTextModal
-        visible={copyTextModalVisible}
-        onClose={() => setCopyTextModalVisible(false)}
-        content={copyTextModalContent}
-        darkMode={darkMode}
-      />
-
-      {/* 图片预览弹窗 */}
-      {imagePreviewVisible && imagePreviewList.length > 0 && (
-        <Image.PreviewGroup
-          preview={{
-            visible: imagePreviewVisible,
-            current: imagePreviewIndex,
-            onVisibleChange: visible => {
-              setImagePreviewVisible(visible)
-            },
-            ...getCopyablePreviewConfig(darkMode)
-          }}
-          items={imagePreviewList.map(imagePath => ({
-            src: previewImageCache.get(imagePath) || imagePath
-          }))}
-        >
-          {imagePreviewList.map((imagePath, index) => (
-            <CopyableImage
-              key={index}
-              imagePath={imagePath}
-              index={index}
-              darkMode={darkMode}
-              imageCache={previewImageCache}
-              onCacheUpdate={(path, data) => {
-                setPreviewImageCache(prev => {
-                  const newCache = new Map(prev)
-                  newCache.set(path, data)
-                  return newCache
-                })
-              }}
-            />
-          ))}
-        </Image.PreviewGroup>
-      )}
-
-      {/* 完整对话弹窗（按轮次浏览，自动定位到对应 Prompt） */}
+      {/* 完整对话弹窗（按轮次浏览） */}
       <ConversationDetailModal
         visible={conversationModalVisible}
         sessionId={conversationSessionId}
         project={conversationProject}
-        initialTimestamp={conversationTimestamp}
         onClose={() => setConversationModalVisible(false)}
       />
 
@@ -910,10 +617,12 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
             <Input
               ref={searchInputRef}
               size="large"
-              placeholder="搜索 Prompt 内容..."
+              placeholder="搜索 Prompt 内容、项目名称..."
               value={searchKeyword}
               onChange={e => setSearchKeyword(e.target.value)}
-              prefix={<SearchOutlined style={{ fontSize: 18, color: themeVars.textSecondary }} />}
+              prefix={
+                <SearchOutlined style={{ fontSize: 18, color: themeVars.textSecondary }} />
+              }
               suffix={
                 searchKeyword && (
                   <CloseOutlined
@@ -929,13 +638,8 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
             />
           </div>
 
-          {/* 搜索结果列表 */}
-          <div
-            style={{
-              maxHeight: '400px',
-              overflow: 'auto'
-            }}
-          >
+          {/* 搜索结果 */}
+          <div style={{ maxHeight: '400px', overflow: 'auto' }}>
             {!searchKeyword ? (
               <div
                 style={{
@@ -959,7 +663,15 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
                 {searchResults.map((result, index) => (
                   <div
                     key={index}
-                    onClick={() => handleViewSearchResult(result.record)}
+                    onClick={() => {
+                      setSearchVisible(false)
+                      setSearchKeyword('')
+                      if (result.sessionId) {
+                        setConversationSessionId(result.sessionId)
+                        setConversationProject(result.project)
+                        setConversationModalVisible(true)
+                      }
+                    }}
                     style={{
                       padding: '12px 16px',
                       background: themeVars.bgSection,
@@ -987,11 +699,11 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
                         gap: 8
                       }}
                     >
+                      <Tag color="blue" style={{ fontSize: 10 }}>
+                        {getProjectName(result.project)}
+                      </Tag>
                       <ClockCircleOutlined style={{ fontSize: 11 }} />
-                      {formatTimeShort(result.record.timestamp)}
-                      <span style={{ opacity: 0.5 }}>·</span>
-                      <FolderOpenOutlined style={{ fontSize: 11 }} />
-                      {getProjectName(result.project)}
+                      {formatTime(result.record.timestamp)}
                     </div>
                     <div
                       style={{
@@ -1023,7 +735,7 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
             )}
           </div>
 
-          {/* 底部提示 */}
+          {/* 底部匹配统计 */}
           {searchResults.length > 0 && (
             <div
               style={{
@@ -1037,6 +749,8 @@ function LogViewer({ records, onClear, onOpenSettings, darkMode, onSendToChat }:
               }}
             >
               找到 {searchResults.length} 条匹配结果
+              {filteredSessions.length > 0 &&
+                `，涉及 ${filteredSessions.length} 个会话`}
             </div>
           )}
         </div>

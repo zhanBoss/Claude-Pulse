@@ -24,6 +24,9 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // 在 Finder 中打开文件夹
   openInFinder: (path: string) => ipcRenderer.invoke('open-in-finder', path),
 
+  // 读取最近的实时记录（用于实时对话页面）
+  readRecentRecords: (hoursAgo?: number) => ipcRenderer.invoke('read-recent-records', hoursAgo),
+
   // 读取历史记录（完整数据，保留兼容）
   readHistory: () => ipcRenderer.invoke('read-history'),
 
