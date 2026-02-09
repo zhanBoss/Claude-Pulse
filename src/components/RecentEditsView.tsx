@@ -22,7 +22,8 @@ import {
   CloseOutlined,
   CopyOutlined,
   EyeOutlined,
-  EditOutlined
+  EditOutlined,
+  RollbackOutlined
 } from '@ant-design/icons'
 import { FileEditSnapshot } from '../types'
 import { getThemeVars } from '../theme'
@@ -48,6 +49,8 @@ const RecentEditsView = (props: RecentEditsViewProps) => {
   const [previewLoading, setPreviewLoading] = useState(false)
   const [previewContent, setPreviewContent] = useState('')
   const [previewFilePath, setPreviewFilePath] = useState('')
+  const [previewSessionId, setPreviewSessionId] = useState('')
+  const [previewMessageId, setPreviewMessageId] = useState('')
 
   // 完整对话弹窗
   const [conversationModalVisible, setConversationModalVisible] = useState(false)
@@ -142,6 +145,8 @@ const RecentEditsView = (props: RecentEditsViewProps) => {
   // 查看文件快照内容
   const handleViewSnapshot = async (sessionId: string, messageId: string, filePath: string) => {
     setPreviewFilePath(filePath)
+    setPreviewSessionId(sessionId)
+    setPreviewMessageId(messageId)
     setPreviewVisible(true)
     setPreviewLoading(true)
     setPreviewContent('')
@@ -168,6 +173,41 @@ const RecentEditsView = (props: RecentEditsViewProps) => {
     } catch {
       message.error('复制失败')
     }
+  }
+
+  // 从快照恢复文件
+  const handleRestoreFile = () => {
+    Modal.confirm({
+      title: '确认恢复文件',
+      content: (
+        <div>
+          <p>将从快照恢复文件到原始路径：</p>
+          <p style={{ fontFamily: 'monospace', fontSize: 12 }}>{previewFilePath}</p>
+          <p style={{ color: '#fa8c16', marginTop: 8 }}>
+            注意：当前文件将被自动备份（.backup-时间戳），然后被快照内容覆盖。
+          </p>
+        </div>
+      ),
+      okText: '确认恢复',
+      okType: 'primary',
+      cancelText: '取消',
+      onOk: async () => {
+        try {
+          const result = await window.electronAPI.restoreFileFromSnapshot(
+            previewSessionId,
+            previewMessageId,
+            previewFilePath
+          )
+          if (result.success) {
+            message.success('文件恢复成功')
+          } else {
+            message.error(`恢复失败: ${result.error}`)
+          }
+        } catch (error) {
+          message.error(`恢复失败: ${(error as Error).message}`)
+        }
+      }
+    })
   }
 
   // 获取文件扩展名
@@ -424,6 +464,9 @@ const RecentEditsView = (props: RecentEditsViewProps) => {
         onCancel={() => setPreviewVisible(false)}
         width="70%"
         footer={[
+          <Button key="restore" icon={<RollbackOutlined />} onClick={handleRestoreFile}>
+            恢复文件
+          </Button>,
           <Button key="copy" icon={<CopyOutlined />} onClick={handleCopyContent}>
             复制内容
           </Button>,

@@ -1482,6 +1482,76 @@ ipcMain.handle(
   }
 )
 
+// 从快照恢复文件（将快照内容写回原始文件路径）
+ipcMain.handle(
+  'restore-file-from-snapshot',
+  async (_, sessionId: string, messageId: string, filePath: string) => {
+    try {
+      // 先获取快照内容
+      const projectsDir = path.join(CLAUDE_DIR, 'projects')
+      if (!fs.existsSync(projectsDir)) {
+        return { success: false, error: '项目目录不存在' }
+      }
+
+      const projectFolders = fs.readdirSync(projectsDir)
+      let snapshotContent: string | null = null
+
+      for (const folder of projectFolders) {
+        const sessionFile = path.join(projectsDir, folder, `${sessionId}.jsonl`)
+        if (!fs.existsSync(sessionFile)) continue
+
+        const content = fs.readFileSync(sessionFile, 'utf-8')
+        const lines = content.split('\n').filter(l => l.trim())
+
+        for (const line of lines) {
+          try {
+            const entry = JSON.parse(line)
+            if (
+              entry.type === 'file-history-snapshot' &&
+              entry.messageId === messageId
+            ) {
+              const snapshot = entry.snapshot || {}
+              const trackedFiles = snapshot.trackedFileBackups || {}
+              if (trackedFiles[filePath] !== undefined) {
+                snapshotContent = trackedFiles[filePath]
+                break
+              }
+            }
+          } catch {
+            // 跳过
+          }
+        }
+        if (snapshotContent !== null) break
+      }
+
+      if (snapshotContent === null) {
+        return { success: false, error: '未找到对应的文件快照内容' }
+      }
+
+      // 检查目标文件所在目录是否存在
+      const targetDir = path.dirname(filePath)
+      if (!fs.existsSync(targetDir)) {
+        return { success: false, error: `目标目录不存在: ${targetDir}` }
+      }
+
+      // 如果目标文件已存在，先备份
+      if (fs.existsSync(filePath)) {
+        const backupPath = `${filePath}.backup-${Date.now()}`
+        fs.copyFileSync(filePath, backupPath)
+        console.log(`文件已备份到: ${backupPath}`)
+      }
+
+      // 写入快照内容
+      fs.writeFileSync(filePath, snapshotContent, 'utf-8')
+
+      return { success: true }
+    } catch (error) {
+      console.error('恢复文件失败:', error)
+      return { success: false, error: (error as Error).message }
+    }
+  }
+)
+
 // 读取历史记录（直接从 ~/.claude/history.jsonl 读取）
 ipcMain.handle('read-history', async () => {
   try {

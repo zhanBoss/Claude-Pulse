@@ -237,12 +237,24 @@ export interface ElectronAPI {
     sessionId: string,
     project: string
   ) => Promise<{ success: boolean; conversation?: FullConversation; error?: string }>
-  // 读取项目级别统计数据
-  readProjectStatistics: () => Promise<{
+  // 读取文件编辑快照
+  readFileEdits: () => Promise<{
     success: boolean
-    projects?: ProjectStatistics[]
+    edits?: FileEditSnapshot[]
     error?: string
   }>
+  // 读取文件快照内容
+  readFileSnapshotContent: (
+    sessionId: string,
+    messageId: string,
+    filePath: string
+  ) => Promise<{ success: boolean; content?: string; error?: string }>
+  // 从快照恢复文件
+  restoreFileFromSnapshot: (
+    sessionId: string,
+    messageId: string,
+    filePath: string
+  ) => Promise<{ success: boolean; error?: string }>
   getAppSettings: () => Promise<AppSettings>
   saveAppSettings: (settings: AppSettings) => Promise<{ success: boolean; error?: string }>
   exportRecords: (

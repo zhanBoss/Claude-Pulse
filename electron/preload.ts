@@ -47,6 +47,10 @@ contextBridge.exposeInMainWorld('electronAPI', {
   readFileSnapshotContent: (sessionId: string, messageId: string, filePath: string) =>
     ipcRenderer.invoke('read-file-snapshot-content', sessionId, messageId, filePath),
 
+  // 从快照恢复文件
+  restoreFileFromSnapshot: (sessionId: string, messageId: string, filePath: string) =>
+    ipcRenderer.invoke('restore-file-from-snapshot', sessionId, messageId, filePath),
+
   // 应用设置
   getAppSettings: () => ipcRenderer.invoke('get-app-settings'),
   saveAppSettings: (settings: { darkMode: boolean; autoStart: boolean }) =>
