@@ -21,28 +21,28 @@
 
 #### 1.1 Token 统计和成本计算
 
-- [ ] 提取每条消息的 token 使用量（input_tokens, output_tokens）
-- [ ] 提取缓存 token（cache_creation_input_tokens, cache_read_input_tokens）
+- [x] 提取每条消息的 token 使用量（input_tokens, output_tokens）
+- [x] 提取缓存 token（cache_creation_input_tokens, cache_read_input_tokens）
 - [ ] 计算 API 调用成本（USD）
-- [ ] 会话级别的 token 统计
+- [x] 会话级别的 token 统计
 - [ ] 项目级别的 token 统计
-- [ ] 在会话卡片上显示 Token 徽章
+- [x] 在会话卡片上显示 Token 徽章
 - [ ] 在会话卡片上显示成本徽章
 
 #### 1.2 工具调用标记和统计
 
-- [ ] 标记会话是否包含工具调用（has_tool_use）
-- [ ] 标记会话是否有错误（has_errors）
-- [ ] 统计工具调用次数
+- [x] 标记会话是否包含工具调用（has_tool_use）
+- [x] 标记会话是否有错误（has_errors）
+- [x] 统计工具调用次数
 - [ ] 统计各类工具使用频率（Read、Write、Bash 等）
-- [ ] 在会话卡片上显示工具调用图标
-- [ ] 在会话卡片上显示错误图标
+- [x] 在会话卡片上显示工具调用图标
+- [x] 在会话卡片上显示错误图标
 
 #### 1.3 消息类型识别
 
-- [ ] 识别消息类型（user、assistant、system、summary 等）
+- [x] 识别消息类型（user、assistant、system、summary 等）
 - [ ] 识别子类型（hook、microcompaction-boundary 等）
-- [ ] 在完整对话弹窗中区分显示不同类型
+- [x] 在完整对话弹窗中区分显示不同类型
 
 ---
 
