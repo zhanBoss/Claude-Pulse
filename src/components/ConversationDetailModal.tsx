@@ -189,6 +189,20 @@ const ConversationDetailModal = ({
             <Text type="secondary">项目: {conversation.project}</Text>
             <br />
             <Text type="secondary">消息数: {conversation.messages.length}</Text>
+            {conversation.total_tokens && (
+              <>
+                <br />
+                <Text type="secondary">总 Token: {conversation.total_tokens.toLocaleString()}</Text>
+              </>
+            )}
+            {conversation.has_tool_use && (
+              <>
+                <br />
+                <Tag icon={<ToolOutlined />} color="purple">
+                  包含工具调用 {conversation.tool_use_count && `(${conversation.tool_use_count}次)`}
+                </Tag>
+              </>
+            )}
           </div>
 
           <Divider />
@@ -202,6 +216,26 @@ const ConversationDetailModal = ({
                 <Text type="secondary" className="text-xs">
                   {new Date(msg.timestamp).toLocaleString('zh-CN')}
                 </Text>
+                {msg.usage && (
+                  <>
+                    <Tag color="blue" className="text-xs">
+                      输入: {msg.usage.input_tokens.toLocaleString()}
+                    </Tag>
+                    <Tag color="green" className="text-xs">
+                      输出: {msg.usage.output_tokens.toLocaleString()}
+                    </Tag>
+                    {msg.usage.cache_read_input_tokens && msg.usage.cache_read_input_tokens > 0 && (
+                      <Tag color="cyan" className="text-xs">
+                        缓存读取: {msg.usage.cache_read_input_tokens.toLocaleString()}
+                      </Tag>
+                    )}
+                  </>
+                )}
+                {msg.model && (
+                  <Text type="secondary" className="text-xs">
+                    {msg.model}
+                  </Text>
+                )}
               </div>
 
               <div className="pl-4 border-l-2 border-gray-200 dark:border-gray-700">
