@@ -1,5 +1,5 @@
-import { Modal, Spin, Alert, Typography, Divider, Tag, Space, Button, message, Tooltip, Collapse } from 'antd'
-import { useEffect, useState, useCallback } from 'react'
+import { Modal, Spin, Alert, Typography, Divider, Tag, Space, Button, message, Tooltip, Collapse, Segmented, Empty } from 'antd'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { FullConversation, MessageContent, MessageSubType } from '../types'
 import {
   CopyOutlined,
@@ -10,7 +10,11 @@ import {
   ClockCircleOutlined,
   EyeOutlined,
   FolderOutlined,
-  CodeOutlined
+  CodeOutlined,
+  CheckCircleOutlined,
+  CloseCircleOutlined,
+  MessageOutlined,
+  NodeIndexOutlined
 } from '@ant-design/icons'
 
 const { Text, Paragraph } = Typography
@@ -35,6 +39,8 @@ const ConversationDetailModal = ({
   const [filePreviewContent, setFilePreviewContent] = useState('')
   const [filePreviewPath, setFilePreviewPath] = useState('')
   const [filePreviewLoading, setFilePreviewLoading] = useState(false)
+  const [viewMode, setViewMode] = useState<'conversation' | 'tool-flow'>('conversation')
+  const [expandedToolIds, setExpandedToolIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     if (visible && sessionId && project) {
@@ -66,6 +72,86 @@ const ConversationDetailModal = ({
     } else {
       message.error('复制失败')
     }
+  }
+
+  /* 提取工具调用流程数据 */
+  interface ToolFlowItem {
+    id: string
+    name: string
+    input?: any
+    output?: string | any
+    isError: boolean
+    callTimestamp: number
+    resultTimestamp?: number
+    durationMs?: number
+    index: number
+  }
+
+  const toolFlow = useMemo((): ToolFlowItem[] => {
+    if (!conversation) return []
+
+    const items: ToolFlowItem[] = []
+    /* tool_use id -> 部分构建的条目 */
+    const pendingCalls = new Map<string, ToolFlowItem>()
+    let idx = 0
+
+    for (const msg of conversation.messages) {
+      for (const content of msg.content) {
+        if (content.type === 'tool_use' && content.id && content.name) {
+          const item: ToolFlowItem = {
+            id: content.id,
+            name: content.name,
+            input: content.input,
+            isError: false,
+            callTimestamp: msg.timestamp,
+            index: idx++
+          }
+          pendingCalls.set(content.id, item)
+          items.push(item)
+        }
+
+        if (content.type === 'tool_result' && content.tool_use_id) {
+          const pending = pendingCalls.get(content.tool_use_id)
+          if (pending) {
+            pending.output = content.content
+            pending.isError = content.is_error || false
+            pending.resultTimestamp = msg.timestamp
+            if (pending.callTimestamp && msg.timestamp) {
+              pending.durationMs = msg.timestamp - pending.callTimestamp
+            }
+            pendingCalls.delete(content.tool_use_id)
+          }
+        }
+      }
+    }
+
+    return items
+  }, [conversation])
+
+  /* 切换工具展开/折叠 */
+  const toggleToolExpand = useCallback((id: string) => {
+    setExpandedToolIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) {
+        next.delete(id)
+      } else {
+        next.add(id)
+      }
+      return next
+    })
+  }, [])
+
+  /* 格式化耗时 */
+  const formatDuration = (ms: number): string => {
+    if (ms < 1000) return `${ms}ms`
+    if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`
+    return `${(ms / 60000).toFixed(1)}m`
+  }
+
+  /* 截断文本 */
+  const truncateText = (text: string, maxLen: number): string => {
+    if (text.length <= maxLen) return text
+    return text.slice(0, maxLen) + '...'
   }
 
   /* 查看文件快照内容 */
@@ -371,9 +457,22 @@ const ConversationDetailModal = ({
             </div>
           )}
 
-          <Divider />
+          {/* 视图模式切换 */}
+          <div style={{ marginBottom: 12 }}>
+            <Segmented
+              value={viewMode}
+              onChange={v => setViewMode(v as 'conversation' | 'tool-flow')}
+              options={[
+                { value: 'conversation', label: '对话视图', icon: <MessageOutlined /> },
+                { value: 'tool-flow', label: `工具流程 (${toolFlow.length})`, icon: <NodeIndexOutlined /> }
+              ]}
+            />
+          </div>
 
-          {conversation.messages.map((msg, index) => (
+          <Divider style={{ margin: '8px 0 16px' }} />
+
+          {/* 对话视图 */}
+          {viewMode === 'conversation' && conversation.messages.map((msg, index) => (
             <div key={index} className="mb-6">
               <div className="flex items-center gap-2 mb-2 flex-wrap">
                 <Tag color={msg.role === 'user' ? 'blue' : 'green'}>
@@ -417,6 +516,195 @@ const ConversationDetailModal = ({
               {index < conversation.messages.length - 1 && <Divider />}
             </div>
           ))}
+
+          {/* 工具调用流程视图 */}
+          {viewMode === 'tool-flow' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+              {toolFlow.length === 0 ? (
+                <Empty description="此对话没有工具调用" style={{ padding: 40 }} />
+              ) : (
+                <>
+                  {/* 流程统计 */}
+                  <div style={{ marginBottom: 16, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                    <Tag icon={<ToolOutlined />} color="blue">共 {toolFlow.length} 次调用</Tag>
+                    <Tag icon={<CheckCircleOutlined />} color="green">
+                      成功 {toolFlow.filter(t => !t.isError).length}
+                    </Tag>
+                    {toolFlow.some(t => t.isError) && (
+                      <Tag icon={<CloseCircleOutlined />} color="red">
+                        失败 {toolFlow.filter(t => t.isError).length}
+                      </Tag>
+                    )}
+                    {toolFlow.some(t => t.durationMs) && (
+                      <Tag icon={<ClockCircleOutlined />}>
+                        平均耗时 {formatDuration(
+                          Math.round(
+                            toolFlow.filter(t => t.durationMs).reduce((s, t) => s + (t.durationMs || 0), 0) /
+                            toolFlow.filter(t => t.durationMs).length
+                          )
+                        )}
+                      </Tag>
+                    )}
+                  </div>
+
+                  {/* 工具调用时间线 */}
+                  {toolFlow.map((tool, idx) => {
+                    const isExpanded = expandedToolIds.has(tool.id)
+                    const inputStr = tool.input ? JSON.stringify(tool.input, null, 2) : ''
+                    const outputStr = tool.output
+                      ? typeof tool.output === 'string'
+                        ? tool.output
+                        : JSON.stringify(tool.output, null, 2)
+                      : ''
+
+                    return (
+                      <div
+                        key={tool.id}
+                        style={{
+                          display: 'flex',
+                          gap: 12,
+                          position: 'relative'
+                        }}
+                      >
+                        {/* 时间线连接线 */}
+                        <div
+                          style={{
+                            width: 32,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            alignItems: 'center',
+                            flexShrink: 0
+                          }}
+                        >
+                          <div
+                            style={{
+                              width: 24,
+                              height: 24,
+                              borderRadius: '50%',
+                              background: tool.isError ? '#ff4d4f' : '#52c41a',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: '#fff',
+                              fontSize: 11,
+                              fontWeight: 600,
+                              zIndex: 2
+                            }}
+                          >
+                            {idx + 1}
+                          </div>
+                          {idx < toolFlow.length - 1 && (
+                            <div
+                              style={{
+                                width: 2,
+                                flex: 1,
+                                background: '#e0e0e0',
+                                minHeight: 20
+                              }}
+                            />
+                          )}
+                        </div>
+
+                        {/* 工具调用内容 */}
+                        <div
+                          style={{
+                            flex: 1,
+                            marginBottom: 12,
+                            padding: '10px 14px',
+                            borderRadius: 8,
+                            border: `1px solid ${tool.isError ? '#ffccc7' : '#d9f7be'}`,
+                            background: tool.isError ? '#fff2f0' : '#f6ffed',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s'
+                          }}
+                          onClick={() => toggleToolExpand(tool.id)}
+                        >
+                          {/* 头部 */}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                            <Tag
+                              icon={<ToolOutlined />}
+                              color={tool.isError ? 'error' : 'success'}
+                              style={{ fontSize: 12, fontWeight: 600 }}
+                            >
+                              {tool.name}
+                            </Tag>
+                            {tool.isError ? (
+                              <Tag icon={<CloseCircleOutlined />} color="red" style={{ fontSize: 11 }}>失败</Tag>
+                            ) : (
+                              <Tag icon={<CheckCircleOutlined />} color="green" style={{ fontSize: 11 }}>成功</Tag>
+                            )}
+                            {tool.durationMs !== undefined && tool.durationMs >= 0 && (
+                              <Tag icon={<ClockCircleOutlined />} style={{ fontSize: 11 }}>
+                                {formatDuration(tool.durationMs)}
+                              </Tag>
+                            )}
+                            <Text type="secondary" style={{ fontSize: 11, marginLeft: 'auto' }}>
+                              {new Date(tool.callTimestamp).toLocaleTimeString('zh-CN')}
+                            </Text>
+                          </div>
+
+                          {/* 简略预览 */}
+                          {!isExpanded && inputStr && (
+                            <Text type="secondary" style={{ fontSize: 11, display: 'block', marginTop: 4 }}>
+                              输入: {truncateText(inputStr, 100)}
+                            </Text>
+                          )}
+
+                          {/* 展开详情 */}
+                          {isExpanded && (
+                            <div style={{ marginTop: 8 }}>
+                              {inputStr && (
+                                <div style={{ marginBottom: 8 }}>
+                                  <Text strong style={{ fontSize: 11 }}>输入:</Text>
+                                  <pre
+                                    style={{
+                                      background: 'rgba(0,0,0,0.04)',
+                                      padding: 8,
+                                      borderRadius: 4,
+                                      fontSize: 11,
+                                      fontFamily: 'Fira Code, Consolas, monospace',
+                                      maxHeight: 200,
+                                      overflow: 'auto',
+                                      whiteSpace: 'pre-wrap',
+                                      wordBreak: 'break-all',
+                                      margin: '4px 0 0'
+                                    }}
+                                  >
+                                    {inputStr}
+                                  </pre>
+                                </div>
+                              )}
+                              {outputStr && (
+                                <div>
+                                  <Text strong style={{ fontSize: 11 }}>输出:</Text>
+                                  <pre
+                                    style={{
+                                      background: 'rgba(0,0,0,0.04)',
+                                      padding: 8,
+                                      borderRadius: 4,
+                                      fontSize: 11,
+                                      fontFamily: 'Fira Code, Consolas, monospace',
+                                      maxHeight: 200,
+                                      overflow: 'auto',
+                                      whiteSpace: 'pre-wrap',
+                                      wordBreak: 'break-all',
+                                      margin: '4px 0 0'
+                                    }}
+                                  >
+                                    {truncateText(outputStr, 2000)}
+                                  </pre>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </>
+              )}
+            </div>
+          )}
         </div>
       )}
       {/* 文件快照预览弹窗 */}
