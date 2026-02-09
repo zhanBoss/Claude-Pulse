@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
+import { diffLines, Change } from 'diff'
 import {
   Card,
   Tag,
@@ -23,7 +24,8 @@ import {
   CopyOutlined,
   EyeOutlined,
   EditOutlined,
-  RollbackOutlined
+  RollbackOutlined,
+  SwapOutlined
 } from '@ant-design/icons'
 import { FileEditSnapshot } from '../types'
 import { getThemeVars } from '../theme'
@@ -51,6 +53,10 @@ const RecentEditsView = (props: RecentEditsViewProps) => {
   const [previewFilePath, setPreviewFilePath] = useState('')
   const [previewSessionId, setPreviewSessionId] = useState('')
   const [previewMessageId, setPreviewMessageId] = useState('')
+  const [showDiff, setShowDiff] = useState(false)
+  const [currentFileContent, setCurrentFileContent] = useState<string | null>(null)
+  const [diffResult, setDiffResult] = useState<Change[]>([])
+  const [diffLoading, setDiffLoading] = useState(false)
 
   // 完整对话弹窗
   const [conversationModalVisible, setConversationModalVisible] = useState(false)
@@ -174,6 +180,36 @@ const RecentEditsView = (props: RecentEditsViewProps) => {
       message.error('复制失败')
     }
   }
+
+  // 切换 diff 视图
+  const handleToggleDiff = useCallback(async () => {
+    if (showDiff) {
+      setShowDiff(false)
+      return
+    }
+
+    setDiffLoading(true)
+    try {
+      const result = await window.electronAPI.readFileContent(previewFilePath)
+      if (result.success && result.content !== undefined) {
+        setCurrentFileContent(result.content)
+        const changes = diffLines(result.content, previewContent)
+        setDiffResult(changes)
+        setShowDiff(true)
+      } else {
+        // 文件可能已被删除
+        setCurrentFileContent(null)
+        const changes = diffLines('', previewContent)
+        setDiffResult(changes)
+        setShowDiff(true)
+        message.info('当前文件不存在或无法读取，显示快照为新增内容')
+      }
+    } catch {
+      message.error('读取当前文件失败')
+    } finally {
+      setDiffLoading(false)
+    }
+  }, [showDiff, previewFilePath, previewContent])
 
   // 从快照恢复文件
   const handleRestoreFile = () => {
@@ -461,16 +497,35 @@ const RecentEditsView = (props: RecentEditsViewProps) => {
           </Space>
         }
         open={previewVisible}
-        onCancel={() => setPreviewVisible(false)}
+        onCancel={() => {
+          setPreviewVisible(false)
+          setShowDiff(false)
+          setDiffResult([])
+          setCurrentFileContent(null)
+        }}
         width="70%"
         footer={[
+          <Button
+            key="diff"
+            icon={<SwapOutlined />}
+            type={showDiff ? 'primary' : 'default'}
+            loading={diffLoading}
+            onClick={handleToggleDiff}
+          >
+            {showDiff ? '查看快照' : '对比差异'}
+          </Button>,
           <Button key="restore" icon={<RollbackOutlined />} onClick={handleRestoreFile}>
             恢复文件
           </Button>,
           <Button key="copy" icon={<CopyOutlined />} onClick={handleCopyContent}>
             复制内容
           </Button>,
-          <Button key="close" type="primary" onClick={() => setPreviewVisible(false)}>
+          <Button key="close" type="primary" onClick={() => {
+            setPreviewVisible(false)
+            setShowDiff(false)
+            setDiffResult([])
+            setCurrentFileContent(null)
+          }}>
             关闭
           </Button>
         ]}
@@ -481,9 +536,70 @@ const RecentEditsView = (props: RecentEditsViewProps) => {
           } as React.CSSProperties
         }}
       >
-        {previewLoading ? (
+        {previewLoading || diffLoading ? (
           <div style={{ textAlign: 'center', padding: 40 }}>
-            <Spin size="large" tip="加载文件内容..." />
+            <Spin size="large" tip="加载中..." />
+          </div>
+        ) : showDiff ? (
+          /* Diff 视图 */
+          <div
+            style={{
+              background: darkMode ? '#1e1e1e' : '#f6f8fa',
+              padding: 16,
+              borderRadius: 8,
+              fontSize: 12,
+              fontFamily: 'Fira Code, Consolas, Monaco, monospace',
+              lineHeight: 1.6,
+              overflow: 'auto',
+              border: `1px solid ${themeVars.borderSecondary}`,
+              maxHeight: 500
+            }}
+          >
+            <div style={{ marginBottom: 8, fontSize: 11 }}>
+              <Tag color="red">- 当前文件内容</Tag>
+              <Tag color="green">+ 快照内容</Tag>
+            </div>
+            {diffResult.map((part, index) => {
+              const color = part.added
+                ? darkMode ? '#2ea04370' : '#e6ffed'
+                : part.removed
+                  ? darkMode ? '#da363370' : '#ffeef0'
+                  : 'transparent'
+              const textColor = part.added
+                ? darkMode ? '#7ee787' : '#22863a'
+                : part.removed
+                  ? darkMode ? '#f85149' : '#cb2431'
+                  : darkMode ? '#d4d4d4' : '#24292e'
+              const prefix = part.added ? '+' : part.removed ? '-' : ' '
+
+              return (
+                <pre
+                  key={index}
+                  style={{
+                    margin: 0,
+                    padding: '0 8px',
+                    background: color,
+                    color: textColor,
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-all',
+                    borderLeft: part.added
+                      ? '3px solid #2ea043'
+                      : part.removed
+                        ? '3px solid #da3633'
+                        : '3px solid transparent'
+                  }}
+                >
+                  {part.value
+                    .split('\n')
+                    .filter((l, i, arr) => i < arr.length - 1 || l !== '')
+                    .map(line => `${prefix} ${line}`)
+                    .join('\n')}
+                </pre>
+              )
+            })}
+            {diffResult.length === 0 && (
+              <Text type="secondary">没有差异 - 文件内容相同</Text>
+            )}
           </div>
         ) : (
           <pre

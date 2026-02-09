@@ -38,6 +38,7 @@
     "url": "https://github.com/mac033/claude-code-monitor.git"
   },
   "devDependencies": {
+    "@types/diff": "^8.0.0",
     "@types/node": "^20.10.0",
     "@types/react": "^18.2.43",
     "@types/react-dom": "^18.2.17",
@@ -75,6 +76,7 @@
     "antd": "^6.2.2",
     "crypto-js": "^4.2.0",
     "dayjs": "^1.11.19",
+    "diff": "^8.0.3",
     "electron-fetch": "^1.9.1",
     "electron-store": "^8.1.0",
     "katex": "^0.16.28",
