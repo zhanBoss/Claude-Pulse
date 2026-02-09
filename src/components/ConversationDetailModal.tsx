@@ -1,5 +1,5 @@
-import { Modal, Spin, Alert, Typography, Divider, Tag, Space, Button, message } from 'antd'
-import { useEffect, useState } from 'react'
+import { Modal, Spin, Alert, Typography, Divider, Tag, Space, Button, message, Tooltip, Collapse } from 'antd'
+import { useEffect, useState, useCallback } from 'react'
 import { FullConversation, MessageContent, MessageSubType } from '../types'
 import {
   CopyOutlined,
@@ -7,7 +7,10 @@ import {
   FileImageOutlined,
   TagOutlined,
   FileOutlined,
-  ClockCircleOutlined
+  ClockCircleOutlined,
+  EyeOutlined,
+  FolderOutlined,
+  CodeOutlined
 } from '@ant-design/icons'
 
 const { Text, Paragraph } = Typography
@@ -28,6 +31,10 @@ const ConversationDetailModal = ({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [conversation, setConversation] = useState<FullConversation | null>(null)
+  const [filePreviewVisible, setFilePreviewVisible] = useState(false)
+  const [filePreviewContent, setFilePreviewContent] = useState('')
+  const [filePreviewPath, setFilePreviewPath] = useState('')
+  const [filePreviewLoading, setFilePreviewLoading] = useState(false)
 
   useEffect(() => {
     if (visible && sessionId && project) {
@@ -60,6 +67,25 @@ const ConversationDetailModal = ({
       message.error('复制失败')
     }
   }
+
+  /* 查看文件快照内容 */
+  const handleViewFileSnapshot = useCallback(async (messageId: string, filePath: string) => {
+    setFilePreviewPath(filePath)
+    setFilePreviewLoading(true)
+    setFilePreviewVisible(true)
+    try {
+      const result = await window.electronAPI.readFileSnapshotContent(sessionId, messageId, filePath)
+      if (result.success && result.content) {
+        setFilePreviewContent(result.content)
+      } else {
+        setFilePreviewContent('// 无法加载文件内容')
+      }
+    } catch {
+      setFilePreviewContent('// 加载失败')
+    } finally {
+      setFilePreviewLoading(false)
+    }
+  }, [sessionId])
 
   // 渲染消息子类型标签
   const renderSubTypeTag = (subType?: MessageSubType) => {
@@ -256,49 +282,92 @@ const ConversationDetailModal = ({
           {/* 文件编辑快照 */}
           {conversation.fileEdits && conversation.fileEdits.length > 0 && (
             <div style={{ marginTop: 12 }}>
-              <Text type="secondary" style={{ fontSize: 12 }}>
-                <FileOutlined style={{ marginRight: 4 }} />
-                文件修改记录（{conversation.fileEdits.reduce((s, e) => s + e.files.length, 0)} 个文件）：
-              </Text>
-              <div
-                style={{
-                  marginTop: 8,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 6,
-                  maxHeight: 200,
-                  overflowY: 'auto'
-                }}
-              >
-                {conversation.fileEdits.map((edit, idx) => (
-                  <div
-                    key={idx}
-                    style={{
-                      padding: '6px 10px',
-                      borderRadius: 4,
-                      background: 'rgba(0,0,0,0.02)',
-                      border: '1px solid rgba(0,0,0,0.06)'
-                    }}
-                  >
-                    <Text type="secondary" style={{ fontSize: 11 }}>
-                      <ClockCircleOutlined style={{ marginRight: 4 }} />
-                      {edit.timestamp
-                        ? new Date(edit.timestamp).toLocaleString('zh-CN')
-                        : '未知时间'}
-                    </Text>
-                    <div style={{ marginTop: 4, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                      {edit.files.map((file, fIdx) => {
-                        const fileName = file.split('/').pop() || file
-                        return (
-                          <Tag key={fIdx} icon={<FileOutlined />} style={{ fontSize: 11 }}>
-                            {fileName}
-                          </Tag>
-                        )
-                      })}
+              <Collapse
+                size="small"
+                defaultActiveKey={['file-edits']}
+                items={[{
+                  key: 'file-edits',
+                  label: (
+                    <Space>
+                      <FileOutlined />
+                      <Text style={{ fontSize: 13 }}>
+                        文件修改记录
+                      </Text>
+                      <Tag color="blue" style={{ fontSize: 11 }}>
+                        {conversation.fileEdits.reduce((s, e) => s + e.files.length, 0)} 个文件
+                      </Tag>
+                      <Tag style={{ fontSize: 11 }}>
+                        {conversation.fileEdits.length} 次快照
+                      </Tag>
+                    </Space>
+                  ),
+                  children: (
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: 8,
+                        maxHeight: 300,
+                        overflowY: 'auto'
+                      }}
+                    >
+                      {conversation.fileEdits.map((edit, idx) => (
+                        <div
+                          key={idx}
+                          style={{
+                            padding: '8px 12px',
+                            borderRadius: 6,
+                            background: 'rgba(0,0,0,0.02)',
+                            border: '1px solid rgba(0,0,0,0.06)'
+                          }}
+                        >
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                            <ClockCircleOutlined style={{ fontSize: 12, color: '#999' }} />
+                            <Text type="secondary" style={{ fontSize: 11 }}>
+                              {edit.timestamp
+                                ? new Date(edit.timestamp).toLocaleString('zh-CN')
+                                : '未知时间'}
+                            </Text>
+                            <Tag style={{ fontSize: 10 }}>{edit.files.length} 个文件</Tag>
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            {edit.files.map((file, fIdx) => {
+                              const fileName = file.split('/').pop() || file
+                              const dirPath = file.split('/').slice(0, -1).join('/') || '/'
+                              return (
+                                <div
+                                  key={fIdx}
+                                  style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 6,
+                                    padding: '2px 6px',
+                                    borderRadius: 4,
+                                    cursor: 'pointer',
+                                    transition: 'background 0.2s'
+                                  }}
+                                  className="hover:bg-gray-100 dark:hover:bg-gray-800"
+                                  onClick={() => handleViewFileSnapshot(edit.messageId, file)}
+                                >
+                                  <CodeOutlined style={{ fontSize: 12, color: '#1890ff', flexShrink: 0 }} />
+                                  <Text strong style={{ fontSize: 12 }}>{fileName}</Text>
+                                  <Tooltip title={file}>
+                                    <Text type="secondary" style={{ fontSize: 11, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                      <FolderOutlined style={{ marginRight: 2 }} />
+                                      {dirPath}
+                                    </Text>
+                                  </Tooltip>
+                                  <EyeOutlined style={{ fontSize: 11, color: '#1890ff', marginLeft: 'auto', flexShrink: 0 }} />
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  </div>
-                ))}
-              </div>
+                  )
+                }]}
+              />
             </div>
           )}
 
@@ -350,6 +419,73 @@ const ConversationDetailModal = ({
           ))}
         </div>
       )}
+      {/* 文件快照预览弹窗 */}
+      <Modal
+        title={
+          <Space>
+            <CodeOutlined />
+            <span>文件快照</span>
+            <Text type="secondary" style={{ fontSize: 12 }}>{filePreviewPath.split('/').pop()}</Text>
+          </Space>
+        }
+        open={filePreviewVisible}
+        onCancel={() => {
+          setFilePreviewVisible(false)
+          setFilePreviewContent('')
+          setFilePreviewPath('')
+        }}
+        width="65%"
+        footer={[
+          <Button
+            key="copy"
+            icon={<CopyOutlined />}
+            onClick={() => copyText(filePreviewContent)}
+          >
+            复制内容
+          </Button>,
+          <Button
+            key="close"
+            type="primary"
+            onClick={() => {
+              setFilePreviewVisible(false)
+              setFilePreviewContent('')
+              setFilePreviewPath('')
+            }}
+          >
+            关闭
+          </Button>
+        ]}
+      >
+        <div style={{ marginBottom: 8 }}>
+          <Text type="secondary" style={{ fontSize: 12 }}>
+            <FolderOutlined style={{ marginRight: 4 }} />
+            {filePreviewPath}
+          </Text>
+        </div>
+        {filePreviewLoading ? (
+          <div style={{ textAlign: 'center', padding: 40 }}>
+            <Spin size="large" />
+          </div>
+        ) : (
+          <pre
+            style={{
+              background: '#f6f8fa',
+              padding: 16,
+              borderRadius: 8,
+              fontSize: 12,
+              fontFamily: 'Fira Code, Consolas, Monaco, monospace',
+              lineHeight: 1.6,
+              overflow: 'auto',
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-all',
+              maxHeight: 500,
+              border: '1px solid #e8e8e8'
+            }}
+          >
+            {filePreviewContent || '// 文件内容为空'}
+          </pre>
+        )}
+      </Modal>
     </Modal>
   )
 }
