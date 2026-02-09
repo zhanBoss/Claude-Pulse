@@ -347,7 +347,7 @@ const ChangelogView = ({ darkMode }: ChangelogViewProps) => {
                         v{version.version}
                       </span>
                       {isLatest && (
-                        <Tag color="blue" style={{ margin: 0 }}>
+                        <Tag color="#D97757" style={{ margin: 0 }}>
                           最新
                         </Tag>
                       )}

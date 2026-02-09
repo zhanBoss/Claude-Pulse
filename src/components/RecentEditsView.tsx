@@ -223,7 +223,7 @@ const RecentEditsView = (props: RecentEditsViewProps) => {
         <div>
           <p>将从快照恢复文件到原始路径：</p>
           <p style={{ fontFamily: 'monospace', fontSize: 12 }}>{previewFilePath}</p>
-          <p style={{ color: '#fa8c16', marginTop: 8 }}>
+          <p style={{ color: themeVars.warning, marginTop: 8 }}>
             注意：当前文件将被自动备份（.backup-时间戳），然后被快照内容覆盖。
           </p>
         </div>
@@ -557,7 +557,7 @@ const RecentEditsView = (props: RecentEditsViewProps) => {
           /* Diff 视图 */
           <div
             style={{
-              background: darkMode ? '#1e1e1e' : '#f6f8fa',
+              background: themeVars.bgCode,
               padding: 16,
               borderRadius: 8,
               fontSize: 12,
@@ -574,15 +574,15 @@ const RecentEditsView = (props: RecentEditsViewProps) => {
             </div>
             {diffResult.map((part, index) => {
               const color = part.added
-                ? darkMode ? '#2ea04370' : '#e6ffed'
+                ? themeVars.diffAddBg
                 : part.removed
-                  ? darkMode ? '#da363370' : '#ffeef0'
+                  ? themeVars.diffRemoveBg
                   : 'transparent'
               const textColor = part.added
-                ? darkMode ? '#7ee787' : '#22863a'
+                ? themeVars.diffAddText
                 : part.removed
-                  ? darkMode ? '#f85149' : '#cb2431'
-                  : darkMode ? '#d4d4d4' : '#24292e'
+                  ? themeVars.diffRemoveText
+                  : themeVars.diffNeutralText
               const prefix = part.added ? '+' : part.removed ? '-' : ' '
 
               return (
@@ -596,9 +596,9 @@ const RecentEditsView = (props: RecentEditsViewProps) => {
                     whiteSpace: previewWrap ? 'pre-wrap' : 'pre',
                     wordBreak: previewWrap ? 'break-word' : 'normal',
                     borderLeft: part.added
-                      ? '3px solid #2ea043'
+                      ? `3px solid ${themeVars.diffAddBorder}`
                       : part.removed
-                        ? '3px solid #da3633'
+                        ? `3px solid ${themeVars.diffRemoveBorder}`
                         : '3px solid transparent'
                   }}
                 >

@@ -477,26 +477,26 @@ const LogViewer = (props: LogViewerProps) => {
                           style={{
                             padding: '12px 16px',
                             borderRadius: 8,
-                            border: `1px solid ${darkMode ? '#303030' : '#f0f0f0'}`,
-                            background: darkMode ? '#1a1a1a' : '#fafafa',
+                            border: `1px solid ${themeVars.itemBorder}`,
+                            background: themeVars.itemBg,
                             cursor: isClickable ? 'pointer' : 'default',
                             transition: 'all 0.2s'
                           }}
                           onClick={() => isClickable && handlePromptClick(record, group)}
                           onMouseEnter={e => {
                             if (!isClickable) return
-                            ;(e.currentTarget as HTMLDivElement).style.borderColor = '#1677ff'
-                            ;(e.currentTarget as HTMLDivElement).style.background = darkMode ? '#1e2a3a' : '#f0f5ff'
+                            ;(e.currentTarget as HTMLDivElement).style.borderColor = themeVars.itemHoverBorder
+                            ;(e.currentTarget as HTMLDivElement).style.background = themeVars.itemHoverBg
                           }}
                           onMouseLeave={e => {
                             if (!isClickable) return
-                            ;(e.currentTarget as HTMLDivElement).style.borderColor = darkMode ? '#303030' : '#f0f0f0'
-                            ;(e.currentTarget as HTMLDivElement).style.background = darkMode ? '#1a1a1a' : '#fafafa'
+                            ;(e.currentTarget as HTMLDivElement).style.borderColor = themeVars.itemBorder
+                            ;(e.currentTarget as HTMLDivElement).style.background = themeVars.itemBg
                           }}
                         >
                           {/* 头部：轮次编号 + 时间 + 资源标签 */}
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                            <Tag color="blue" style={{ fontSize: 11 }}>
+                            <Tag color="#D97757" style={{ fontSize: 11 }}>
                               第 {recordIndex + (isExpanded || !showCollapse ? 1 : 1)} 轮
                             </Tag>
                             <Text type="secondary" style={{ fontSize: 11 }}>

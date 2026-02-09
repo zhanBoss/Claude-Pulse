@@ -298,7 +298,7 @@ function CopyTextModal({ visible, onClose, content, darkMode, zIndex = 1003 }: C
                     {key}:
                   </Text>
                   {!shouldRenderFormatted && isCodeContent && (
-                    <Tag color="blue" style={{ fontSize: 11 }}>
+                    <Tag color="#D97757" style={{ fontSize: 11 }}>
                       {language}
                     </Tag>
                   )}

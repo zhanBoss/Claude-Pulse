@@ -99,6 +99,39 @@ export const darkTheme: ThemeConfig = {
 // 向后兼容
 export const theme = lightTheme
 
+// 图表颜色方案 - 基于 Claude Code 主题色扩展
+export const CHART_COLORS = [
+  '#D97757', // primary - Claude Code 橙棕色
+  '#52c41a', // success - 绿色
+  '#722ed1', // purple - 紫色
+  '#E88B6F', // primaryLight - 浅橙色
+  '#eb2f96', // pink - 粉色
+  '#13c2c2', // cyan - 青色
+  '#2f54eb', // geekblue - 极客蓝
+  '#C86847', // primaryHover - 深橙色
+  '#a0d911', // lime - 青柠色
+  '#f5222d'  // red - 红色
+] as const
+
+// 语义化统计颜色 - 用于数据可视化
+export const STAT_COLORS = {
+  // Token 相关 - 使用主题色
+  tokens: '#D97757',
+  // 成本相关 - 使用成功色
+  cost: '#52c41a',
+  // 会话/消息相关 - 使用紫色
+  sessions: '#722ed1',
+  messages: '#722ed1',
+  // 项目/文件夹相关 - 使用浅橙色
+  projects: '#E88B6F',
+  folders: '#E88B6F',
+  // 工具调用相关 - 使用青色
+  tools: '#13c2c2',
+  // 时间相关 - 使用极客蓝
+  time: '#2f54eb',
+  duration: '#2f54eb'
+} as const
+
 // 导出 CSS 变量用于内联样式
 export const getThemeVars = (isDark: boolean) => ({
   bgContainer: isDark ? '#1f1f1f' : '#ffffff',
@@ -119,26 +152,60 @@ export const getThemeVars = (isDark: boolean) => ({
   textError: isDark ? '#e06c75' : '#d73a49',
   codeBg: isDark ? '#2a2a2a' : '#f3f4f6',
   hoverBg: isDark ? '#2a2a2a' : '#f9fafb',
+  // 卡片/条目交互状态
+  itemBorder: isDark ? '#303030' : '#f0f0f0',
+  itemBg: isDark ? '#1a1a1a' : '#fafafa',
+  itemHoverBorder: '#D97757',
+  itemHoverBg: isDark ? '#2A2420' : '#FFF5ED',
   // Claude Code 主题色
   primary: '#D97757',
   primaryHover: '#C86847',
   primaryLight: '#E88B6F',
+  primaryBg: isDark ? '#2A2420' : '#FFF5ED',
   primaryGradient: 'linear-gradient(135deg, #E88B6F 0%, #D97757 100%)',
   primaryShadow: 'rgba(217, 119, 87, 0.3)',
   // AI 消息背景色
   aiBg: isDark ? '#333' : '#fde3cf',
   // 状态颜色
   success: '#52c41a',
+  successLight: isDark ? 'rgba(82, 196, 26, 0.15)' : 'rgba(82, 196, 26, 0.1)',
+  successBorder: isDark ? 'rgba(82, 196, 26, 0.3)' : '#d9f7be',
   warning: '#faad14',
+  warningLight: isDark ? 'rgba(250, 173, 20, 0.15)' : 'rgba(250, 173, 20, 0.1)',
+  warningBorder: isDark ? 'rgba(250, 173, 20, 0.3)' : '#ffe58f',
   error: '#ff4d4f',
-  info: '#1890ff',
-  infoLight: '#e7f3ff',
-  infoBorder: '#91d5ff',
-  infoHover: '#bae7ff',
-  infoDark: '#40a9ff',
-  // 链接颜色
-  link: isDark ? '#58a6ff' : '#0969da',
+  errorLight: isDark ? 'rgba(255, 77, 79, 0.15)' : 'rgba(255, 77, 79, 0.1)',
+  errorBorder: isDark ? 'rgba(255, 77, 79, 0.3)' : '#ffccc7',
+  // 语义化统计颜色
+  statTokens: '#D97757',
+  statCost: '#52c41a',
+  statSessions: '#722ed1',
+  statProjects: '#E88B6F',
+  statTools: '#13c2c2',
+  statTime: '#2f54eb',
+  // 信息色
+  info: isDark ? '#69b1ff' : '#1677ff',
+  // 链接颜色 - 使用主题色
+  link: isDark ? '#E88B6F' : '#D97757',
+  linkHover: isDark ? '#D97757' : '#C86847',
   // 高亮颜色
   highlightBg: isDark ? 'rgba(217, 119, 87, 0.3)' : 'rgba(217, 119, 87, 0.2)',
-  highlightText: '#fff'
+  highlightText: '#fff',
+  // 进度条颜色
+  progressBg: isDark ? '#333' : '#eee',
+  progressSuccess: '#52c41a',
+  progressWarning: '#faad14',
+  progressError: '#f5222d',
+  // Tag 颜色（使用主题色替代默认蓝色）
+  tagPrimary: '#D97757',
+  tagPrimaryBg: isDark ? 'rgba(217, 119, 87, 0.15)' : 'rgba(217, 119, 87, 0.1)',
+  tagPrimaryBorder: isDark ? 'rgba(217, 119, 87, 0.3)' : 'rgba(217, 119, 87, 0.3)',
+  // Diff 颜色（GitHub 标准）
+  diffAddBg: isDark ? '#2ea04370' : '#e6ffed',
+  diffRemoveBg: isDark ? '#da363370' : '#ffeef0',
+  diffAddText: isDark ? '#7ee787' : '#22863a',
+  diffRemoveText: isDark ? '#f85149' : '#cb2431',
+  diffNeutralText: isDark ? '#d4d4d4' : '#24292e',
+  diffAddBorder: '#2ea043',
+  diffRemoveBorder: '#da3633'
 })

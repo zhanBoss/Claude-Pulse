@@ -31,7 +31,7 @@ import {
   Radar
 } from 'recharts'
 import { SessionMetadata } from '../types'
-import { getThemeVars } from '../theme'
+import { getThemeVars, CHART_COLORS, STAT_COLORS } from '../theme'
 
 const { Text } = Typography
 
@@ -45,20 +45,6 @@ const formatDuration = (ms: number): string => {
 interface StatisticsViewProps {
   darkMode: boolean
 }
-
-// 图表颜色方案
-const CHART_COLORS = [
-  '#1677ff',
-  '#52c41a',
-  '#722ed1',
-  '#fa8c16',
-  '#eb2f96',
-  '#13c2c2',
-  '#2f54eb',
-  '#faad14',
-  '#a0d911',
-  '#f5222d'
-]
 
 const StatisticsView = (props: StatisticsViewProps) => {
   const { darkMode } = props
@@ -379,8 +365,8 @@ const StatisticsView = (props: StatisticsViewProps) => {
               <Statistic
                 title="总 Token"
                 value={globalStats.totalTokens}
-                prefix={<ThunderboltOutlined style={{ color: '#1677ff' }} />}
-                valueStyle={{ fontSize: 20, color: '#1677ff' }}
+                prefix={<ThunderboltOutlined style={{ color: STAT_COLORS.tokens }} />}
+                valueStyle={{ fontSize: 20, color: STAT_COLORS.tokens }}
                 formatter={(value) => Number(value).toLocaleString()}
               />
             </Card>
@@ -388,33 +374,33 @@ const StatisticsView = (props: StatisticsViewProps) => {
               <Statistic
                 title="总成本 (USD)"
                 value={globalStats.totalCost}
-                prefix={<DollarOutlined style={{ color: '#52c41a' }} />}
+                prefix={<DollarOutlined style={{ color: STAT_COLORS.cost }} />}
                 precision={4}
-                valueStyle={{ fontSize: 20, color: '#52c41a' }}
+                valueStyle={{ fontSize: 20, color: STAT_COLORS.cost }}
               />
             </Card>
             <Card size="small" styles={{ body: { padding: 16 } }}>
               <Statistic
                 title="会话数"
                 value={globalStats.totalSessions}
-                prefix={<MessageOutlined style={{ color: '#722ed1' }} />}
-                valueStyle={{ fontSize: 20, color: '#722ed1' }}
+                prefix={<MessageOutlined style={{ color: STAT_COLORS.sessions }} />}
+                valueStyle={{ fontSize: 20, color: STAT_COLORS.sessions }}
               />
             </Card>
             <Card size="small" styles={{ body: { padding: 16 } }}>
               <Statistic
                 title="项目数"
                 value={globalStats.projectCount}
-                prefix={<FolderOutlined style={{ color: '#fa8c16' }} />}
-                valueStyle={{ fontSize: 20, color: '#fa8c16' }}
+                prefix={<FolderOutlined style={{ color: STAT_COLORS.projects }} />}
+                valueStyle={{ fontSize: 20, color: STAT_COLORS.projects }}
               />
             </Card>
             <Card size="small" styles={{ body: { padding: 16 } }}>
               <Statistic
                 title="工具调用"
                 value={globalStats.totalToolUse}
-                prefix={<ToolOutlined style={{ color: '#13c2c2' }} />}
-                valueStyle={{ fontSize: 20, color: '#13c2c2' }}
+                prefix={<ToolOutlined style={{ color: STAT_COLORS.tools }} />}
+                valueStyle={{ fontSize: 20, color: STAT_COLORS.tools }}
                 formatter={(value) => Number(value).toLocaleString()}
               />
             </Card>
@@ -453,7 +439,7 @@ const StatisticsView = (props: StatisticsViewProps) => {
                       }}
                       formatter={(value: number) => [value.toLocaleString(), 'Tokens']}
                     />
-                    <Bar dataKey="tokens" fill="#1677ff" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="tokens" fill={STAT_COLORS.tokens} radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
@@ -636,20 +622,20 @@ const StatisticsView = (props: StatisticsViewProps) => {
                     }}
                   >
                     <div style={{ fontFamily: 'monospace', fontWeight: 500 }}>{tool.name}</div>
-                    <div style={{ height: 12, background: darkMode ? '#333' : '#eee', borderRadius: 6, overflow: 'hidden' }}>
+                    <div style={{ height: 12, background: themeVars.progressBg, borderRadius: 6, overflow: 'hidden' }}>
                       <div
                         style={{
                           width: `${tool.successRate}%`,
                           height: '100%',
-                          background: tool.successRate >= 90 ? '#52c41a' : tool.successRate >= 70 ? '#faad14' : '#f5222d',
+                          background: tool.successRate >= 90 ? themeVars.progressSuccess : tool.successRate >= 70 ? themeVars.progressWarning : themeVars.progressError,
                           borderRadius: 6,
                           transition: 'width 0.3s'
                         }}
                       />
                     </div>
                     <div style={{ textAlign: 'right' }}>{tool.total.toLocaleString()}</div>
-                    <div style={{ textAlign: 'right', color: '#52c41a' }}>{tool.success.toLocaleString()}</div>
-                    <div style={{ textAlign: 'right', color: tool.errors > 0 ? '#f5222d' : themeVars.textTertiary }}>
+                    <div style={{ textAlign: 'right', color: themeVars.success }}>{tool.success.toLocaleString()}</div>
+                    <div style={{ textAlign: 'right', color: tool.errors > 0 ? themeVars.error : themeVars.textTertiary }}>
                       {tool.errors.toLocaleString()}
                     </div>
                     <div style={{ textAlign: 'right' }}>
@@ -681,7 +667,7 @@ const StatisticsView = (props: StatisticsViewProps) => {
                 {toolDurationStats.slice(0, 15).map((tool, index) => {
                   const maxMs = toolDurationStats[0]?.avgMs || 1
                   const percentage = (tool.avgMs / maxMs) * 100
-                  const color = tool.avgMs > 10000 ? '#f5222d' : tool.avgMs > 3000 ? '#faad14' : '#52c41a'
+                  const color = tool.avgMs > 10000 ? themeVars.progressError : tool.avgMs > 3000 ? themeVars.progressWarning : themeVars.progressSuccess
                   return (
                     <div
                       key={tool.name}
@@ -740,7 +726,7 @@ const StatisticsView = (props: StatisticsViewProps) => {
                 <FolderOutlined />
                 <Text style={{ fontSize: 13 }}>项目详细统计</Text>
                 {selectedProjects.size > 0 && (
-                  <Tag color="blue">{selectedProjects.size} 个已选</Tag>
+                  <Tag color="#D97757">{selectedProjects.size} 个已选</Tag>
                 )}
               </Space>
             }
@@ -802,7 +788,7 @@ const StatisticsView = (props: StatisticsViewProps) => {
                     borderRadius: 4,
                     fontSize: 12,
                     background: selectedProjects.has(stat.project)
-                      ? darkMode ? 'rgba(22, 119, 255, 0.1)' : 'rgba(22, 119, 255, 0.04)'
+                      ? darkMode ? 'rgba(217, 119, 87, 0.15)' : 'rgba(217, 119, 87, 0.08)'
                       : themeVars.bgSection,
                     cursor: 'pointer',
                     transition: 'background 0.2s'
@@ -818,13 +804,13 @@ const StatisticsView = (props: StatisticsViewProps) => {
                   <div style={{ textAlign: 'right', color: themeVars.textSecondary }}>
                     {stat.sessionCount}
                   </div>
-                  <div style={{ textAlign: 'right', color: '#1677ff' }}>
+                  <div style={{ textAlign: 'right', color: STAT_COLORS.tokens }}>
                     {stat.totalTokens.toLocaleString()}
                   </div>
-                  <div style={{ textAlign: 'right', color: '#52c41a' }}>
+                  <div style={{ textAlign: 'right', color: STAT_COLORS.cost }}>
                     ${stat.totalCost.toFixed(4)}
                   </div>
-                  <div style={{ textAlign: 'right', color: '#13c2c2' }}>
+                  <div style={{ textAlign: 'right', color: STAT_COLORS.tools }}>
                     {stat.toolUseCount.toLocaleString()}
                   </div>
                 </div>
@@ -838,7 +824,7 @@ const StatisticsView = (props: StatisticsViewProps) => {
               <Space>
                 <SwapOutlined />
                 <span>项目对比</span>
-                <Tag color="blue">{selectedProjects.size} 个项目</Tag>
+                <Tag color="#D97757">{selectedProjects.size} 个项目</Tag>
               </Space>
             }
             open={compareVisible}
@@ -905,7 +891,7 @@ const StatisticsView = (props: StatisticsViewProps) => {
                           fontSize: 12
                         }}
                       />
-                      <Bar dataKey="tokens" name="Tokens" fill="#1677ff" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="tokens" name="Tokens" fill={STAT_COLORS.tokens} radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </Card>

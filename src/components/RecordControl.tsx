@@ -126,14 +126,14 @@ const RecordControl = forwardRef<RecordControlRef, RecordControlProps>((props, r
       content: (
         <div>
           <p style={{ marginBottom: 8 }}>将清除本应用涉及的所有缓存资源：</p>
-          <ul style={{ paddingLeft: 20, fontSize: 13, lineHeight: 2, color: '#666' }}>
+          <ul style={{ paddingLeft: 20, fontSize: 13, lineHeight: 2, color: themeVars.textSecondary }}>
             <li>对话历史记录（history.jsonl）</li>
             <li>会话详情文件（projects 目录）</li>
             <li>图片缓存（image-cache）</li>
             <li>粘贴内容缓存（paste-cache）</li>
             <li>应用内部缓存</li>
           </ul>
-          <p style={{ fontSize: 12, color: '#999', marginTop: 4 }}>
+          <p style={{ fontSize: 12, color: themeVars.textTertiary, marginTop: 4 }}>
             Claude Code 的配置文件（settings.json）不受影响
           </p>
         </div>

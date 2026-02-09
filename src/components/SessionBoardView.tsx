@@ -24,7 +24,7 @@ import {
   InfoCircleOutlined
 } from '@ant-design/icons'
 import { SessionMetadata } from '../types'
-import { getThemeVars } from '../theme'
+import { getThemeVars, STAT_COLORS } from '../theme'
 import ConversationDetailModal from './ConversationDetailModal'
 
 const { Text } = Typography
@@ -37,10 +37,10 @@ type MetricKey = 'tokens' | 'cost' | 'tools' | 'messages'
 
 /* 指标配置 */
 const METRIC_CONFIG: Record<MetricKey, { label: string; color: string; icon: React.ReactNode }> = {
-  tokens: { label: 'Token 使用量', color: '#1677ff', icon: <ThunderboltOutlined /> },
-  cost: { label: '成本 (USD)', color: '#52c41a', icon: <DollarOutlined /> },
-  tools: { label: '工具调用数', color: '#722ed1', icon: <ToolOutlined /> },
-  messages: { label: '消息数', color: '#fa8c16', icon: <MessageOutlined /> }
+  tokens: { label: 'Token 使用量', color: STAT_COLORS.tokens, icon: <ThunderboltOutlined /> },
+  cost: { label: '成本 (USD)', color: STAT_COLORS.cost, icon: <DollarOutlined /> },
+  tools: { label: '工具调用数', color: STAT_COLORS.sessions, icon: <ToolOutlined /> },
+  messages: { label: '消息数', color: STAT_COLORS.projects, icon: <MessageOutlined /> }
 }
 
 /* 获取指标值 */
@@ -56,7 +56,8 @@ const getMetricValue = (session: SessionMetadata, metric: MetricKey): number => 
 
 /* 根据百分比获取颜色深度 */
 const getHeatColor = (percent: number, baseColor: string, darkMode: boolean): string => {
-  if (percent === 0) return darkMode ? '#1a1a1a' : '#f0f0f0'
+  const themeVars = getThemeVars(darkMode)
+  if (percent === 0) return themeVars.itemBg
   const alpha = Math.max(0.15, Math.min(1, percent))
   // 简单的透明度映射
   const alphaHex = Math.round(alpha * 255).toString(16).padStart(2, '0')
@@ -345,7 +346,7 @@ const SessionBoardView = (props: SessionBoardViewProps) => {
                         background: getHeatColor(percent, metricConfig.color, darkMode),
                         border: isHovered
                           ? `2px solid ${metricConfig.color}`
-                          : `1px solid ${darkMode ? '#333' : '#e0e0e0'}`,
+                          : `1px solid ${themeVars.borderSecondary}`,
                         cursor: 'pointer',
                         transition: 'all 0.15s',
                         display: 'flex',
@@ -363,8 +364,8 @@ const SessionBoardView = (props: SessionBoardViewProps) => {
                         style={{
                           fontSize: 8,
                           color: percent > 0.5
-                            ? '#fff'
-                            : darkMode ? '#999' : '#666',
+                            ? themeVars.textWhite
+                            : themeVars.textSecondary,
                           fontFamily: 'monospace',
                           lineHeight: 1,
                           textAlign: 'center',
@@ -391,7 +392,7 @@ const SessionBoardView = (props: SessionBoardViewProps) => {
                 }}
               >
                 <Space wrap size={12}>
-                  <Tag color="blue">{getProjectShortName(hoveredSession.project)}</Tag>
+                  <Tag color="#D97757">{getProjectShortName(hoveredSession.project)}</Tag>
                   <Text code style={{ fontSize: 11 }}>
                     {hoveredSession.sessionId.slice(0, 12)}
                   </Text>
@@ -401,7 +402,7 @@ const SessionBoardView = (props: SessionBoardViewProps) => {
                   <Tag icon={<MessageOutlined />} style={{ fontSize: 11 }}>
                     {hoveredSession.recordCount} 条消息
                   </Tag>
-                  <Tag icon={<ThunderboltOutlined />} color="blue" style={{ fontSize: 11 }}>
+                  <Tag icon={<ThunderboltOutlined />} color="#D97757" style={{ fontSize: 11 }}>
                     {(hoveredSession.total_tokens || 0).toLocaleString()} tokens
                   </Tag>
                   <Tag icon={<DollarOutlined />} color="green" style={{ fontSize: 11 }}>

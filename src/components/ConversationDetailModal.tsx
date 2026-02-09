@@ -576,7 +576,7 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
             <Tag
               key={idx}
               icon={<PictureOutlined />}
-              color="blue"
+              color="#D97757"
               style={{ fontSize: 11, margin: '0 2px', cursor: matchedImg ? 'pointer' : 'default' }}
               onClick={matchedImg ? () => setPreviewSrc(matchedImg.dataUrl) : undefined}
             >
@@ -624,7 +624,7 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
           ) : (
             <code
               style={{
-                background: isDark ? '#2a2a2a' : '#eff1f3',
+                background: themeVars.codeBg,
                 padding: '2px 6px',
                 borderRadius: 4,
                 fontSize: 12,
@@ -638,8 +638,8 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
         },
         pre({ children }) { return <>{children}</> },
         p({ children }) { return <p style={{ margin: '6px 0', lineHeight: 1.7 }}>{children}</p> },
-        h1({ children }) { return <h1 style={{ fontSize: 18, fontWeight: 600, margin: '12px 0 6px', borderBottom: `1px solid ${isDark ? '#303030' : '#e8e8e8'}`, paddingBottom: 6 }}>{children}</h1> },
-        h2({ children }) { return <h2 style={{ fontSize: 16, fontWeight: 600, margin: '10px 0 6px', borderBottom: `1px solid ${isDark ? '#303030' : '#e8e8e8'}`, paddingBottom: 4 }}>{children}</h2> },
+        h1({ children }) { return <h1 style={{ fontSize: 18, fontWeight: 600, margin: '12px 0 6px', borderBottom: `1px solid ${themeVars.borderSecondary}`, paddingBottom: 6 }}>{children}</h1> },
+        h2({ children }) { return <h2 style={{ fontSize: 16, fontWeight: 600, margin: '10px 0 6px', borderBottom: `1px solid ${themeVars.borderSecondary}`, paddingBottom: 4 }}>{children}</h2> },
         h3({ children }) { return <h3 style={{ fontSize: 14, fontWeight: 600, margin: '8px 0 4px' }}>{children}</h3> },
         ul({ children }) { return <ul style={{ margin: '4px 0', paddingLeft: 20, listStyleType: 'disc' }}>{children}</ul> },
         ol({ children }) { return <ol style={{ margin: '4px 0', paddingLeft: 20 }}>{children}</ol> },
@@ -650,8 +650,8 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
             <blockquote style={{
               margin: '6px 0',
               paddingLeft: 12,
-              borderLeft: `3px solid ${isDark ? '#4a4a4a' : '#d0d0d0'}`,
-              color: isDark ? '#aaa' : '#666'
+              borderLeft: `3px solid ${themeVars.borderQuote}`,
+              color: themeVars.textQuote
             }}>
               {children}
             </blockquote>
@@ -662,20 +662,20 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
             <div style={{ overflow: 'auto', margin: '8px 0' }}>
               <table style={{
                 borderCollapse: 'collapse', width: '100%', fontSize: 12,
-                border: `1px solid ${isDark ? '#303030' : '#e8e8e8'}`
+                border: `1px solid ${themeVars.borderSecondary}`
               }}>
                 {children}
               </table>
             </div>
           )
         },
-        th({ children }) { return <th style={{ padding: '6px 10px', borderBottom: `2px solid ${isDark ? '#404040' : '#d0d0d0'}`, background: isDark ? '#1e1e2e' : '#f0f0f0', textAlign: 'left', fontWeight: 600 }}>{children}</th> },
-        td({ children }) { return <td style={{ padding: '5px 10px', borderBottom: `1px solid ${isDark ? '#303030' : '#e8e8e8'}` }}>{children}</td> },
+        th({ children }) { return <th style={{ padding: '6px 10px', borderBottom: `2px solid ${themeVars.border}`, background: themeVars.bgSection, textAlign: 'left', fontWeight: 600 }}>{children}</th> },
+        td({ children }) { return <td style={{ padding: '5px 10px', borderBottom: `1px solid ${themeVars.borderSecondary}` }}>{children}</td> },
         a({ href, children }) {
           return (
             <a
               href={href}
-              style={{ color: '#1677ff', textDecoration: 'underline', cursor: 'pointer' }}
+              style={{ color: themeVars.link, textDecoration: 'underline', cursor: 'pointer' }}
               onClick={e => {
                 e.preventDefault()
                 if (href) window.electronAPI.openExternal(href)
@@ -685,7 +685,7 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
             </a>
           )
         },
-        hr() { return <hr style={{ border: 'none', borderTop: `1px solid ${isDark ? '#303030' : '#e8e8e8'}`, margin: '10px 0' }} /> }
+        hr() { return <hr style={{ border: 'none', borderTop: `1px solid ${themeVars.borderSecondary}`, margin: '10px 0' }} /> }
       }}
     >
       {text}
@@ -708,7 +708,7 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
               size="small"
               icon={<CopyOutlined />}
               onClick={() => copyText(text)}
-              style={{ position: 'absolute', right: 4, top: 2, fontSize: 10, color: isDark ? '#666' : '#bbb', zIndex: 1 }}
+              style={{ position: 'absolute', right: 4, top: 2, fontSize: 10, color: themeVars.textTertiary, zIndex: 1 }}
             />
             {hasImageRef ? (
               <div className="whitespace-pre-wrap text-sm" style={{ lineHeight: 1.6, paddingRight: 28 }}>
@@ -720,8 +720,8 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
                 style={{
                   padding: '8px 12px',
                   borderRadius: 6,
-                  border: `1px solid ${isDark ? '#303030' : '#e8e8e8'}`,
-                  background: isDark ? '#1a1a2e' : '#fafbfc',
+                  border: `1px solid ${themeVars.borderSecondary}`,
+                  background: themeVars.bgSection,
                 }}
               >
                 {renderMarkdownContent(text)}
@@ -741,14 +741,14 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
       if (item.type === 'tool_use') {
         const inputJson = item.input ? JSON.stringify(item.input, null, 2) : ''
         return (
-          <div key={index} style={{ marginBottom: 6, padding: '6px 10px', borderRadius: 6, background: isDark ? 'rgba(59,130,246,0.08)' : '#f0f5ff' }}>
+          <div key={index} style={{ marginBottom: 6, padding: '6px 10px', borderRadius: 6, background: themeVars.primaryBg }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <Space size={4}>
                 <Tag icon={<ToolOutlined />} color="processing" style={{ fontSize: 11 }}>工具调用</Tag>
                 <Text strong style={{ fontSize: 12 }}>{item.name}</Text>
               </Space>
               {inputJson && (
-                <Button type="text" size="small" icon={<CopyOutlined />} onClick={() => copyText(inputJson)} style={{ fontSize: 10, color: isDark ? '#666' : '#bbb' }} />
+                <Button type="text" size="small" icon={<CopyOutlined />} onClick={() => copyText(inputJson)} style={{ fontSize: 10, color: themeVars.textTertiary }} />
               )}
             </div>
             {inputJson && (
@@ -768,13 +768,13 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
       if (item.type === 'tool_result') {
         const resultText = typeof item.content === 'string' ? item.content : JSON.stringify(item.content, null, 2)
         return (
-          <div key={index} style={{ marginBottom: 6, padding: '6px 10px', borderRadius: 6, background: isDark ? (item.is_error ? 'rgba(239,68,68,0.08)' : 'rgba(34,197,94,0.08)') : (item.is_error ? '#fff1f0' : '#f0fff4') }}>
+          <div key={index} style={{ marginBottom: 6, padding: '6px 10px', borderRadius: 6, background: item.is_error ? themeVars.errorLight : themeVars.successLight }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <Tag icon={<ToolOutlined />} color={item.is_error ? 'error' : 'success'} style={{ fontSize: 11 }}>
                 {item.is_error ? '工具错误' : '工具结果'}
               </Tag>
               {resultText && (
-                <Button type="text" size="small" icon={<CopyOutlined />} onClick={() => copyText(resultText)} style={{ fontSize: 10, color: isDark ? '#666' : '#bbb' }} />
+                <Button type="text" size="small" icon={<CopyOutlined />} onClick={() => copyText(resultText)} style={{ fontSize: 10, color: themeVars.textTertiary }} />
               )}
             </div>
             {resultText && (
@@ -796,7 +796,7 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
         <div style={{ marginBottom: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <Tag icon={<ToolOutlined />} color="blue">{tools.length} 次调用</Tag>
+          <Tag icon={<ToolOutlined />} color="#D97757">{tools.length} 次调用</Tag>
           <Tag icon={<CheckCircleOutlined />} color="green">
             成功 {tools.filter(t => !t.isError).length}
           </Tag>
@@ -821,23 +821,23 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
                 <div
                   style={{
                     width: 22, height: 22, borderRadius: '50%',
-                    background: tool.isError ? '#ff4d4f' : '#52c41a',
+                    background: tool.isError ? themeVars.error : themeVars.success,
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    color: '#fff', fontSize: 10, fontWeight: 600, zIndex: 2
+                    color: themeVars.textWhite, fontSize: 10, fontWeight: 600, zIndex: 2
                   }}
                 >
                   {idx + 1}
                 </div>
                 {idx < tools.length - 1 && (
-                  <div style={{ width: 2, flex: 1, background: '#e0e0e0', minHeight: 16 }} />
+                  <div style={{ width: 2, flex: 1, background: themeVars.borderSecondary, minHeight: 16 }} />
                 )}
               </div>
               {/* 内容 */}
               <div
                 style={{
                   flex: 1, marginBottom: 8, padding: '8px 12px', borderRadius: 6,
-                  border: `1px solid ${tool.isError ? '#ffccc7' : '#d9f7be'}`,
-                  background: tool.isError ? '#fff2f0' : '#f6ffed',
+                  border: `1px solid ${tool.isError ? themeVars.errorBorder : themeVars.successBorder}`,
+                  background: tool.isError ? themeVars.errorLight : themeVars.successLight,
                   cursor: 'pointer', transition: 'all 0.2s'
                 }}
                 onClick={() => toggleToolExpand(tool.id)}
@@ -865,7 +865,7 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
                     {inputStr && (
                       <div style={{ marginBottom: 6 }}>
                         <Text strong style={{ fontSize: 10 }}>输入:</Text>
-                        <pre style={{ background: 'rgba(0,0,0,0.04)', padding: 6, borderRadius: 4, fontSize: 10, fontFamily: 'monospace', maxHeight: 150, overflow: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-all', margin: '2px 0 0' }}>
+                        <pre style={{ background: themeVars.codeBg, padding: 6, borderRadius: 4, fontSize: 10, fontFamily: 'monospace', maxHeight: 150, overflow: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-all', margin: '2px 0 0' }}>
                           {inputStr}
                         </pre>
                       </div>
@@ -873,7 +873,7 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
                     {outputStr && (
                       <div>
                         <Text strong style={{ fontSize: 10 }}>输出:</Text>
-                        <pre style={{ background: 'rgba(0,0,0,0.04)', padding: 6, borderRadius: 4, fontSize: 10, fontFamily: 'monospace', maxHeight: 150, overflow: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-all', margin: '2px 0 0' }}>
+                        <pre style={{ background: themeVars.codeBg, padding: 6, borderRadius: 4, fontSize: 10, fontFamily: 'monospace', maxHeight: 150, overflow: 'auto', whiteSpace: 'pre-wrap', wordBreak: 'break-all', margin: '2px 0 0' }}>
                           {truncateText(outputStr, 2000)}
                         </pre>
                       </div>
@@ -897,15 +897,16 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
         {/* 用户 Prompt */}
         <div style={{ marginBottom: 16 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-            <Tag color="blue" style={{ fontSize: 12 }}>用户 Prompt</Tag>
+            <Tag color="#D97757" style={{ fontSize: 12 }}>用户 Prompt</Tag>
             {renderSubTypeTag(round.userMessage.subType)}
             <Text type="secondary" style={{ fontSize: 11 }}>
               {new Date(round.userMessage.timestamp).toLocaleString('zh-CN')}
             </Text>
           </div>
           <div style={{
-            padding: '12px 16px', borderRadius: 8, border: '1px solid #e6f4ff',
-            background: '#f0f5ff'
+            padding: '12px 16px', borderRadius: 8,
+            border: `1px solid ${isDark ? 'rgba(217, 119, 87, 0.2)' : 'rgba(217, 119, 87, 0.15)'}`,
+            background: themeVars.primaryBg
           }}>
             {renderContent(round.userMessage.content)}
           </div>
@@ -922,7 +923,7 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
               </Text>
               {msg.usage && (
                 <>
-                  <Tag color="blue" style={{ fontSize: 10 }}>
+                  <Tag color="#D97757" style={{ fontSize: 10 }}>
                     输入: {msg.usage.input_tokens.toLocaleString()}
                   </Tag>
                   <Tag color="green" style={{ fontSize: 10 }}>
@@ -1004,25 +1005,25 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
                 style={{
                   padding: '12px 16px',
                   borderRadius: 8,
-                  border: `1px solid ${isDark ? '#303030' : '#f0f0f0'}`,
-                  background: isDark ? '#1a1a1a' : '#fafafa',
+                  border: `1px solid ${themeVars.itemBorder}`,
+                  background: themeVars.itemBg,
                   marginBottom: 8,
                   cursor: 'pointer',
                   transition: 'all 0.2s'
                 }}
                 onClick={() => handlePromptClick(originalIdx)}
                 onMouseEnter={e => {
-                  (e.currentTarget as HTMLDivElement).style.borderColor = '#1677ff'
-                  ;(e.currentTarget as HTMLDivElement).style.background = isDark ? '#1e2a3a' : '#f0f5ff'
+                  (e.currentTarget as HTMLDivElement).style.borderColor = themeVars.itemHoverBorder
+                  ;(e.currentTarget as HTMLDivElement).style.background = themeVars.itemHoverBg
                 }}
                 onMouseLeave={e => {
-                  (e.currentTarget as HTMLDivElement).style.borderColor = isDark ? '#303030' : '#f0f0f0'
-                  ;(e.currentTarget as HTMLDivElement).style.background = isDark ? '#1a1a1a' : '#fafafa'
+                  (e.currentTarget as HTMLDivElement).style.borderColor = themeVars.itemBorder
+                  ;(e.currentTarget as HTMLDivElement).style.background = themeVars.itemBg
                 }}
               >
                 {/* 头部：轮次编号 + 时间 */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-                  <Tag color="blue" style={{ fontSize: 11 }}>第 {originalIdx + 1} 轮</Tag>
+                  <Tag color="#D97757" style={{ fontSize: 11 }}>第 {originalIdx + 1} 轮</Tag>
                   <Text type="secondary" style={{ fontSize: 11 }}>
                     <ClockCircleOutlined style={{ marginRight: 4 }} />
                     {ts > 0 ? new Date(ts).toLocaleString('zh-CN') : ''}
@@ -1088,7 +1089,7 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
           )}
           {round && (
             <>
-              <Tag color="blue" style={{ fontSize: 11 }}>第 {currentRound + 1} 轮</Tag>
+              <Tag color="#D97757" style={{ fontSize: 11 }}>第 {currentRound + 1} 轮</Tag>
               {round.toolCalls > 0 && (
                 <Tag icon={<ToolOutlined />} color="purple" style={{ fontSize: 10 }}>
                   {round.toolCalls} 次工具
@@ -1120,8 +1121,8 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
             style={{
               marginLeft: 'auto',
               fontSize: 11,
-              color: showSummaryPanel ? '#faad14' : (isDark ? '#faad14' : '#d48806'),
-              borderColor: showSummaryPanel ? '#faad14' : undefined
+              color: themeVars.primary,
+              borderColor: showSummaryPanel ? themeVars.primary : undefined
             }}
           >
             AI 总结
@@ -1158,7 +1159,7 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
                 <Empty description="当前 Prompt 没有图片" />
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  <Tag icon={<PictureOutlined />} color="blue">{allImages.length} 张图片</Tag>
+                  <Tag icon={<PictureOutlined />} color="#D97757">{allImages.length} 张图片</Tag>
                   <Image.PreviewGroup preview={getCopyablePreviewConfig(isDark)}>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
                       {allImages.map((img, idx) => (
@@ -1169,7 +1170,7 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
                             display: 'flex', flexDirection: 'column', alignItems: 'center',
                             borderRadius: 6, overflow: 'hidden',
                             border: `1px solid ${themeVars.border}`,
-                            background: isDark ? '#1a1a1a' : '#fafafa',
+                            background: themeVars.itemBg,
                             padding: 4
                           }}
                         >
@@ -1208,16 +1209,16 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
                       key={idx}
                       style={{
                         borderRadius: 8,
-                        border: `1px solid ${isDark ? '#303030' : '#f0f0f0'}`,
-                        background: isDark ? '#1a1a1a' : '#fafafa',
+                        border: `1px solid ${themeVars.itemBorder}`,
+                        background: themeVars.itemBg,
                         overflow: 'hidden'
                       }}
                     >
                       <div style={{
                         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                         padding: '6px 12px',
-                        borderBottom: `1px solid ${isDark ? '#303030' : '#f0f0f0'}`,
-                        background: isDark ? '#222' : '#f5f5f5'
+                        borderBottom: `1px solid ${themeVars.itemBorder}`,
+                        background: themeVars.bgSection
                       }}>
                         <Space size={4}>
                           <FileTextOutlined style={{ fontSize: 12 }} />
@@ -1267,7 +1268,7 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
             <div style={{
               flex: '0 0 40%',
               minWidth: 0,
-              borderLeft: `1px solid ${isDark ? '#303030' : '#e8e8e8'}`,
+              borderLeft: `1px solid ${themeVars.borderSecondary}`,
               paddingLeft: 12,
               display: 'flex',
               flexDirection: 'column'
@@ -1279,11 +1280,11 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
                 justifyContent: 'space-between',
                 marginBottom: 8,
                 paddingBottom: 6,
-                borderBottom: `1px solid ${isDark ? '#303030' : '#f0f0f0'}`
+                borderBottom: `1px solid ${themeVars.borderSecondary}`
               }}>
                 <Space size={4}>
-                  <StarOutlined style={{ color: '#faad14', fontSize: 13 }} />
-                  <Text strong style={{ fontSize: 13, color: '#faad14' }}>AI 总结</Text>
+                  <StarOutlined style={{ color: themeVars.primary, fontSize: 13 }} />
+                  <Text strong style={{ fontSize: 13, color: themeVars.primary }}>AI 总结</Text>
                   {summarizing && (
                     <Tag color="processing" style={{ fontSize: 10 }}>生成中</Tag>
                   )}
@@ -1294,13 +1295,13 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
                     size="small"
                     icon={<CopyOutlined />}
                     onClick={() => copyText(summaryContent)}
-                    style={{ fontSize: 10, color: isDark ? '#666' : '#bbb' }}
+                    style={{ fontSize: 10, color: themeVars.textTertiary }}
                   />
                   <Button
                     type="text"
                     size="small"
                     onClick={() => setSummaryVisible(false)}
-                    style={{ fontSize: 10, color: isDark ? '#666' : '#bbb' }}
+                    style={{ fontSize: 10, color: themeVars.textTertiary }}
                   >
                     ✕
                   </Button>

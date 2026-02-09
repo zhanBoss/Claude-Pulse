@@ -619,14 +619,14 @@ const HistoryViewer = (props: HistoryViewerProps) => {
                           style={{
                             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                             padding: '6px 12px', borderRadius: 6,
-                            background: isActive ? (darkMode ? 'rgba(22,119,255,0.12)' : '#e6f4ff') : themeVars.bgSection,
-                            border: `1px solid ${isActive ? '#1677ff' : themeVars.borderSecondary}`,
+                            background: isActive ? themeVars.primaryBg : themeVars.bgSection,
+                            border: `1px solid ${isActive ? themeVars.primary : themeVars.borderSecondary}`,
                             cursor: 'pointer',
                             transition: 'all 0.2s'
                           }}
                         >
                           <Space>
-                            <Tag color={isActive ? 'blue' : 'default'} style={{ fontSize: 11 }}>
+                            <Tag color={isActive ? '#D97757' : 'default'} style={{ fontSize: 11 }}>
                               {isActive && <CheckOutlined style={{ marginRight: 4 }} />}
                               {stat.projectName}
                             </Tag>
@@ -634,7 +634,7 @@ const HistoryViewer = (props: HistoryViewerProps) => {
                           </Space>
                           <Space size={4}>
                             {stat.totalTokens > 0 && (
-                              <Tag icon={<ThunderboltOutlined />} color="blue" style={{ fontSize: 11 }}>
+                              <Tag icon={<ThunderboltOutlined />} color="#D97757" style={{ fontSize: 11 }}>
                                 {stat.totalTokens.toLocaleString()} tokens
                               </Tag>
                             )}
@@ -666,10 +666,10 @@ const HistoryViewer = (props: HistoryViewerProps) => {
               gap: 8,
               padding: '6px 12px',
               borderRadius: 6,
-              background: darkMode ? 'rgba(22,119,255,0.08)' : '#f0f5ff',
-              border: `1px solid ${darkMode ? '#1e3a5f' : '#d6e4ff'}`
+              background: themeVars.primaryBg,
+              border: `1px solid ${darkMode ? 'rgba(217, 119, 87, 0.3)' : 'rgba(217, 119, 87, 0.2)'}`
             }}>
-              <FolderOpenOutlined style={{ color: '#1677ff', fontSize: 13 }} />
+              <FolderOpenOutlined style={{ color: themeVars.primary, fontSize: 13 }} />
               <Text style={{ fontSize: 12 }}>
                 筛选项目: <Text strong style={{ fontSize: 12 }}>{getProjectName(selectedProject)}</Text>
               </Text>
@@ -717,17 +717,17 @@ const HistoryViewer = (props: HistoryViewerProps) => {
                           {compareMode && (
                             <div style={{
                               width: 18, height: 18, borderRadius: 4,
-                              border: `2px solid ${selectedForCompare.has(group.sessionId) ? '#1677ff' : '#d9d9d9'}`,
-                              background: selectedForCompare.has(group.sessionId) ? '#1677ff' : 'transparent',
+                              border: `2px solid ${selectedForCompare.has(group.sessionId) ? themeVars.primary : themeVars.borderSecondary}`,
+                              background: selectedForCompare.has(group.sessionId) ? themeVars.primary : 'transparent',
                               display: 'flex', alignItems: 'center', justifyContent: 'center',
                               transition: 'all 0.2s'
                             }}>
                               {selectedForCompare.has(group.sessionId) && (
-                                <CheckOutlined style={{ color: '#fff', fontSize: 10 }} />
+                                <CheckOutlined style={{ color: themeVars.textWhite, fontSize: 10 }} />
                               )}
                             </div>
                           )}
-                          <Tag color="blue">{getProjectName(group.project)}</Tag>
+                          <Tag color="#D97757">{getProjectName(group.project)}</Tag>
                           {group.sessionId && !group.sessionId.startsWith('single-') && (
                             <Text code style={{ fontSize: 11 }}>{group.sessionId.slice(0, 8)}</Text>
                           )}
@@ -735,7 +735,7 @@ const HistoryViewer = (props: HistoryViewerProps) => {
                       }
                       extra={<ClockCircleOutlined style={{ color: themeVars.textTertiary }} />}
                       style={compareMode && selectedForCompare.has(group.sessionId)
-                        ? { borderColor: '#1677ff', borderWidth: 2 }
+                        ? { borderColor: themeVars.primary, borderWidth: 2 }
                         : undefined
                       }
                       actions={[
@@ -771,7 +771,7 @@ const HistoryViewer = (props: HistoryViewerProps) => {
                             {group.recordCount} 条对话
                           </Text>
                           {group.total_tokens && (
-                            <Tag icon={<ThunderboltOutlined />} color="blue" style={{ fontSize: 11 }}>
+                            <Tag icon={<ThunderboltOutlined />} color="#D97757" style={{ fontSize: 11 }}>
                               {group.total_tokens.toLocaleString()} tokens
                             </Tag>
                           )}
@@ -952,18 +952,18 @@ const HistoryViewer = (props: HistoryViewerProps) => {
                           transition: 'background 0.15s',
                           background: 'transparent'
                         }}
-                        onMouseEnter={e => { e.currentTarget.style.background = darkMode ? 'rgba(255,255,255,0.04)' : '#f5f5f5' }}
+                        onMouseEnter={e => { e.currentTarget.style.background = themeVars.hoverBg }}
                         onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
-                          <Tag color="blue" style={{ fontSize: 10 }}>{getProjectName(r.project)}</Tag>
+                          <Tag color="#D97757" style={{ fontSize: 10 }}>{getProjectName(r.project)}</Tag>
                           <Text type="secondary" style={{ fontSize: 10 }}>
                             {new Date(r.timestamp).toLocaleString('zh-CN')}
                           </Text>
                         </div>
                         <Text style={{ fontSize: 12, lineHeight: '18px' }}>
                           {before}
-                          <span style={{ color: '#1677ff', fontWeight: 600, background: darkMode ? 'rgba(22,119,255,0.15)' : 'rgba(22,119,255,0.1)', borderRadius: 2, padding: '0 1px' }}>
+                          <span style={{ color: themeVars.primary, fontWeight: 600, background: themeVars.highlightBg, borderRadius: 2, padding: '0 1px' }}>
                             {matched}
                           </span>
                           {after}
@@ -995,7 +995,7 @@ const HistoryViewer = (props: HistoryViewerProps) => {
           <Space>
             <SwapOutlined />
             <span>会话对比</span>
-            <Tag color="blue">{selectedForCompare.size} 个会话</Tag>
+            <Tag color="#D97757">{selectedForCompare.size} 个会话</Tag>
           </Space>
         }
         open={compareModalVisible}
@@ -1029,7 +1029,7 @@ const HistoryViewer = (props: HistoryViewerProps) => {
                     <div>指标</div>
                     {compareData.map(s => (
                       <div key={s.sessionId} style={{ textAlign: 'center' }}>
-                        <Tag color="blue" style={{ fontSize: 10 }}>{getProjectName(s.project)}</Tag>
+                        <Tag color="#D97757" style={{ fontSize: 10 }}>{getProjectName(s.project)}</Tag>
                         <br />
                         <Text code style={{ fontSize: 10 }}>{s.sessionId.slice(0, 8)}</Text>
                       </div>
