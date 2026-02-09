@@ -1,7 +1,14 @@
 import { Modal, Spin, Alert, Typography, Divider, Tag, Space, Button, message } from 'antd'
 import { useEffect, useState } from 'react'
 import { FullConversation, MessageContent, MessageSubType } from '../types'
-import { CopyOutlined, ToolOutlined, FileImageOutlined, TagOutlined } from '@ant-design/icons'
+import {
+  CopyOutlined,
+  ToolOutlined,
+  FileImageOutlined,
+  TagOutlined,
+  FileOutlined,
+  ClockCircleOutlined
+} from '@ant-design/icons'
 
 const { Text, Paragraph } = Typography
 
@@ -245,6 +252,55 @@ const ConversationDetailModal = ({
               </>
             )}
           </div>
+
+          {/* 文件编辑快照 */}
+          {conversation.fileEdits && conversation.fileEdits.length > 0 && (
+            <div style={{ marginTop: 12 }}>
+              <Text type="secondary" style={{ fontSize: 12 }}>
+                <FileOutlined style={{ marginRight: 4 }} />
+                文件修改记录（{conversation.fileEdits.reduce((s, e) => s + e.files.length, 0)} 个文件）：
+              </Text>
+              <div
+                style={{
+                  marginTop: 8,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 6,
+                  maxHeight: 200,
+                  overflowY: 'auto'
+                }}
+              >
+                {conversation.fileEdits.map((edit, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      padding: '6px 10px',
+                      borderRadius: 4,
+                      background: 'rgba(0,0,0,0.02)',
+                      border: '1px solid rgba(0,0,0,0.06)'
+                    }}
+                  >
+                    <Text type="secondary" style={{ fontSize: 11 }}>
+                      <ClockCircleOutlined style={{ marginRight: 4 }} />
+                      {edit.timestamp
+                        ? new Date(edit.timestamp).toLocaleString('zh-CN')
+                        : '未知时间'}
+                    </Text>
+                    <div style={{ marginTop: 4, display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                      {edit.files.map((file, fIdx) => {
+                        const fileName = file.split('/').pop() || file
+                        return (
+                          <Tag key={fIdx} icon={<FileOutlined />} style={{ fontSize: 11 }}>
+                            {fileName}
+                          </Tag>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           <Divider />
 

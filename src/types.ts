@@ -72,6 +72,12 @@ export interface FullConversation {
   has_errors?: boolean
   tool_use_count?: number
   tool_usage?: Record<string, number> // { "Read": 5, "Write": 3, "Bash": 2 }
+  // 文件编辑快照
+  fileEdits?: Array<{
+    messageId: string
+    timestamp: string
+    files: string[] // 文件路径列表
+  }>
 }
 
 // 会话元数据（轻量级）

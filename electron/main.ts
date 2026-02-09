@@ -1237,6 +1237,7 @@ ipcMain.handle('read-full-conversation', async (_, sessionId: string, project: s
     let hasErrors = false
     let toolUseCount = 0
     const toolUsageMap = new Map<string, number>()
+    const fileEdits: Array<{ messageId: string; timestamp: string; files: string[] }> = []
 
     for (const line of lines) {
       try {
@@ -1250,9 +1251,23 @@ ipcMain.handle('read-full-conversation', async (_, sessionId: string, project: s
           hasErrors = true
         }
 
-        // 跳过非消息类型（如 file-history-snapshot、queue-operation）
-        // 但仍记录它们存在
-        if (entryType === 'file-history-snapshot' || entryType === 'queue-operation') {
+        // 提取文件编辑快照
+        if (entryType === 'file-history-snapshot') {
+          const snapshot = entry.snapshot || {}
+          const trackedFiles = snapshot.trackedFileBackups || {}
+          const filePaths = Object.keys(trackedFiles)
+          if (filePaths.length > 0) {
+            fileEdits.push({
+              messageId: entry.messageId || '',
+              timestamp: snapshot.timestamp || '',
+              files: filePaths
+            })
+          }
+          continue
+        }
+
+        // 跳过非消息类型（如 queue-operation）
+        if (entryType === 'queue-operation') {
           continue
         }
 
@@ -1335,7 +1350,8 @@ ipcMain.handle('read-full-conversation', async (_, sessionId: string, project: s
       has_tool_use: hasToolUse || undefined,
       has_errors: hasErrors || undefined,
       tool_use_count: toolUseCount > 0 ? toolUseCount : undefined,
-      tool_usage: toolUsage
+      tool_usage: toolUsage,
+      fileEdits: fileEdits.length > 0 ? fileEdits : undefined
     }
 
     return { success: true, conversation }
