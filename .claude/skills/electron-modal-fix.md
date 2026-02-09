@@ -19,7 +19,6 @@ Electron 窗口使用 `WebkitAppRegion: 'drag'` 实现拖拽，会导致 Modal �
 ```tsx
 // ✅ 正确
 import ElectronModal from './ElectronModal'
-
 ;<ElectronModal title="标题" open={visible} onCancel={onClose}>
   内容
 </ElectronModal>

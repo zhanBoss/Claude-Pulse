@@ -23,11 +23,11 @@
 
 - [x] 提取每条消息的 token 使用量（input_tokens, output_tokens）
 - [x] 提取缓存 token（cache_creation_input_tokens, cache_read_input_tokens）
-- [ ] 计算 API 调用成本（USD）
+- [x] 计算 API 调用成本（USD）
 - [x] 会话级别的 token 统计
 - [ ] 项目级别的 token 统计
 - [x] 在会话卡片上显示 Token 徽章
-- [ ] 在会话卡片上显示成本徽章
+- [x] 在会话卡片上显示成本徽章
 
 #### 1.2 工具调用标记和统计
 

@@ -195,6 +195,12 @@ const ConversationDetailModal = ({
                 <Text type="secondary">总 Token: {conversation.total_tokens.toLocaleString()}</Text>
               </>
             )}
+            {conversation.total_cost_usd && (
+              <>
+                <br />
+                <Text type="secondary">总成本: ${conversation.total_cost_usd.toFixed(4)} USD</Text>
+              </>
+            )}
             {conversation.has_tool_use && (
               <>
                 <br />
@@ -227,6 +233,11 @@ const ConversationDetailModal = ({
                     {msg.usage.cache_read_input_tokens && msg.usage.cache_read_input_tokens > 0 && (
                       <Tag color="cyan" className="text-xs">
                         缓存读取: {msg.usage.cache_read_input_tokens.toLocaleString()}
+                      </Tag>
+                    )}
+                    {msg.cost_usd && msg.cost_usd > 0 && (
+                      <Tag color="gold" className="text-xs">
+                        ${msg.cost_usd.toFixed(4)}
                       </Tag>
                     )}
                   </>

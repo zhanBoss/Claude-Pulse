@@ -797,6 +797,11 @@ function HistoryViewer({ onOpenSettings, darkMode, onSendToChat }: HistoryViewer
                               {group.total_tokens.toLocaleString()} tokens
                             </Tag>
                           )}
+                          {group.total_cost_usd && (
+                            <Tag color="green" style={{ fontSize: 11 }}>
+                              ${group.total_cost_usd.toFixed(4)}
+                            </Tag>
+                          )}
                           {group.has_tool_use && (
                             <Tag icon={<ToolOutlined />} color="purple" style={{ fontSize: 11 }}>
                               工具调用 {group.tool_use_count && `×${group.tool_use_count}`}

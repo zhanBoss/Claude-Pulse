@@ -25,6 +25,97 @@ let autoCleanupTimer: ReturnType<typeof setInterval> | null = null
 // ========== 粘贴内容展开工具函数 ==========
 
 /**
+ * Claude API 定价模型（2024年1月更新）
+ * 价格单位：USD per Million Tokens (MTok)
+ */
+const CLAUDE_PRICING = {
+  // Claude 3.5 Sonnet (claude-3-5-sonnet-20241022)
+  'claude-3-5-sonnet-20241022': {
+    input: 3.0, // $3 per MTok
+    output: 15.0, // $15 per MTok
+    cache_write: 3.75, // $3.75 per MTok
+    cache_read: 0.3 // $0.30 per MTok
+  },
+  // Claude 3.5 Haiku (claude-3-5-haiku-20241022)
+  'claude-3-5-haiku-20241022': {
+    input: 1.0, // $1 per MTok
+    output: 5.0, // $5 per MTok
+    cache_write: 1.25, // $1.25 per MTok
+    cache_read: 0.1 // $0.10 per MTok
+  },
+  // Claude 3 Opus
+  'claude-3-opus-20240229': {
+    input: 15.0,
+    output: 75.0,
+    cache_write: 18.75,
+    cache_read: 1.5
+  },
+  // Claude 3 Sonnet
+  'claude-3-sonnet-20240229': {
+    input: 3.0,
+    output: 15.0,
+    cache_write: 3.75,
+    cache_read: 0.3
+  },
+  // Claude 3 Haiku
+  'claude-3-haiku-20240307': {
+    input: 0.25,
+    output: 1.25,
+    cache_write: 0.3,
+    cache_read: 0.03
+  }
+} as const
+
+/**
+ * 计算单次 API 调用的成本（USD）
+ * @param usage - Token 使用量
+ * @param model - 模型名称
+ * @returns 成本（USD）
+ */
+const calculateCost = (
+  usage: {
+    input_tokens?: number
+    output_tokens?: number
+    cache_creation_input_tokens?: number
+    cache_read_input_tokens?: number
+  },
+  model?: string
+): number => {
+  if (!usage) return 0
+
+  // 如果没有指定模型或模型不在定价表中，使用默认定价（Claude 3.5 Sonnet）
+  const pricing =
+    model && model in CLAUDE_PRICING
+      ? CLAUDE_PRICING[model as keyof typeof CLAUDE_PRICING]
+      : CLAUDE_PRICING['claude-3-5-sonnet-20241022']
+
+  const inputTokens = usage.input_tokens || 0
+  const outputTokens = usage.output_tokens || 0
+  const cacheWriteTokens = usage.cache_creation_input_tokens || 0
+  const cacheReadTokens = usage.cache_read_input_tokens || 0
+
+  // 计算各部分成本（单位：USD）
+  // 价格是 per Million Tokens，所以除以 1,000,000
+  const inputCost = (inputTokens * pricing.input) / 1_000_000
+  const outputCost = (outputTokens * pricing.output) / 1_000_000
+  const cacheWriteCost = (cacheWriteTokens * pricing.cache_write) / 1_000_000
+  const cacheReadCost = (cacheReadTokens * pricing.cache_read) / 1_000_000
+
+  return inputCost + outputCost + cacheWriteCost + cacheReadCost
+}
+
+/**
+ * 将 project 绝对路径转换为文件夹名称
+ * 例如：/Users/name/project -> -Users-name-project
+ */
+const getProjectFolderName = (projectPath: string): string => {
+  if (!projectPath || projectPath.trim() === '') {
+    return ''
+  }
+  return projectPath.replace(/\//g, '-')
+}
+
+/**
  * 展开粘贴内容：将 contentHash 引用替换为实际内容
  */
 const expandPastedContents = (pastedContents: Record<string, any>): Record<string, any> => {
@@ -72,6 +163,12 @@ async function extractImagesFromProjects(
   const images: string[] = []
 
   try {
+    // 参数验证
+    if (!project || project.trim() === '') {
+      console.log('[Image Extract] Project 路径为空，跳过图片提取')
+      return images
+    }
+
     // 从 display 文本中提取图片编号
     const imageMatches = displayText.match(/\[Image #(\d+)\]/g)
     if (!imageMatches || imageMatches.length === 0) {
@@ -93,8 +190,8 @@ async function extractImagesFromProjects(
 
     console.log(`[Image Extract] 记录中需要 ${imageNumbers.length} 张图片:`, imageNumbers)
 
-    // 构建 project 路径（将绝对路径转换为文件夹名）
-    const projectFolderName = project.replace(/\//g, '-')
+    // 构建 project 路径
+    const projectFolderName = getProjectFolderName(project)
     const projectSessionFile = path.join(
       CLAUDE_DIR,
       'projects',
@@ -715,13 +812,111 @@ ipcMain.handle('read-history-metadata', async () => {
       }
     }
 
-    const sessions = Array.from(sessionMap.values()).sort(
-      (a, b) => b.latestTimestamp - a.latestTimestamp
+    // 为每个会话提取 Token 统计和工具调用信息
+    const sessions = Array.from(sessionMap.values())
+    const enrichedSessions = sessions.map(session => {
+      try {
+        // 如果 project 为空，返回基础信息（无法定位会话文件）
+        if (!session.project || session.project.trim() === '') {
+          return session
+        }
+
+        // 构建 project 路径
+        const projectFolderName = getProjectFolderName(session.project)
+        const projectSessionFile = path.join(
+          CLAUDE_DIR,
+          'projects',
+          projectFolderName,
+          `${session.sessionId}.jsonl`
+        )
+
+        // 如果会话文件不存在，返回基础信息
+        if (!fs.existsSync(projectSessionFile)) {
+          return session
+        }
+
+        // 读取会话文件，提取 Token 和工具调用信息
+        const sessionLines = fs
+          .readFileSync(projectSessionFile, 'utf-8')
+          .split('\n')
+          .filter(l => l.trim())
+
+        let totalTokens = 0
+        let totalCost = 0
+        let hasToolUse = false
+        let hasErrors = false
+        let toolUseCount = 0
+
+        for (const sessionLine of sessionLines) {
+          try {
+            const entry = JSON.parse(sessionLine)
+
+            // 检查错误
+            if (entry.error) {
+              hasErrors = true
+            }
+
+            // 提取助手响应中的 Token 使用量和成本
+            if (entry.response && entry.response.usage) {
+              const usage = entry.response.usage
+              const model = entry.response.model
+              totalTokens += (usage.input_tokens || 0) + (usage.output_tokens || 0)
+              totalCost += calculateCost(usage, model)
+            }
+
+            // 检查工具调用
+            if (entry.response && entry.response.content) {
+              const content = Array.isArray(entry.response.content)
+                ? entry.response.content
+                : [entry.response.content]
+
+              for (const c of content) {
+                if (c.type === 'tool_use') {
+                  hasToolUse = true
+                  toolUseCount++
+                }
+              }
+            }
+
+            // 检查工具结果（用户消息中）
+            if (entry.message && entry.message.content) {
+              const content = Array.isArray(entry.message.content)
+                ? entry.message.content
+                : [entry.message.content]
+
+              for (const c of content) {
+                if (c.type === 'tool_result') {
+                  hasToolUse = true
+                }
+              }
+            }
+          } catch (err) {
+            // 忽略解析错误
+          }
+        }
+
+        return {
+          ...session,
+          total_tokens: totalTokens > 0 ? totalTokens : undefined,
+          total_cost_usd: totalCost > 0 ? totalCost : undefined,
+          has_tool_use: hasToolUse || undefined,
+          has_errors: hasErrors || undefined,
+          tool_use_count: toolUseCount > 0 ? toolUseCount : undefined
+        }
+      } catch (err) {
+        console.error(`提取会话 ${session.sessionId} 的元数据失败:`, err)
+        return session
+      }
+    })
+
+    // 按最新时间倒序排序
+    enrichedSessions.sort((a, b) => b.latestTimestamp - a.latestTimestamp)
+
+    console.log(
+      `[History Metadata] 从 history.jsonl 聚合了 ${enrichedSessions.length} 个会话，已提取 Token 和工具调用信息`
     )
 
-    console.log(`[History Metadata] 从 history.jsonl 聚合了 ${sessions.length} 个会话`)
-
-    return { success: true, sessions }
+    return { success: true, sessions: enrichedSessions }
   } catch (error) {
     console.error('读取历史记录元数据时发生错误:', error)
     return { success: false, error: (error as Error).message }
@@ -808,8 +1003,16 @@ ipcMain.handle('read-session-details', async (_, sessionId: string) => {
 // 读取完整对话（从 projects/{sessionId}.jsonl）
 ipcMain.handle('read-full-conversation', async (_, sessionId: string, project: string) => {
   try {
-    // 构建 project 路径（将绝对路径转换为文件夹名）
-    const projectFolderName = project.replace(/\//g, '-')
+    // 参数验证
+    if (!sessionId || sessionId.trim() === '') {
+      return { success: false, error: 'sessionId 不能为空' }
+    }
+    if (!project || project.trim() === '') {
+      return { success: false, error: 'project 路径不能为空' }
+    }
+
+    // 构建 project 路径
+    const projectFolderName = getProjectFolderName(project)
     const projectSessionFile = path.join(
       CLAUDE_DIR,
       'projects',
@@ -831,6 +1034,7 @@ ipcMain.handle('read-full-conversation', async (_, sessionId: string, project: s
 
     const messages: any[] = []
     let totalTokens = 0
+    let totalCost = 0
     let hasToolUse = false
     let hasErrors = false
     let toolUseCount = 0
@@ -878,13 +1082,16 @@ ipcMain.handle('read-full-conversation', async (_, sessionId: string, project: s
             }
           }
 
-          // 提取 Token 使用量
+          // 提取 Token 使用量和计算成本
           const usage = entry.response.usage
           const model = entry.response.model
 
+          let messageCost = 0
           if (usage) {
             const tokens = (usage.input_tokens || 0) + (usage.output_tokens || 0)
             totalTokens += tokens
+            messageCost = calculateCost(usage, model)
+            totalCost += messageCost
           }
 
           messages.push({
@@ -893,6 +1100,7 @@ ipcMain.handle('read-full-conversation', async (_, sessionId: string, project: s
             timestamp: entry.timestamp || Date.now(),
             model,
             usage,
+            cost_usd: messageCost > 0 ? messageCost : undefined,
             duration_ms: entry.response.duration_ms
           })
         }
@@ -906,6 +1114,7 @@ ipcMain.handle('read-full-conversation', async (_, sessionId: string, project: s
       project,
       messages,
       total_tokens: totalTokens > 0 ? totalTokens : undefined,
+      total_cost_usd: totalCost > 0 ? totalCost : undefined,
       has_tool_use: hasToolUse || undefined,
       has_errors: hasErrors || undefined,
       tool_use_count: toolUseCount > 0 ? toolUseCount : undefined
