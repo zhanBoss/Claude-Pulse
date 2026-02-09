@@ -154,8 +154,34 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
   }
 
   /**
+   * 判断一条 user 消息是否为「真实用户 Prompt」
+   * 排除工具结果回传、系统消息、摘要、压缩边界等内部消息
+   */
+  const isRealUserPrompt = (msg: FullMessage): boolean => {
+    if (msg.role !== 'user') return false
+
+    /* 通过 subType 排除内部消息 */
+    const internalSubTypes = new Set([
+      'system', 'summary', 'hook',
+      'microcompaction-boundary', 'queue-operation',
+      'file-history-snapshot'
+    ])
+    if (msg.subType && internalSubTypes.has(msg.subType)) return false
+
+    /* 内容全部是 tool_result 的 user 消息是工具结果回传，不是用户输入 */
+    const hasText = msg.content.some(c => c.type === 'text' && c.text && c.text.trim().length > 0)
+    const hasImage = msg.content.some(c => c.type === 'image')
+    const allToolResults = msg.content.length > 0 && msg.content.every(c => c.type === 'tool_result')
+
+    if (allToolResults && !hasText) return false
+
+    /* 至少包含文本或图片才算真实 Prompt */
+    return hasText || hasImage
+  }
+
+  /**
    * 将消息列表分组为「轮次」
-   * 每轮以 user 消息开头，包含后续所有 assistant 消息直到下一个 user 消息
+   * 仅以真实用户 Prompt 开头，工具结果等内部 user 消息归入上一轮
    */
   const rounds = useMemo((): ConversationRound[] => {
     if (!conversation) return []
@@ -193,16 +219,17 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
     }
 
     for (const msg of conversation.messages) {
-      if (msg.role === 'user') {
-        // 遇到新的用户消息，结束上一轮
+      if (isRealUserPrompt(msg)) {
+        /* 遇到真实用户 Prompt，结束上一轮并开始新一轮 */
         flushRound()
         currentUserMsg = msg
         currentAssistantMsgs = []
       } else {
+        /* 其他消息（assistant 回复、工具结果、系统消息等）归入当前轮 */
         currentAssistantMsgs.push(msg)
       }
     }
-    // 最后一轮
+    /* 最后一轮 */
     flushRound()
 
     return result
