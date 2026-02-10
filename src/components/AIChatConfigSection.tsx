@@ -56,24 +56,16 @@ const AIChatConfigSection = ({
   const isConfigComplete = settings.apiKey && settings.apiBaseUrl && settings.model
 
   return (
-    <div style={{ padding: '16px 0' }}>
-      <Space direction="vertical" size="large" style={{ width: '100%' }}>
+    <div style={{ padding: '8px 0' }}>
+      <Space direction="vertical" size={10} style={{ width: '100%' }}>
         {/* API Key */}
         <div>
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: '8px'
-            }}
-          >
-            <Text style={{ color: themeVars.text, fontWeight: 500 }}>
-              <ApiOutlined style={{ marginRight: 8 }} />
-              API Key
-            </Text>
-          </div>
+          <Text style={{ color: themeVars.text, fontWeight: 500, fontSize: 12 }}>
+            <ApiOutlined style={{ marginRight: 6 }} />
+            API Key
+          </Text>
           <Input.Password
+            size="small"
             value={settings.apiKey}
             onChange={e => updateSetting('apiKey', e.target.value)}
             placeholder="请输入 API Key"
@@ -83,9 +75,9 @@ const AIChatConfigSection = ({
             }}
             onPressEnter={handleSave}
             onFocus={() => setIsEditing(true)}
-            style={{ marginBottom: '8px' }}
+            style={{ marginTop: 4 }}
           />
-          <Text type="secondary" style={{ fontSize: '12px', color: themeVars.textSecondary }}>
+          <Text type="secondary" style={{ fontSize: 11 }}>
             {settings.apiKey && !isEditing
               ? `已设置: ${maskApiKey(settings.apiKey)}`
               : '你的 API Key 将加密存储在本地'}
@@ -94,60 +86,48 @@ const AIChatConfigSection = ({
 
         {/* API 地址 */}
         <div>
-          <Text style={{ color: themeVars.text, fontWeight: 500 }}>API 地址</Text>
-          <br />
-          <Text
-            type="secondary"
-            style={{
-              fontSize: '12px',
-              color: themeVars.textSecondary,
-              marginBottom: '8px',
-              display: 'block'
-            }}
-          >
-            填写完整的 API 地址（支持任意服务、代理、中转）
+          <Text style={{ color: themeVars.text, fontWeight: 500, fontSize: 12 }}>API 地址</Text>
+          <Text type="secondary" style={{ fontSize: 11, marginLeft: 8 }}>
+            （支持任意服务、代理、中转）
           </Text>
           <Input
+            size="small"
             value={settings.apiBaseUrl}
             onChange={e => updateSetting('apiBaseUrl', e.target.value)}
-            placeholder="例如: https://api.deepseek.com/v1"
+            placeholder="https://api.groq.com/openai/v1"
             onPressEnter={handleSave}
             onFocus={() => setIsEditing(true)}
+            style={{ marginTop: 4 }}
           />
         </div>
 
         {/* 模型名称 */}
         <div>
-          <Text style={{ color: themeVars.text, fontWeight: 500 }}>模型名称</Text>
-          <br />
-          <Text
-            type="secondary"
-            style={{
-              fontSize: '12px',
-              color: themeVars.textSecondary,
-              marginBottom: '8px',
-              display: 'block'
-            }}
-          >
-            填写模型 ID（例如: deepseek-chat, gpt-4, claude-3 等）
+          <Text style={{ color: themeVars.text, fontWeight: 500, fontSize: 12 }}>模型名称</Text>
+          <Text type="secondary" style={{ fontSize: 11, marginLeft: 8 }}>
+            （例如: deepseek-chat, gpt-4, claude-3 等）
           </Text>
           <Input
+            size="small"
             value={settings.model}
             onChange={e => updateSetting('model', e.target.value)}
-            placeholder="例如: deepseek-chat"
+            placeholder="llama-3.3-70b-versatile"
             onPressEnter={handleSave}
             onFocus={() => setIsEditing(true)}
+            style={{ marginTop: 4 }}
           />
         </div>
 
         {/* 保存按钮 */}
-        <div style={{ textAlign: 'right' }}>
+        <div style={{ textAlign: 'right', marginTop: 4 }}>
           <Button
             type="primary"
+            size="small"
             icon={<SaveOutlined />}
             onClick={handleSave}
             loading={apiKeySaving}
             disabled={!isEditing && !!isConfigComplete}
+            style={{ fontSize: 12 }}
           >
             保存配置
           </Button>

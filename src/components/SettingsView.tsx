@@ -498,70 +498,57 @@ function SettingsView({
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(min(420px, 100%), 1fr))',
-            gap: '20px',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(min(380px, 100%), 1fr))',
+            gap: '16px',
             maxWidth: '1400px',
             margin: '0 auto',
-            paddingBottom: '32px',
+            paddingBottom: '24px',
             width: '100%'
           }}
         >
           {/* 卡片 1: 通用设置 */}
           <Card
             id="general"
+            size="small"
             onMouseEnter={() => setHoveredSection('general')}
             onMouseLeave={() => setHoveredSection(null)}
             title={
-              <Space size={10}>
-                <BulbOutlined style={{ color: themeVars.primary, fontSize: 18 }} />
-                <span style={{ fontSize: 15, fontWeight: 600 }}>通用设置</span>
+              <Space size={8}>
+                <BulbOutlined style={{ color: themeVars.primary, fontSize: 16 }} />
+                <span style={{ fontSize: 14, fontWeight: 600 }}>通用设置</span>
               </Space>
             }
             style={{
               backgroundColor: themeVars.bgContainer,
               borderColor: themeVars.border,
-              borderRadius: 12,
+              borderRadius: 10,
               boxShadow: darkMode
-                ? '0 2px 8px rgba(0, 0, 0, 0.15)'
-                : '0 2px 8px rgba(0, 0, 0, 0.06)',
+                ? '0 1px 4px rgba(0, 0, 0, 0.12)'
+                : '0 1px 4px rgba(0, 0, 0, 0.04)',
               transition: 'all 0.3s ease'
             }}
             styles={{
               header: {
                 borderBottom: `1px solid ${themeVars.borderSecondary}`,
-                padding: '16px 20px'
+                padding: '10px 16px',
+                minHeight: 'auto'
               },
               body: {
-                padding: '20px'
+                padding: '12px 16px'
               }
             }}
           >
-            <Space direction="vertical" size={20} style={{ width: '100%' }}>
+            <Space direction="vertical" size={12} style={{ width: '100%' }}>
+              {/* 外观主题 */}
               <div>
-                <Text
-                  style={{
-                    color: themeVars.text,
-                    fontWeight: 500,
-                    fontSize: 14
-                  }}
-                >
+                <Text style={{ color: themeVars.text, fontWeight: 500, fontSize: 13 }}>
                   外观主题
                 </Text>
-                <br />
-                <Text
-                  type="secondary"
-                  style={{
-                    fontSize: 13,
-                    color: themeVars.textSecondary,
-                    marginTop: 4,
-                    marginBottom: 12,
-                    display: 'block',
-                    lineHeight: 1.5
-                  }}
-                >
+                <Text type="secondary" style={{ fontSize: 12, marginLeft: 8 }}>
                   选择应用的外观主题
                 </Text>
                 <Segmented
+                  size="small"
                   value={settings.themeMode}
                   onChange={value => {
                     const newSettings = {
@@ -570,74 +557,32 @@ function SettingsView({
                     }
                     setSettings(newSettings)
                     saveSettingsImmediately(newSettings)
-                    // 通知父组件更新主题
                     onThemeModeChange?.(value as 'light' | 'dark' | 'system')
                   }}
                   options={[
-                    {
-                      label: (
-                        <div style={{ padding: '4px 8px' }}>
-                          <SunOutlined style={{ marginRight: 4 }} />
-                          浅色
-                        </div>
-                      ),
-                      value: 'light'
-                    },
-                    {
-                      label: (
-                        <div style={{ padding: '4px 8px' }}>
-                          <MoonOutlined style={{ marginRight: 4 }} />
-                          深色
-                        </div>
-                      ),
-                      value: 'dark'
-                    },
-                    {
-                      label: (
-                        <div style={{ padding: '4px 8px' }}>
-                          <LaptopOutlined style={{ marginRight: 4 }} />
-                          跟随系统
-                        </div>
-                      ),
-                      value: 'system'
-                    }
+                    { label: <span><SunOutlined style={{ marginRight: 4 }} />浅色</span>, value: 'light' },
+                    { label: <span><MoonOutlined style={{ marginRight: 4 }} />深色</span>, value: 'dark' },
+                    { label: <span><LaptopOutlined style={{ marginRight: 4 }} />跟随系统</span>, value: 'system' }
                   ]}
                   block
+                  style={{ marginTop: 8 }}
                 />
               </div>
 
-              <Divider style={{ margin: '4px 0' }} />
+              <Divider style={{ margin: 0 }} />
 
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center'
-                }}
-              >
+              {/* 开机自启动 */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <Text
-                    style={{
-                      color: themeVars.text,
-                      fontSize: 14,
-                      fontWeight: 500
-                    }}
-                  >
+                  <Text style={{ color: themeVars.text, fontSize: 13, fontWeight: 500 }}>
                     开机自启动
                   </Text>
-                  <br />
-                  <Text
-                    type="secondary"
-                    style={{
-                      fontSize: 13,
-                      color: themeVars.textSecondary,
-                      lineHeight: 1.5
-                    }}
-                  >
+                  <Text type="secondary" style={{ fontSize: 12, marginLeft: 8 }}>
                     系统启动时自动运行应用
                   </Text>
                 </div>
                 <Switch
+                  size="small"
                   checked={settings.autoStart}
                   onChange={checked => {
                     const newSettings = { ...settings, autoStart: checked }
@@ -647,70 +592,43 @@ function SettingsView({
                 />
               </div>
 
-              <Divider style={{ margin: '4px 0' }} />
+              <Divider style={{ margin: 0 }} />
 
+              {/* Claude Code 目录 */}
               <div>
-                <Text
-                  style={{
-                    color: themeVars.text,
-                    fontWeight: 500,
-                    fontSize: 14
-                  }}
-                >
+                <Text style={{ color: themeVars.text, fontWeight: 500, fontSize: 13 }}>
                   Claude Code 目录
                 </Text>
-                <br />
-                <Text
-                  type="secondary"
-                  style={{
-                    fontSize: 13,
-                    color: themeVars.textSecondary,
-                    marginTop: 4,
-                    marginBottom: 12,
-                    display: 'block',
-                    lineHeight: 1.5
-                  }}
-                >
-                  当前监控的 Claude Code 安装路径
-                </Text>
                 <Input
+                  size="small"
                   value={claudeDir}
                   readOnly
                   style={{
                     fontFamily: 'monospace',
-                    fontSize: 12,
-                    backgroundColor: themeVars.bgSection
+                    fontSize: 11,
+                    backgroundColor: themeVars.bgSection,
+                    marginTop: 6
                   }}
                 />
               </div>
 
-              <Divider style={{ margin: '4px 0' }} />
+              <Divider style={{ margin: 0 }} />
 
+              {/* 数据存储 */}
               <div>
-                <Text
-                  style={{
-                    color: themeVars.text,
-                    fontWeight: 500,
-                    fontSize: 14
-                  }}
-                >
+                <Text style={{ color: themeVars.text, fontWeight: 500, fontSize: 13 }}>
                   数据存储
                 </Text>
-                <br />
-                <Text
-                  type="secondary"
-                  style={{
-                    fontSize: 13,
-                    color: themeVars.textSecondary,
-                    marginTop: 4,
-                    marginBottom: 12,
-                    display: 'block',
-                    lineHeight: 1.5
-                  }}
-                >
+                <Text type="secondary" style={{ fontSize: 12, marginLeft: 8 }}>
                   你的 API Key 和设置存储在本地加密文件中
                 </Text>
-                <Button icon={<FolderOpenOutlined />} onClick={handleShowConfigPath} block>
+                <Button
+                  size="small"
+                  icon={<FolderOpenOutlined />}
+                  onClick={handleShowConfigPath}
+                  block
+                  style={{ marginTop: 8 }}
+                >
                   查看配置文件位置
                 </Button>
               </div>
@@ -720,12 +638,13 @@ function SettingsView({
           {/* 卡片 2: Token 价格配置 */}
           <Card
             id="token-pricing"
+            size="small"
             onMouseEnter={() => setHoveredSection('token-pricing')}
             onMouseLeave={() => setHoveredSection(null)}
             title={
-              <Space size={10}>
-                <DollarOutlined style={{ color: themeVars.primary, fontSize: 18 }} />
-                <span style={{ fontSize: 15, fontWeight: 600 }}>Token 价格配置</span>
+              <Space size={8}>
+                <DollarOutlined style={{ color: themeVars.primary, fontSize: 16 }} />
+                <span style={{ fontSize: 14, fontWeight: 600 }}>Token 价格配置</span>
               </Space>
             }
             extra={
@@ -733,15 +652,12 @@ function SettingsView({
                 type="text"
                 size="small"
                 onClick={() => {
-                  const newSettings = {
-                    ...settings,
-                    tokenPricing: undefined
-                  }
+                  const newSettings = { ...settings, tokenPricing: undefined }
                   setSettings(newSettings)
                   saveSettingsImmediately(newSettings)
                   message.success('已重置为默认价格')
                 }}
-                style={{ color: themeVars.textSecondary, fontSize: 12 }}
+                style={{ color: themeVars.textSecondary, fontSize: 11, padding: '0 4px' }}
               >
                 重置默认
               </Button>
@@ -749,53 +665,31 @@ function SettingsView({
             style={{
               backgroundColor: themeVars.bgContainer,
               borderColor: themeVars.border,
-              borderRadius: 12,
+              borderRadius: 10,
               boxShadow: darkMode
-                ? '0 2px 8px rgba(0, 0, 0, 0.15)'
-                : '0 2px 8px rgba(0, 0, 0, 0.06)',
+                ? '0 1px 4px rgba(0, 0, 0, 0.12)'
+                : '0 1px 4px rgba(0, 0, 0, 0.04)',
               transition: 'all 0.3s ease'
             }}
             styles={{
               header: {
                 borderBottom: `1px solid ${themeVars.borderSecondary}`,
-                padding: '12px 20px'
+                padding: '10px 16px',
+                minHeight: 'auto'
               },
               body: {
-                padding: '16px 20px'
+                padding: '12px 16px'
               }
             }}
           >
-            <Text
-              type="secondary"
-              style={{
-                fontSize: 12,
-                color: themeVars.textSecondary,
-                lineHeight: 1.5,
-                display: 'block',
-                marginBottom: 12
-              }}
-            >
+            <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 10 }}>
               价格单位: USD/MTok，默认值基于 Claude 3.5 Sonnet
             </Text>
 
             {/* 2x2 网格布局 */}
-            <div
-              style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(2, 1fr)',
-                gap: 12
-              }}
-            >
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
               <div>
-                <Text
-                  style={{
-                    color: themeVars.text,
-                    fontWeight: 500,
-                    fontSize: 12,
-                    display: 'block',
-                    marginBottom: 4
-                  }}
-                >
+                <Text style={{ color: themeVars.text, fontWeight: 500, fontSize: 11, display: 'block', marginBottom: 2 }}>
                   输入价格
                 </Text>
                 <Input
@@ -822,17 +716,8 @@ function SettingsView({
                   }}
                 />
               </div>
-
               <div>
-                <Text
-                  style={{
-                    color: themeVars.text,
-                    fontWeight: 500,
-                    fontSize: 12,
-                    display: 'block',
-                    marginBottom: 4
-                  }}
-                >
+                <Text style={{ color: themeVars.text, fontWeight: 500, fontSize: 11, display: 'block', marginBottom: 2 }}>
                   输出价格
                 </Text>
                 <Input
@@ -859,17 +744,8 @@ function SettingsView({
                   }}
                 />
               </div>
-
               <div>
-                <Text
-                  style={{
-                    color: themeVars.text,
-                    fontWeight: 500,
-                    fontSize: 12,
-                    display: 'block',
-                    marginBottom: 4
-                  }}
-                >
+                <Text style={{ color: themeVars.text, fontWeight: 500, fontSize: 11, display: 'block', marginBottom: 2 }}>
                   缓存写入
                 </Text>
                 <Input
@@ -896,17 +772,8 @@ function SettingsView({
                   }}
                 />
               </div>
-
               <div>
-                <Text
-                  style={{
-                    color: themeVars.text,
-                    fontWeight: 500,
-                    fontSize: 12,
-                    display: 'block',
-                    marginBottom: 4
-                  }}
-                >
+                <Text style={{ color: themeVars.text, fontWeight: 500, fontSize: 11, display: 'block', marginBottom: 2 }}>
                   缓存读取
                 </Text>
                 <Input
@@ -939,63 +806,67 @@ function SettingsView({
           {/* 卡片 3: Claude Code 配置 */}
           <Card
             id="claude-config"
+            size="small"
             onMouseEnter={() => setHoveredSection('claude-config')}
             onMouseLeave={() => setHoveredSection(null)}
             title={
-              <Space size={10}>
-                <CodeOutlined style={{ color: themeVars.primary, fontSize: 18 }} />
-                <span style={{ fontSize: 15, fontWeight: 600 }}>Claude Code 配置</span>
+              <Space size={8}>
+                <CodeOutlined style={{ color: themeVars.primary, fontSize: 16 }} />
+                <span style={{ fontSize: 14, fontWeight: 600 }}>Claude Code 配置</span>
               </Space>
             }
             style={{
               backgroundColor: themeVars.bgContainer,
               borderColor: themeVars.border,
-              borderRadius: 12,
+              borderRadius: 10,
               boxShadow: darkMode
-                ? '0 2px 8px rgba(0, 0, 0, 0.15)'
-                : '0 2px 8px rgba(0, 0, 0, 0.06)',
+                ? '0 1px 4px rgba(0, 0, 0, 0.12)'
+                : '0 1px 4px rgba(0, 0, 0, 0.04)',
               transition: 'all 0.3s ease'
             }}
             styles={{
               header: {
                 borderBottom: `1px solid ${themeVars.borderSecondary}`,
-                padding: '16px 20px'
+                padding: '10px 16px',
+                minHeight: 'auto'
               },
               body: {
-                padding: '20px'
+                padding: '12px 16px'
               }
             }}
           >
             <ConfigEditor ref={configEditorRef} darkMode={darkMode} />
           </Card>
 
-          {/* 卡片 3: 对话记录管理 */}
+          {/* 卡片 4: 对话记录管理 */}
           <Card
             id="record-control"
+            size="small"
             onMouseEnter={() => setHoveredSection('record-control')}
             onMouseLeave={() => setHoveredSection(null)}
             title={
-              <Space size={10}>
-                <PlayCircleOutlined style={{ color: themeVars.primary, fontSize: 18 }} />
-                <span style={{ fontSize: 15, fontWeight: 600 }}>对话记录管理</span>
+              <Space size={8}>
+                <PlayCircleOutlined style={{ color: themeVars.primary, fontSize: 16 }} />
+                <span style={{ fontSize: 14, fontWeight: 600 }}>对话记录管理</span>
               </Space>
             }
             style={{
               backgroundColor: themeVars.bgContainer,
               borderColor: themeVars.border,
-              borderRadius: 12,
+              borderRadius: 10,
               boxShadow: darkMode
-                ? '0 2px 8px rgba(0, 0, 0, 0.15)'
-                : '0 2px 8px rgba(0, 0, 0, 0.06)',
+                ? '0 1px 4px rgba(0, 0, 0, 0.12)'
+                : '0 1px 4px rgba(0, 0, 0, 0.04)',
               transition: 'all 0.3s ease'
             }}
             styles={{
               header: {
                 borderBottom: `1px solid ${themeVars.borderSecondary}`,
-                padding: '16px 20px'
+                padding: '10px 16px',
+                minHeight: 'auto'
               },
               body: {
-                padding: '20px'
+                padding: '12px 16px'
               }
             }}
           >
@@ -1025,8 +896,8 @@ function SettingsView({
             margin: '0 auto',
             width: '100%',
             textAlign: 'center',
-            paddingTop: '32px',
-            marginTop: '12px',
+            paddingTop: '20px',
+            marginTop: '8px',
             borderTop: `1px solid ${themeVars.borderSecondary}`
           }}
         >
@@ -1035,12 +906,8 @@ function SettingsView({
             danger
             icon={<DeleteOutlined />}
             onClick={handleUninstall}
-            size="middle"
-            style={{
-              padding: '6px 16px',
-              fontSize: 13,
-              height: 36
-            }}
+            size="small"
+            style={{ fontSize: 12 }}
           >
             卸载应用
           </Button>

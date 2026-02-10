@@ -1,17 +1,16 @@
 import { useEffect, useState, forwardRef, useImperativeHandle } from 'react'
 import {
-  Card,
   Switch,
   Button,
   Typography,
   Space,
   Spin,
   Tag,
-  Alert,
   message,
   Modal,
   InputNumber,
-  Select
+  Select,
+  Divider
 } from 'antd'
 import {
   DeleteOutlined,
@@ -290,43 +289,40 @@ const RecordControl = forwardRef<RecordControlRef, RecordControlProps>((props, r
 
   if (loading) {
     return (
-      <div style={{ textAlign: 'center', padding: 40 }}>
-        <Spin tip="加载中..."><div style={{ padding: 40 }} /></Spin>
+      <div style={{ textAlign: 'center', padding: 20 }}>
+        <Spin size="small" tip="加载中..."><div style={{ padding: 16 }} /></Spin>
       </div>
     )
   }
 
   return (
-    <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-      <Title level={4} style={{ margin: 0 }}>
-        缓存管理
-      </Title>
+    <Space direction="vertical" size={10} style={{ width: '100%' }}>
+      <Text strong style={{ fontSize: 13 }}>缓存管理</Text>
 
       {/* 数据来源说明 */}
-      <Card size="small">
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-          <CheckCircleOutlined style={{ color: themeVars.primary }} />
-          <Text strong>数据来源</Text>
-          <Tag color="success">自动读取</Tag>
-        </div>
-        <Text type="secondary" style={{ fontSize: 12 }}>
-          直接读取 Claude Code 本地数据（~/.claude），无需额外配置
-        </Text>
-      </Card>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <CheckCircleOutlined style={{ color: themeVars.primary, fontSize: 14 }} />
+        <Text style={{ fontSize: 12 }}>数据来源</Text>
+        <Tag color="success" style={{ fontSize: 10, lineHeight: '16px', padding: '0 4px' }}>自动读取</Tag>
+      </div>
+      <Text type="secondary" style={{ fontSize: 11, marginTop: -6, display: 'block' }}>
+        直接读取 Claude Code 本地数据（~/.claude），无需额外配置
+      </Text>
+
+      <Divider style={{ margin: '4px 0' }} />
 
       {/* 缓存清理 */}
-      <Card size="small">
-        <div style={{ marginBottom: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-            <DeleteOutlined style={{ color: themeVars.textSecondary }} />
-            <Text strong>资源清理</Text>
-          </div>
-          <Text type="secondary" style={{ fontSize: 12 }}>
-            清除本应用涉及的所有缓存资源（历史记录、会话文件、图片缓存等）
-          </Text>
+      <div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+          <DeleteOutlined style={{ color: themeVars.textSecondary, fontSize: 14 }} />
+          <Text style={{ fontSize: 12, fontWeight: 500 }}>资源清理</Text>
         </div>
+        <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 8 }}>
+          清除本应用涉及的所有缓存资源（历史记录、会话文件、图片缓存等）
+        </Text>
         <Button
           danger
+          size="small"
           icon={<DeleteOutlined />}
           onClick={handleClearAllCache}
           loading={clearing}
@@ -334,153 +330,112 @@ const RecordControl = forwardRef<RecordControlRef, RecordControlProps>((props, r
         >
           清除所有缓存
         </Button>
-      </Card>
+      </div>
+
+      <Divider style={{ margin: '4px 0' }} />
 
       {/* 自动清理缓存设置 */}
-      <Card size="small">
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            marginBottom: autoCleanup.enabled ? 16 : 0
-          }}
-        >
-          <div style={{ flex: 1 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-              <ClockCircleOutlined style={{ color: themeVars.primary }} />
-              <Text strong>自动清理</Text>
-              {autoCleanup.enabled && (
-                <Tag color="processing" style={{ fontSize: 11 }}>
-                  已开启
-                </Tag>
-              )}
-            </div>
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              定时自动清理过期的图片缓存
-            </Text>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: autoCleanup.enabled ? 10 : 0
+        }}
+      >
+        <div style={{ flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            <ClockCircleOutlined style={{ color: themeVars.primary, fontSize: 14 }} />
+            <Text style={{ fontSize: 12, fontWeight: 500 }}>自动清理</Text>
+            {autoCleanup.enabled && (
+              <Tag color="processing" style={{ fontSize: 10, lineHeight: '16px', padding: '0 4px' }}>
+                已开启
+              </Tag>
+            )}
           </div>
-          <Switch
-            checked={autoCleanup.enabled}
-            onChange={handleAutoCleanupToggle}
-            checkedChildren="开"
-            unCheckedChildren="关"
-          />
+          <Text type="secondary" style={{ fontSize: 11 }}>
+            定时自动清理过期的图片缓存
+          </Text>
         </div>
+        <Switch
+          size="small"
+          checked={autoCleanup.enabled}
+          onChange={handleAutoCleanupToggle}
+        />
+      </div>
 
-        {autoCleanup.enabled && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            {/* 清理间隔 */}
+      {autoCleanup.enabled && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 4 }}>
+          {/* 清理间隔和保留范围 - 并排显示 */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
             <div>
-              <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>
+              <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>
                 清理间隔
               </Text>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <span style={{ fontSize: 13, color: 'inherit', whiteSpace: 'nowrap' }}>每</span>
+              <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                 <InputNumber
                   min={1}
                   max={999}
                   value={intervalValue}
                   onChange={v => handleIntervalChange(v)}
-                  style={{ width: 80 }}
+                  style={{ width: 60 }}
                   size="small"
                 />
                 <Select
                   value={intervalUnit}
                   onChange={v => handleIntervalChange(intervalValue, v)}
                   options={TIME_UNIT_OPTIONS}
-                  style={{ width: 90 }}
+                  style={{ width: 70 }}
                   size="small"
                 />
-                <span style={{ fontSize: 13, color: 'inherit', whiteSpace: 'nowrap' }}>
-                  清理一次
-                </span>
               </div>
             </div>
-
-            {/* 保留范围 */}
             <div>
-              <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 6 }}>
+              <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 4 }}>
                 保留范围
               </Text>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <span style={{ fontSize: 13, color: 'inherit', whiteSpace: 'nowrap' }}>
-                  保留最近
-                </span>
+              <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
                 <InputNumber
                   min={1}
                   max={999}
                   value={retainValue}
                   onChange={v => handleRetainChange(v)}
-                  style={{ width: 80 }}
+                  style={{ width: 60 }}
                   size="small"
                 />
                 <Select
                   value={retainUnit}
                   onChange={v => handleRetainChange(retainValue, v)}
                   options={TIME_UNIT_OPTIONS}
-                  style={{ width: 90 }}
+                  style={{ width: 70 }}
                   size="small"
                 />
-                <span style={{ fontSize: 13, color: 'inherit', whiteSpace: 'nowrap' }}>的缓存</span>
               </div>
             </div>
+          </div>
 
-            {/* 手动清理按钮 */}
+          {/* 悬浮球开关和清理按钮 - 并排 */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <Text style={{ fontSize: 11 }}>悬浮球倒计时</Text>
+              <Switch
+                size="small"
+                checked={autoCleanup.showFloatingBall ?? true}
+                onChange={handleFloatingBallToggle}
+              />
+            </div>
             <Button
               type="primary"
               size="small"
               onClick={handleManualCleanup}
               loading={cleanupLoading}
-              block
-              style={{ marginTop: 4 }}
+              style={{ fontSize: 11 }}
             >
-              立即执行清理
+              立即清理
             </Button>
-
-            {/* 悬浮球显示开关 */}
-            <div
-              style={{
-                marginTop: 12,
-                padding: '8px 12px',
-                background: 'rgba(0,0,0,0.02)',
-                borderRadius: 4
-              }}
-            >
-              <div
-                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-              >
-                <Text style={{ fontSize: 13 }}>显示悬浮球倒计时</Text>
-                <Switch
-                  size="small"
-                  checked={autoCleanup.showFloatingBall ?? true}
-                  onChange={handleFloatingBallToggle}
-                />
-              </div>
-            </div>
-
-            {/* 说明 */}
-            <Alert
-              type="info"
-              showIcon
-              message={
-                <span style={{ fontSize: 12 }}>
-                  每{' '}
-                  <strong>
-                    {intervalValue} {TIME_UNIT_OPTIONS.find(u => u.value === intervalUnit)?.label}
-                  </strong>{' '}
-                  自动清理一次， 保留最近{' '}
-                  <strong>
-                    {retainValue} {TIME_UNIT_OPTIONS.find(u => u.value === retainUnit)?.label}
-                  </strong>{' '}
-                  的缓存
-                </span>
-              }
-              style={{ padding: '6px 12px' }}
-            />
           </div>
-        )}
-      </Card>
+        </div>
+      )}
     </Space>
   )
 })

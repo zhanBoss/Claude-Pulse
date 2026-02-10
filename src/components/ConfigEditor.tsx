@@ -117,70 +117,66 @@ const ConfigEditor = forwardRef<ConfigEditorRef, ConfigEditorProps>(({ darkMode 
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 150 }}>
-        <Spin size="large" tip="加载配置中..."><div style={{ padding: 40 }} /></Spin>
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 80 }}>
+        <Spin size="small" tip="加载中..."><div style={{ padding: 20 }} /></Spin>
       </div>
     )
   }
 
   return (
     <>
-      <Space vertical size="middle" style={{ width: '100%' }}>
-        {/* 当前配置显示 */}
-        <div
-          onClick={handleOpenModal}
-          style={{
-            cursor: 'pointer',
-            padding: '16px',
-            border: `1px solid ${themeVars.border}`,
-            borderRadius: '8px',
-            backgroundColor: themeVars.bgContainer,
-            transition: 'all 0.3s'
-          }}
-          onMouseEnter={e => {
-            e.currentTarget.style.borderColor = themeVars.primary
-            e.currentTarget.style.boxShadow = `0 0 0 2px ${themeVars.primary}20`
-          }}
-          onMouseLeave={e => {
-            e.currentTarget.style.borderColor = themeVars.border
-            e.currentTarget.style.boxShadow = 'none'
-          }}
-        >
-          <Space vertical size="small" style={{ width: '100%' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Space>
-                <CodeOutlined style={{ fontSize: 20, color: themeVars.primary }} />
-                <div>
-                  <Text strong>settings.json</Text>
-                  <br />
-                  <Text type="secondary" style={{ fontSize: 12 }}>
-                    {getConfigSummary()}
-                  </Text>
-                </div>
-              </Space>
-              <Button type="primary" icon={<EditOutlined />} size="small">
-                查看/编辑
-              </Button>
-            </div>
-            <div
-              style={{
-                background: themeVars.codeBg,
-                borderRadius: 4,
-                padding: '8px 12px',
-                fontFamily: 'monospace',
-                fontSize: 12,
-                color: themeVars.textSecondary,
-                maxHeight: 60,
-                overflow: 'hidden',
-                textOverflow: 'ellipsis'
-              }}
-            >
-              {config.split('\n').slice(0, 3).join('\n')}
-              {config.split('\n').length > 3 && '...'}
+      {/* 当前配置显示 - 紧凑版 */}
+      <div
+        onClick={handleOpenModal}
+        style={{
+          cursor: 'pointer',
+          padding: '10px 12px',
+          border: `1px solid ${themeVars.border}`,
+          borderRadius: '6px',
+          backgroundColor: themeVars.bgSection,
+          transition: 'all 0.2s'
+        }}
+        onMouseEnter={e => {
+          e.currentTarget.style.borderColor = themeVars.primary
+          e.currentTarget.style.boxShadow = `0 0 0 2px ${themeVars.primary}20`
+        }}
+        onMouseLeave={e => {
+          e.currentTarget.style.borderColor = themeVars.border
+          e.currentTarget.style.boxShadow = 'none'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Space size={8}>
+            <CodeOutlined style={{ fontSize: 16, color: themeVars.primary }} />
+            <div>
+              <Text strong style={{ fontSize: 13 }}>settings.json</Text>
+              <Text type="secondary" style={{ fontSize: 11, marginLeft: 8 }}>
+                {getConfigSummary()}
+              </Text>
             </div>
           </Space>
+          <Button type="primary" icon={<EditOutlined />} size="small" style={{ fontSize: 12 }}>
+            查看/编辑
+          </Button>
         </div>
-      </Space>
+        <div
+          style={{
+            background: themeVars.codeBg,
+            borderRadius: 4,
+            padding: '6px 10px',
+            fontFamily: 'monospace',
+            fontSize: 11,
+            color: themeVars.textSecondary,
+            maxHeight: 44,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            marginTop: 8
+          }}
+        >
+          {config.split('\n').slice(0, 2).join('\n')}
+          {config.split('\n').length > 2 && '...'}
+        </div>
+      </div>
 
       {/* 编辑 Modal */}
       <ElectronModal

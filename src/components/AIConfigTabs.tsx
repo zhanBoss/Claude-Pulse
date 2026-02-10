@@ -30,29 +30,46 @@ const AIConfigTabs = ({
   return (
     <Card
       id="ai-settings"
+      size="small"
       title={
-        <Space>
-          <RobotOutlined style={{ color: themeVars.primary }} />
-          <span>AI 功能配置</span>
-          <Tag color={anyEnabled ? 'success' : 'default'}>{anyEnabled ? '已启用' : '未启用'}</Tag>
+        <Space size={8}>
+          <RobotOutlined style={{ color: themeVars.primary, fontSize: 16 }} />
+          <span style={{ fontSize: 14, fontWeight: 600 }}>AI 功能配置</span>
+          <Tag
+            color={anyEnabled ? 'success' : 'default'}
+            style={{ fontSize: 10, lineHeight: '16px', padding: '0 4px' }}
+          >
+            {anyEnabled ? '已启用' : '未启用'}
+          </Tag>
         </Space>
       }
       style={{
         backgroundColor: themeVars.bgContainer,
-        borderColor: themeVars.border
+        borderColor: themeVars.border,
+        borderRadius: 10,
+        boxShadow: darkMode
+          ? '0 1px 4px rgba(0, 0, 0, 0.12)'
+          : '0 1px 4px rgba(0, 0, 0, 0.04)'
+      }}
+      styles={{
+        header: {
+          borderBottom: `1px solid ${themeVars.borderSecondary}`,
+          padding: '10px 16px',
+          minHeight: 'auto'
+        },
+        body: {
+          padding: '12px 16px'
+        }
       }}
     >
       <Tabs
         activeKey={activeTab}
         onChange={setActiveTab}
+        size="small"
         items={[
           {
             key: 'chat',
-            label: (
-              <Space>
-                <span>AI 对话</span>
-              </Space>
-            ),
+            label: <span style={{ fontSize: 12 }}>AI 对话</span>,
             children: (
               <AIChatConfigSection
                 settings={aiChat}
@@ -64,10 +81,10 @@ const AIConfigTabs = ({
           {
             key: 'summary',
             label: (
-              <Space>
-                <span>AI 总结</span>
+              <Space size={4}>
+                <span style={{ fontSize: 12 }}>AI 总结</span>
                 {aiSummary.enabled && (
-                  <Tag color="success" style={{ marginLeft: 4 }}>
+                  <Tag color="success" style={{ fontSize: 10, lineHeight: '14px', padding: '0 3px' }}>
                     已启用
                   </Tag>
                 )}

@@ -133,26 +133,20 @@ const AIConfigSection = ({
   }
 
   return (
-    <div style={{ padding: '16px 0' }}>
-      <Space direction="vertical" size="large" style={{ width: '100%' }}>
+    <div style={{ padding: '8px 0' }}>
+      <Space direction="vertical" size={10} style={{ width: '100%' }}>
         {/* 启用开关（仅总结配置显示） */}
         {showEnabled && 'enabled' in settings && (
           <>
-            <div
-              style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center'
-              }}
-            >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
-                <Text style={{ color: themeVars.text }}>启用此配置</Text>
-                <br />
-                <Text type="secondary" style={{ fontSize: '12px', color: themeVars.textSecondary }}>
+                <Text style={{ color: themeVars.text, fontSize: 12, fontWeight: 500 }}>启用此配置</Text>
+                <Text type="secondary" style={{ fontSize: 11, marginLeft: 8 }}>
                   {description}
                 </Text>
               </div>
               <Switch
+                size="small"
                 checked={(settings as AISummarySettings).enabled}
                 onChange={checked => updateSetting('enabled', checked)}
               />
@@ -163,180 +157,94 @@ const AIConfigSection = ({
 
         {/* AI 提供商选择 */}
         <div>
-          <Text style={{ color: themeVars.text, fontWeight: 500 }}>AI 提供商</Text>
-          <br />
-          <Text
-            type="secondary"
-            style={{
-              fontSize: '12px',
-              color: themeVars.textSecondary,
-              marginBottom: '8px',
-              display: 'block'
-            }}
-          >
+          <Text style={{ color: themeVars.text, fontWeight: 500, fontSize: 12 }}>AI 提供商</Text>
+          <Text type="secondary" style={{ fontSize: 11, marginLeft: 8 }}>
             {getCurrentProviderInfo().description}
           </Text>
           <Select
+            size="small"
             value={settings.provider}
             onChange={handleProviderChange}
-            style={{ width: '100%' }}
+            style={{ width: '100%', marginTop: 4 }}
             options={[
-              {
-                label: (
-                  <div>
-                    <div style={{ fontWeight: 500 }}>Groq (推荐)</div>
-                    <div style={{ fontSize: 12, color: themeVars.success }}>
-                      ✓ 完全免费 · 速度超快
-                    </div>
-                  </div>
-                ),
-                value: 'groq'
-              },
-              {
-                label: (
-                  <div>
-                    <div style={{ fontWeight: 500 }}>Google Gemini</div>
-                    <div style={{ fontSize: 12, color: themeVars.success }}>✓ 慷慨免费额度</div>
-                  </div>
-                ),
-                value: 'gemini'
-              },
-              {
-                label: (
-                  <div>
-                    <div style={{ fontWeight: 500 }}>DeepSeek</div>
-                    <div style={{ fontSize: 12, color: themeVars.warning }}>⚠ 有限免费额度</div>
-                  </div>
-                ),
-                value: 'deepseek'
-              },
-              {
-                label: (
-                  <div>
-                    <div style={{ fontWeight: 500 }}>自定义</div>
-                    <div style={{ fontSize: 12, color: themeVars.info }}>⚙️ 任意 API 服务</div>
-                  </div>
-                ),
-                value: 'custom'
-              }
+              { label: 'Groq (推荐) - 完全免费', value: 'groq' },
+              { label: 'Google Gemini - 慷慨免费额度', value: 'gemini' },
+              { label: 'DeepSeek - 有限免费额度', value: 'deepseek' },
+              { label: '自定义 - 任意 API 服务', value: 'custom' }
             ]}
           />
         </div>
 
         {/* API Key */}
         <div>
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: '8px'
-            }}
-          >
-            <Text style={{ color: themeVars.text, fontWeight: 500 }}>API Key</Text>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Text style={{ color: themeVars.text, fontWeight: 500, fontSize: 12 }}>API Key</Text>
             {getCurrentProviderInfo().getKeyUrl && (
-              <Link
-                href={getCurrentProviderInfo().getKeyUrl}
-                target="_blank"
-                style={{ fontSize: '12px' }}
-              >
-                获取 API Key <LinkOutlined />
+              <Link href={getCurrentProviderInfo().getKeyUrl} target="_blank" style={{ fontSize: 11 }}>
+                获取 Key <LinkOutlined />
               </Link>
             )}
           </div>
           <Input.Password
+            size="small"
             value={getCurrentProviderConfig().apiKey}
             onChange={e => {
               updateCurrentProviderConfig('apiKey', e.target.value)
               setIsEditingApiKey(true)
             }}
             placeholder={`请输入 ${getCurrentProviderInfo().name} API Key`}
-            visibilityToggle={{
-              visible: apiKeyVisible,
-              onVisibleChange: setApiKeyVisible
-            }}
+            visibilityToggle={{ visible: apiKeyVisible, onVisibleChange: setApiKeyVisible }}
             onPressEnter={handleSaveApiKey}
             onFocus={() => setIsEditingApiKey(true)}
-            style={{ marginBottom: '8px' }}
+            style={{ marginTop: 4 }}
           />
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center'
-            }}
-          >
-            <Text type="secondary" style={{ fontSize: '12px', color: themeVars.textSecondary }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+            <Text type="secondary" style={{ fontSize: 11 }}>
               {getCurrentProviderConfig().apiKey && !isEditingApiKey
                 ? `已设置: ${maskApiKey(getCurrentProviderConfig().apiKey)}`
                 : '你的 API Key 将加密存储在本地'}
             </Text>
             <Button
               type="primary"
+              size="small"
               icon={<SaveOutlined />}
               onClick={handleSaveApiKey}
               loading={apiKeySaving}
-              size="small"
               disabled={!isEditingApiKey && !!getCurrentProviderConfig().apiKey}
+              style={{ fontSize: 11 }}
             >
-              保存 API Key
+              保存
             </Button>
           </div>
         </div>
 
         {/* API 地址 */}
         <div>
-          <Text style={{ color: themeVars.text }}>API 地址</Text>
-          <br />
-          <Text
-            type="secondary"
-            style={{
-              fontSize: '12px',
-              color: themeVars.textSecondary,
-              marginBottom: '8px',
-              display: 'block'
-            }}
-          >
-            {settings.provider === 'custom'
-              ? '填写完整的 API 地址（支持任意服务、代理、中转）'
-              : '高级选项，通常无需修改'}
+          <Text style={{ color: themeVars.text, fontSize: 12 }}>API 地址</Text>
+          <Text type="secondary" style={{ fontSize: 11, marginLeft: 8 }}>
+            {settings.provider === 'custom' ? '（支持任意服务、代理、中转）' : '（高级选项）'}
           </Text>
           <Input
+            size="small"
             value={getCurrentProviderConfig().apiBaseUrl}
             onChange={e => updateCurrentProviderConfig('apiBaseUrl', e.target.value)}
-            placeholder={
-              settings.provider === 'custom'
-                ? '例如: https://your-api.com/v1'
-                : getCurrentProviderConfig().apiBaseUrl
-            }
+            placeholder={settings.provider === 'custom' ? 'https://your-api.com/v1' : getCurrentProviderConfig().apiBaseUrl}
+            style={{ marginTop: 4 }}
           />
         </div>
 
         {/* 模型名称 */}
         <div>
-          <Text style={{ color: themeVars.text }}>模型名称</Text>
-          <br />
-          <Text
-            type="secondary"
-            style={{
-              fontSize: '12px',
-              color: themeVars.textSecondary,
-              marginBottom: '8px',
-              display: 'block'
-            }}
-          >
-            {settings.provider === 'custom'
-              ? '填写模型 ID（根据你的 API 服务要求）'
-              : '默认已选择最优模型，通常无需修改'}
+          <Text style={{ color: themeVars.text, fontSize: 12 }}>模型名称</Text>
+          <Text type="secondary" style={{ fontSize: 11, marginLeft: 8 }}>
+            {settings.provider === 'custom' ? '（根据你的 API 服务要求）' : '（默认已选最优模型）'}
           </Text>
           <Input
+            size="small"
             value={getCurrentProviderConfig().model}
             onChange={e => updateCurrentProviderConfig('model', e.target.value)}
-            placeholder={
-              settings.provider === 'custom'
-                ? '例如: gpt-4, claude-3, llama-3 等'
-                : getCurrentProviderConfig().model
-            }
+            placeholder={settings.provider === 'custom' ? 'gpt-4, claude-3 等' : getCurrentProviderConfig().model}
+            style={{ marginTop: 4 }}
           />
         </div>
       </Space>
