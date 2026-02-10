@@ -1,6 +1,6 @@
 /**
  * Claude Code 配置管理组件
- * 提供 MCP 服务器、Skills、Plugins 的可视化管理
+ * 提供 MCP 服务器、Skills、Plugins、Hooks 的可视化管理
  */
 
 import { useState, useEffect, forwardRef, useImperativeHandle } from 'react'
@@ -9,11 +9,11 @@ import {
   Space,
   Typography,
   Button,
-  Empty,
   Tag,
   Spin,
   message,
-  Tooltip
+  Tooltip,
+  Empty
 } from 'antd'
 import {
   CloudServerOutlined,
@@ -23,17 +23,22 @@ import {
   EditOutlined,
   FolderOpenOutlined,
   ReloadOutlined,
-  CopyOutlined,
   ShopOutlined,
-  StarOutlined
+  StarOutlined,
+  ApiOutlined,
+  ExportOutlined,
+  ImportOutlined
 } from '@ant-design/icons'
 import { getThemeVars } from '../theme'
-import { MCPServer, ClaudeSkill, ClaudePlugin, OnlineMCPServer, MCPInstallConfig } from '../types'
+import { MCPServer, ClaudeSkill, ClaudePlugin, OnlineMCPServer, MCPInstallConfig, ClaudeHook } from '../types'
 import ElectronModal from './ElectronModal'
 import Editor from '@monaco-editor/react'
 import MCPInstalledList from './MCPInstalledList'
 import MCPMarketList from './MCPMarketList'
 import MCPInstallModal from './MCPInstallModal'
+import SkillsManager from './SkillsManager'
+import PluginsManager from './PluginsManager'
+import HooksManager from './HooksManager'
 
 const { Text } = Typography
 
@@ -57,6 +62,7 @@ const ClaudeConfigManager = forwardRef<ClaudeConfigManagerRef, ClaudeConfigManag
     const [mcpServers, setMcpServers] = useState<MCPServer[]>([])
     const [skills, setSkills] = useState<ClaudeSkill[]>([])
     const [plugins, setPlugins] = useState<ClaudePlugin[]>([])
+    const [hooks, setHooks] = useState<ClaudeHook[]>([])
 
     // 编辑器状态
     const [editorVisible, setEditorVisible] = useState(false)
@@ -72,14 +78,13 @@ const ClaudeConfigManager = forwardRef<ClaudeConfigManagerRef, ClaudeConfigManag
     const loadData = async () => {
       setLoading(true)
       try {
-        // 加载完整配置
         const result = await window.electronAPI.getClaudeCodeFullConfig()
         if (result.success && result.config) {
           setMcpServers(result.config.mcpServers || [])
           setSkills(result.config.skills || [])
           setPlugins(result.config.plugins || [])
+          setHooks(result.config.hooks || [])
 
-          // 格式化 settings
           try {
             const formatted = JSON.stringify(result.config.settings, null, 2)
             setConfig(formatted)
@@ -100,7 +105,6 @@ const ClaudeConfigManager = forwardRef<ClaudeConfigManagerRef, ClaudeConfigManag
       loadData()
     }, [])
 
-    // 暴露 refresh 方法
     useImperativeHandle(ref, () => ({
       refresh: loadData
     }))
@@ -109,13 +113,13 @@ const ClaudeConfigManager = forwardRef<ClaudeConfigManagerRef, ClaudeConfigManag
     const handleSaveConfig = async () => {
       setSaving(true)
       try {
-        JSON.parse(editedConfig) // 验证 JSON
+        JSON.parse(editedConfig)
         const result = await window.electronAPI.saveClaudeConfig(editedConfig)
         if (result.success) {
           setConfig(editedConfig)
           message.success('保存成功')
           setEditorVisible(false)
-          loadData() // 重新加载以更新所有数据
+          loadData()
         } else {
           message.error(result.error || '保存失败')
         }
@@ -138,13 +142,11 @@ const ClaudeConfigManager = forwardRef<ClaudeConfigManagerRef, ClaudeConfigManag
       }
     }
 
-    // 打开安装弹窗
     const handleOpenInstallModal = (server: OnlineMCPServer) => {
       setServerToInstall(server)
       setInstallModalVisible(true)
     }
 
-    // 执行安装
     const handleInstall = async (name: string, config: MCPInstallConfig, target: 'claude' | 'cursor') => {
       const result = await window.electronAPI.installMCPServer(name, config, target)
       if (result.success) {
@@ -158,18 +160,45 @@ const ClaudeConfigManager = forwardRef<ClaudeConfigManagerRef, ClaudeConfigManag
       }
     }
 
-    // 复制到剪贴板
-    const copyToClipboard = async (text: string) => {
-      await window.electronAPI.copyToClipboard(text)
-      message.success('已复制')
+    const handleExport = async () => {
+      try {
+        const result = await window.electronAPI.exportClaudeConfig()
+        if (result.success) {
+          message.success(`配置已导出至: ${result.filePath}`)
+        } else if (result.error !== '用户取消') {
+          message.error(result.error || '导出失败')
+        }
+      } catch {
+        message.error('导出失败')
+      }
     }
 
-    // 获取配置摘要
+    const handleImport = () => {
+      const input = document.createElement('input')
+      input.type = 'file'
+      input.accept = '.json'
+      input.onchange = async (e: Event) => {
+        const file = (e.target as HTMLInputElement).files?.[0]
+        if (!file) return
+        try {
+          const result = await window.electronAPI.importClaudeConfig(file.path)
+          if (result.success) {
+            message.success('配置导入成功')
+            loadData()
+          } else {
+            message.error(result.error || '导入失败')
+          }
+        } catch {
+          message.error('导入失败')
+        }
+      }
+      input.click()
+    }
+
     const getConfigSummary = () => {
       try {
         const obj = JSON.parse(config)
-        const keys = Object.keys(obj)
-        return `${keys.length} 项配置`
+        return `${Object.keys(obj).length} 项配置`
       } catch {
         return '格式错误'
       }
@@ -185,7 +214,6 @@ const ClaudeConfigManager = forwardRef<ClaudeConfigManagerRef, ClaudeConfigManag
       )
     }
 
-    // Tab 项
     const tabItems = [
       {
         key: 'settings',
@@ -198,7 +226,6 @@ const ClaudeConfigManager = forwardRef<ClaudeConfigManagerRef, ClaudeConfigManag
         ),
         children: (
           <div style={{ padding: '8px 0' }}>
-            {/* settings.json 预览 */}
             <div
               onClick={() => {
                 setEditedConfig(config)
@@ -212,21 +239,13 @@ const ClaudeConfigManager = forwardRef<ClaudeConfigManagerRef, ClaudeConfigManag
                 backgroundColor: themeVars.bgSection,
                 transition: 'all 0.2s'
               }}
-              onMouseEnter={e => {
-                e.currentTarget.style.borderColor = themeVars.primary
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.borderColor = themeVars.border
-              }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = themeVars.primary }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = themeVars.border }}
             >
-              <div
-                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
-              >
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <Space size={6}>
                   <CodeOutlined style={{ fontSize: 14, color: themeVars.primary }} />
-                  <Text strong style={{ fontSize: 12 }}>
-                    settings.json
-                  </Text>
+                  <Text strong style={{ fontSize: 12 }}>settings.json</Text>
                 </Space>
                 <Button type="primary" icon={<EditOutlined />} size="small" style={{ fontSize: 11 }}>
                   编辑
@@ -258,9 +277,7 @@ const ClaudeConfigManager = forwardRef<ClaudeConfigManagerRef, ClaudeConfigManag
           <Space size={4}>
             <CloudServerOutlined />
             <span style={{ fontSize: 12 }}>MCP</span>
-            <Tag color="blue" style={{ fontSize: 10, padding: '0 4px', margin: 0 }}>
-              {mcpServers.length}
-            </Tag>
+            <Tag color="blue" style={{ fontSize: 10, padding: '0 4px', margin: 0 }}>{mcpServers.length}</Tag>
           </Space>
         ),
         children: (
@@ -276,17 +293,10 @@ const ClaudeConfigManager = forwardRef<ClaudeConfigManagerRef, ClaudeConfigManag
                     <Space size={4}>
                       <CloudServerOutlined style={{ fontSize: 12 }} />
                       <span style={{ fontSize: 11 }}>已安装</span>
-                      <Tag style={{ fontSize: 9, padding: '0 3px', margin: 0 }}>
-                        {mcpServers.length}
-                      </Tag>
+                      <Tag style={{ fontSize: 9, padding: '0 3px', margin: 0 }}>{mcpServers.length}</Tag>
                     </Space>
                   ),
-                  children: (
-                    <MCPInstalledList
-                      darkMode={darkMode}
-                      onRefresh={refreshMcpServers}
-                    />
-                  )
+                  children: <MCPInstalledList darkMode={darkMode} onRefresh={refreshMcpServers} />
                 },
                 {
                   key: 'market',
@@ -319,12 +329,8 @@ const ClaudeConfigManager = forwardRef<ClaudeConfigManagerRef, ClaudeConfigManag
                         image={Empty.PRESENTED_IMAGE_SIMPLE}
                         description={
                           <Space direction="vertical" size={4}>
-                            <Text type="secondary" style={{ fontSize: 11 }}>
-                              精选 MCP 服务器推荐
-                            </Text>
-                            <Text type="secondary" style={{ fontSize: 10 }}>
-                              功能开发中，敬请期待...
-                            </Text>
+                            <Text type="secondary" style={{ fontSize: 11 }}>精选 MCP 服务器推荐</Text>
+                            <Text type="secondary" style={{ fontSize: 10 }}>功能开发中，敬请期待...</Text>
                           </Space>
                         }
                       />
@@ -342,81 +348,12 @@ const ClaudeConfigManager = forwardRef<ClaudeConfigManagerRef, ClaudeConfigManag
           <Space size={4}>
             <ThunderboltOutlined />
             <span style={{ fontSize: 12 }}>Skills</span>
-            <Tag color="green" style={{ fontSize: 10, padding: '0 4px', margin: 0 }}>
-              {skills.length}
-            </Tag>
+            <Tag color="green" style={{ fontSize: 10, padding: '0 4px', margin: 0 }}>{skills.length}</Tag>
           </Space>
         ),
         children: (
           <div style={{ padding: '8px 0' }}>
-            <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 8 }}>
-              Skills 为 Claude Code 提供专业领域知识
-            </Text>
-
-            {skills.length === 0 ? (
-              <Empty
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
-                description={<Text type="secondary" style={{ fontSize: 11 }}>暂无已安装的 Skills</Text>}
-                style={{ margin: '12px 0' }}
-              />
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {skills.map(skill => (
-                  <div
-                    key={skill.name}
-                    style={{
-                      padding: '8px 10px',
-                      border: `1px solid ${themeVars.border}`,
-                      borderRadius: 6,
-                      backgroundColor: themeVars.bgSection
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center'
-                      }}
-                    >
-                      <Space size={6}>
-                        <ThunderboltOutlined style={{ color: '#52c41a', fontSize: 14 }} />
-                        <Text strong style={{ fontSize: 12 }}>
-                          {skill.name}
-                        </Text>
-                        <Tag style={{ fontSize: 10, padding: '0 4px' }}>{skill.files.length} 文件</Tag>
-                      </Space>
-                      <Space size={4}>
-                        <Tooltip title="复制路径">
-                          <Button
-                            type="text"
-                            icon={<CopyOutlined />}
-                            size="small"
-                            onClick={() => copyToClipboard(skill.path)}
-                          />
-                        </Tooltip>
-                        <Tooltip title="打开文件夹">
-                          <Button
-                            type="text"
-                            icon={<FolderOpenOutlined />}
-                            size="small"
-                            onClick={() => window.electronAPI.openInFinder(skill.path)}
-                          />
-                        </Tooltip>
-                      </Space>
-                    </div>
-                    {skill.description && (
-                      <Text
-                        type="secondary"
-                        style={{ fontSize: 10, display: 'block', marginTop: 4 }}
-                        ellipsis
-                      >
-                        {skill.description}
-                      </Text>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
+            <SkillsManager darkMode={darkMode} onRefresh={loadData} />
           </div>
         )
       },
@@ -426,68 +363,27 @@ const ClaudeConfigManager = forwardRef<ClaudeConfigManagerRef, ClaudeConfigManag
           <Space size={4}>
             <AppstoreOutlined />
             <span style={{ fontSize: 12 }}>Plugins</span>
-            <Tag color="purple" style={{ fontSize: 10, padding: '0 4px', margin: 0 }}>
-              {plugins.length}
-            </Tag>
+            <Tag color="purple" style={{ fontSize: 10, padding: '0 4px', margin: 0 }}>{plugins.length}</Tag>
           </Space>
         ),
         children: (
           <div style={{ padding: '8px 0' }}>
-            <Text type="secondary" style={{ fontSize: 11, display: 'block', marginBottom: 8 }}>
-              Plugins 扩展 Claude Code 的功能
-            </Text>
-
-            {plugins.length === 0 ? (
-              <Empty
-                image={Empty.PRESENTED_IMAGE_SIMPLE}
-                description={<Text type="secondary" style={{ fontSize: 11 }}>暂无已安装的 Plugins</Text>}
-                style={{ margin: '12px 0' }}
-              />
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {plugins.map(plugin => (
-                  <div
-                    key={plugin.name}
-                    style={{
-                      padding: '8px 10px',
-                      border: `1px solid ${themeVars.border}`,
-                      borderRadius: 6,
-                      backgroundColor: themeVars.bgSection
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center'
-                      }}
-                    >
-                      <Space size={6}>
-                        <AppstoreOutlined style={{ color: '#722ed1', fontSize: 14 }} />
-                        <Text strong style={{ fontSize: 12 }}>
-                          {plugin.name}
-                        </Text>
-                        {plugin.version && (
-                          <Tag style={{ fontSize: 10, padding: '0 4px' }}>v{plugin.version}</Tag>
-                        )}
-                        <Tag color={plugin.enabled ? 'success' : 'default'} style={{ fontSize: 10, padding: '0 4px' }}>
-                          {plugin.enabled ? '已启用' : '已禁用'}
-                        </Tag>
-                      </Space>
-                    </div>
-                    {plugin.description && (
-                      <Text
-                        type="secondary"
-                        style={{ fontSize: 10, display: 'block', marginTop: 4 }}
-                        ellipsis
-                      >
-                        {plugin.description}
-                      </Text>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
+            <PluginsManager darkMode={darkMode} onRefresh={loadData} />
+          </div>
+        )
+      },
+      {
+        key: 'hooks',
+        label: (
+          <Space size={4}>
+            <ApiOutlined />
+            <span style={{ fontSize: 12 }}>Hooks</span>
+            <Tag color="volcano" style={{ fontSize: 10, padding: '0 4px', margin: 0 }}>{hooks.length}</Tag>
+          </Space>
+        ),
+        children: (
+          <div style={{ padding: '8px 0' }}>
+            <HooksManager darkMode={darkMode} onRefresh={loadData} />
           </div>
         )
       }
@@ -497,6 +393,12 @@ const ClaudeConfigManager = forwardRef<ClaudeConfigManagerRef, ClaudeConfigManag
       <>
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 4 }}>
           <Space size={4}>
+            <Tooltip title="导出配置">
+              <Button type="text" icon={<ExportOutlined />} size="small" onClick={handleExport} />
+            </Tooltip>
+            <Tooltip title="导入配置">
+              <Button type="text" icon={<ImportOutlined />} size="small" onClick={handleImport} />
+            </Tooltip>
             <Tooltip title="刷新">
               <Button type="text" icon={<ReloadOutlined />} size="small" onClick={loadData} />
             </Tooltip>
@@ -521,37 +423,17 @@ const ClaudeConfigManager = forwardRef<ClaudeConfigManagerRef, ClaudeConfigManag
 
         {/* settings.json 编辑 Modal */}
         <ElectronModal
-          title={
-            <Space>
-              <CodeOutlined />
-              <span>编辑 Claude Code 配置</span>
-            </Space>
-          }
+          title={<Space><CodeOutlined /><span>编辑 Claude Code 配置</span></Space>}
           open={editorVisible}
           onCancel={() => setEditorVisible(false)}
           width="70%"
           footer={[
-            <Button
-              key="folder"
-              icon={<FolderOpenOutlined />}
-              onClick={() => window.electronAPI.showClaudeConfigInFolder()}
-            >
+            <Button key="folder" icon={<FolderOpenOutlined />} onClick={() => window.electronAPI.showClaudeConfigInFolder()}>
               打开文件位置
             </Button>,
-            <Button key="reload" icon={<ReloadOutlined />} onClick={loadData}>
-              重新加载
-            </Button>,
-            <Button key="cancel" onClick={() => setEditorVisible(false)}>
-              取消
-            </Button>,
-            <Button
-              key="save"
-              type="primary"
-              onClick={handleSaveConfig}
-              loading={saving}
-            >
-              保存
-            </Button>
+            <Button key="reload" icon={<ReloadOutlined />} onClick={loadData}>重新加载</Button>,
+            <Button key="cancel" onClick={() => setEditorVisible(false)}>取消</Button>,
+            <Button key="save" type="primary" onClick={handleSaveConfig} loading={saving}>保存</Button>
           ]}
           style={{ top: 40 }}
           styles={{ body: { padding: 0 } as React.CSSProperties }}
@@ -575,15 +457,11 @@ const ClaudeConfigManager = forwardRef<ClaudeConfigManagerRef, ClaudeConfigManag
           </div>
         </ElectronModal>
 
-        {/* MCP 安装 Modal */}
         <MCPInstallModal
           visible={installModalVisible}
           server={serverToInstall}
           darkMode={darkMode}
-          onCancel={() => {
-            setInstallModalVisible(false)
-            setServerToInstall(null)
-          }}
+          onCancel={() => { setInstallModalVisible(false); setServerToInstall(null) }}
           onInstall={handleInstall}
         />
       </>

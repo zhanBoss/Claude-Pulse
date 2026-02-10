@@ -282,9 +282,26 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // Skills 管理
   getClaudeSkills: () => ipcRenderer.invoke('get-claude-skills'),
+  deleteClaudeSkill: (name: string) => ipcRenderer.invoke('delete-claude-skill', name),
+  createClaudeSkill: (name: string, description: string) =>
+    ipcRenderer.invoke('create-claude-skill', name, description),
 
   // Plugins 管理
   getClaudePlugins: () => ipcRenderer.invoke('get-claude-plugins'),
+  toggleClaudePlugin: (name: string, enabled: boolean) =>
+    ipcRenderer.invoke('toggle-claude-plugin', name, enabled),
+  uninstallClaudePlugin: (name: string) =>
+    ipcRenderer.invoke('uninstall-claude-plugin', name),
+
+  // Hooks 管理
+  getClaudeHooks: () => ipcRenderer.invoke('get-claude-hooks'),
+  saveClaudeHook: (type: string, config: Record<string, any>) =>
+    ipcRenderer.invoke('save-claude-hook', type, config),
+  deleteClaudeHook: (type: string) => ipcRenderer.invoke('delete-claude-hook', type),
+
+  // 配置导出/导入
+  exportClaudeConfig: () => ipcRenderer.invoke('export-claude-config'),
+  importClaudeConfig: (filePath: string) => ipcRenderer.invoke('import-claude-config', filePath),
 
   // MCP 市场
   fetchMCPMarket: (params: { search?: string; limit?: number; cursor?: string }) =>

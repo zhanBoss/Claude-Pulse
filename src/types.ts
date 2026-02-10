@@ -451,8 +451,33 @@ export interface ElectronAPI {
   deleteMCPServer: (name: string) => Promise<{ success: boolean; error?: string }>
   // Skills 管理
   getClaudeSkills: () => Promise<{ success: boolean; skills?: ClaudeSkill[]; error?: string }>
+  deleteClaudeSkill: (name: string) => Promise<{ success: boolean; error?: string }>
+  createClaudeSkill: (
+    name: string,
+    description: string
+  ) => Promise<{ success: boolean; skillPath?: string; error?: string }>
+  
   // Plugins 管理
   getClaudePlugins: () => Promise<{ success: boolean; plugins?: ClaudePlugin[]; error?: string }>
+  toggleClaudePlugin: (
+    name: string,
+    enabled: boolean
+  ) => Promise<{ success: boolean; error?: string }>
+  uninstallClaudePlugin: (name: string) => Promise<{ success: boolean; error?: string }>
+  
+  // Hooks 管理
+  getClaudeHooks: () => Promise<{ success: boolean; hooks?: ClaudeHook[]; error?: string }>
+  saveClaudeHook: (
+    type: string,
+    config: Partial<ClaudeHook>
+  ) => Promise<{ success: boolean; error?: string }>
+  deleteClaudeHook: (type: string) => Promise<{ success: boolean; error?: string }>
+
+  // 配置导出/导入
+  exportClaudeConfig: () => Promise<{ success: boolean; filePath?: string; error?: string }>
+  importClaudeConfig: (
+    filePath: string
+  ) => Promise<{ success: boolean; error?: string }>
 
   // MCP 市场
   fetchMCPMarket: (params: {
@@ -506,12 +531,25 @@ export interface ClaudePlugin {
   installPath?: string
 }
 
+// Claude Code Hook 钩子
+export interface ClaudeHook {
+  type: string
+  matcher?: string
+  handlerType?: 'command' | 'prompt' | 'agent'
+  command?: string
+  prompt?: string
+  timeout?: number
+  async?: boolean
+  enabled: boolean
+}
+
 // Claude Code 完整配置
 export interface ClaudeCodeConfig {
   settings: Record<string, any>
   mcpServers: MCPServer[]
   skills: ClaudeSkill[]
   plugins: ClaudePlugin[]
+  hooks: ClaudeHook[]
 }
 
 // ========== MCP 市场类型 ==========

@@ -3740,6 +3740,368 @@ ipcMain.handle('get-claude-plugins', async () => {
   }
 })
 
+// 删除 Skill
+ipcMain.handle('delete-claude-skill', async (_, name: string) => {
+  try {
+    const skillPath = path.join(CLAUDE_DIR, 'skills', name)
+    if (!fs.existsSync(skillPath)) {
+      return { success: false, error: 'Skill 不存在' }
+    }
+
+    // 删除整个 Skill 文件夹
+    fs.rmSync(skillPath, { recursive: true, force: true })
+
+    return { success: true }
+  } catch (error) {
+    console.error('删除 Skill 失败:', error)
+    return { success: false, error: (error as Error).message }
+  }
+})
+
+// 创建新 Skill
+ipcMain.handle('create-claude-skill', async (_, name: string, description: string) => {
+  try {
+    const skillsDir = path.join(CLAUDE_DIR, 'skills')
+    if (!fs.existsSync(skillsDir)) {
+      fs.mkdirSync(skillsDir, { recursive: true })
+    }
+
+    const skillPath = path.join(skillsDir, name)
+    if (fs.existsSync(skillPath)) {
+      return { success: false, error: 'Skill 已存在' }
+    }
+
+    // 创建 Skill 文件夹
+    fs.mkdirSync(skillPath, { recursive: true })
+
+    // 创建 SKILL.md 文件
+    const skillMdContent = `# ${name}
+
+description: ${description}
+
+## 使用说明
+
+在此编写 Skill 的详细说明和使用示例。
+
+## 示例
+
+\`\`\`typescript
+// 示例代码
+\`\`\`
+`
+
+    fs.writeFileSync(path.join(skillPath, 'SKILL.md'), skillMdContent, 'utf-8')
+
+    return { success: true, skillPath }
+  } catch (error) {
+    console.error('创建 Skill 失败:', error)
+    return { success: false, error: (error as Error).message }
+  }
+})
+
+// 切换 Plugin 启用/禁用
+ipcMain.handle('toggle-claude-plugin', async (_, name: string, enabled: boolean) => {
+  try {
+    if (!fs.existsSync(SETTINGS_FILE)) {
+      return { success: false, error: '配置文件不存在' }
+    }
+
+    const content = fs.readFileSync(SETTINGS_FILE, 'utf-8')
+    const settings = JSON.parse(content)
+
+    if (!settings.enabledPlugins) {
+      settings.enabledPlugins = {}
+    }
+
+    // 查找完整的 pluginKey (name@marketplace)
+    const pluginsFile = path.join(CLAUDE_DIR, 'plugins', 'installed_plugins.json')
+    if (fs.existsSync(pluginsFile)) {
+      const pluginsContent = fs.readFileSync(pluginsFile, 'utf-8')
+      const pluginsData = JSON.parse(pluginsContent)
+      if (pluginsData.plugins) {
+        for (const pluginKey of Object.keys(pluginsData.plugins)) {
+          if (pluginKey.startsWith(name + '@') || pluginKey === name) {
+            settings.enabledPlugins[pluginKey] = enabled
+            break
+          }
+        }
+      }
+    }
+
+    fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2), 'utf-8')
+    return { success: true }
+  } catch (error) {
+    console.error('切换 Plugin 失败:', error)
+    return { success: false, error: (error as Error).message }
+  }
+})
+
+// 卸载 Plugin
+ipcMain.handle('uninstall-claude-plugin', async (_, name: string) => {
+  try {
+    const pluginsFile = path.join(CLAUDE_DIR, 'plugins', 'installed_plugins.json')
+    if (!fs.existsSync(pluginsFile)) {
+      return { success: false, error: '插件文件不存在' }
+    }
+
+    const content = fs.readFileSync(pluginsFile, 'utf-8')
+    const pluginsData = JSON.parse(content)
+
+    if (pluginsData.plugins) {
+      let foundKey: string | null = null
+      for (const pluginKey of Object.keys(pluginsData.plugins)) {
+        if (pluginKey.startsWith(name + '@') || pluginKey === name) {
+          foundKey = pluginKey
+          break
+        }
+      }
+
+      if (foundKey) {
+        // 获取安装路径以便清理
+        const versions = pluginsData.plugins[foundKey] as Array<Record<string, any>>
+        const installPaths = versions.map(v => v.installPath).filter(Boolean)
+
+        // 删除 plugins 数据
+        delete pluginsData.plugins[foundKey]
+        fs.writeFileSync(pluginsFile, JSON.stringify(pluginsData, null, 2), 'utf-8')
+
+        // 从 settings.json 中移除 enabledPlugins
+        if (fs.existsSync(SETTINGS_FILE)) {
+          const settingsContent = fs.readFileSync(SETTINGS_FILE, 'utf-8')
+          const settings = JSON.parse(settingsContent)
+          if (settings.enabledPlugins && settings.enabledPlugins[foundKey]) {
+            delete settings.enabledPlugins[foundKey]
+            fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2), 'utf-8')
+          }
+        }
+
+        // 清理安装目录
+        for (const installPath of installPaths) {
+          if (installPath && fs.existsSync(installPath)) {
+            try {
+              fs.rmSync(installPath, { recursive: true, force: true })
+            } catch {
+              // 忽略清理错误
+            }
+          }
+        }
+      }
+    }
+
+    return { success: true }
+  } catch (error) {
+    console.error('卸载 Plugin 失败:', error)
+    return { success: false, error: (error as Error).message }
+  }
+})
+
+// 获取 Hooks 配置（从 settings.json 读取）
+ipcMain.handle('get-claude-hooks', async () => {
+  try {
+    if (!fs.existsSync(SETTINGS_FILE)) {
+      return { success: true, hooks: [] }
+    }
+
+    const content = fs.readFileSync(SETTINGS_FILE, 'utf-8')
+    const settings = JSON.parse(content)
+
+    const hooks: Array<Record<string, any>> = []
+
+    if (settings.hooks && typeof settings.hooks === 'object') {
+      for (const [eventType, matcherGroups] of Object.entries(settings.hooks)) {
+        if (!Array.isArray(matcherGroups)) continue
+        for (const group of matcherGroups as Array<Record<string, any>>) {
+          const handlers = group.hooks || []
+          for (const handler of handlers) {
+            hooks.push({
+              type: eventType,
+              matcher: group.matcher || undefined,
+              handlerType: handler.type || 'command',
+              command: handler.command || undefined,
+              prompt: handler.prompt || undefined,
+              timeout: handler.timeout || undefined,
+              async: handler.async || false,
+              enabled: true
+            })
+          }
+        }
+      }
+    }
+
+    return { success: true, hooks }
+  } catch (error) {
+    console.error('读取 Hooks 失败:', error)
+    return { success: false, error: (error as Error).message }
+  }
+})
+
+// 保存 Hook 配置（写入 settings.json）
+ipcMain.handle('save-claude-hook', async (_, type: string, config: Record<string, any>) => {
+  try {
+    let settings: Record<string, any> = {}
+    if (fs.existsSync(SETTINGS_FILE)) {
+      const content = fs.readFileSync(SETTINGS_FILE, 'utf-8')
+      settings = JSON.parse(content)
+    }
+
+    if (!settings.hooks) {
+      settings.hooks = {}
+    }
+
+    // 构建 handler
+    const handler: Record<string, any> = {
+      type: config.handlerType || 'command'
+    }
+
+    if (handler.type === 'command') {
+      if (config.command) handler.command = config.command
+      if (config.async) handler.async = true
+    } else {
+      if (config.prompt) handler.prompt = config.prompt
+    }
+
+    if (config.timeout) handler.timeout = config.timeout
+
+    // 构建 matcher group
+    const matcherGroup: Record<string, any> = {
+      hooks: [handler]
+    }
+
+    if (config.matcher) {
+      matcherGroup.matcher = config.matcher
+    }
+
+    // 如果已存在同类型的 hook，先移除旧的再添加
+    if (!settings.hooks[type]) {
+      settings.hooks[type] = []
+    }
+
+    // 简单替换: 移除旧的同 matcher 的，添加新的
+    const existingGroups = settings.hooks[type] as Array<Record<string, any>>
+    const newGroups = existingGroups.filter(g => g.matcher !== (config.matcher || undefined))
+    newGroups.push(matcherGroup)
+    settings.hooks[type] = newGroups
+
+    fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2), 'utf-8')
+    return { success: true }
+  } catch (error) {
+    console.error('保存 Hook 失败:', error)
+    return { success: false, error: (error as Error).message }
+  }
+})
+
+// 删除 Hook 配置（从 settings.json 移除）
+ipcMain.handle('delete-claude-hook', async (_, type: string) => {
+  try {
+    if (!fs.existsSync(SETTINGS_FILE)) {
+      return { success: true }
+    }
+
+    const content = fs.readFileSync(SETTINGS_FILE, 'utf-8')
+    const settings = JSON.parse(content)
+
+    if (settings.hooks && settings.hooks[type]) {
+      delete settings.hooks[type]
+
+      // 如果 hooks 为空则移除整个字段
+      if (Object.keys(settings.hooks).length === 0) {
+        delete settings.hooks
+      }
+    }
+
+    fs.writeFileSync(SETTINGS_FILE, JSON.stringify(settings, null, 2), 'utf-8')
+    return { success: true }
+  } catch (error) {
+    console.error('删除 Hook 失败:', error)
+    return { success: false, error: (error as Error).message }
+  }
+})
+
+// 导出完整配置
+ipcMain.handle('export-claude-config', async () => {
+  try {
+    const { dialog } = require('electron')
+    const result = await dialog.showSaveDialog({
+      title: '导出 Claude Code 配置',
+      defaultPath: path.join(app.getPath('downloads'), `claude-config-${Date.now()}.json`),
+      filters: [{ name: 'JSON Files', extensions: ['json'] }]
+    })
+
+    if (result.canceled || !result.filePath) {
+      return { success: false, error: '用户取消' }
+    }
+
+    // 读取完整配置
+    const configResult = await new Promise<any>((resolve) => {
+      ipcMain.emit('get-claude-code-full-config', { reply: resolve } as any)
+    })
+
+    if (!configResult.success) {
+      return { success: false, error: '读取配置失败' }
+    }
+
+    // 导出配置（包含元数据）
+    const exportData = {
+      version: '1.0',
+      exportTime: new Date().toISOString(),
+      config: configResult.config
+    }
+
+    fs.writeFileSync(result.filePath, JSON.stringify(exportData, null, 2), 'utf-8')
+
+    return { success: true, filePath: result.filePath }
+  } catch (error) {
+    console.error('导出配置失败:', error)
+    return { success: false, error: (error as Error).message }
+  }
+})
+
+// 导入配置
+ipcMain.handle('import-claude-config', async (_, filePath: string) => {
+  try {
+    if (!fs.existsSync(filePath)) {
+      return { success: false, error: '文件不存在' }
+    }
+
+    const content = fs.readFileSync(filePath, 'utf-8')
+    const importData = JSON.parse(content)
+
+    if (!importData.config) {
+      return { success: false, error: '配置文件格式错误' }
+    }
+
+    // 备份当前配置
+    const backupDir = path.join(CLAUDE_DIR, 'backups')
+    if (!fs.existsSync(backupDir)) {
+      fs.mkdirSync(backupDir, { recursive: true })
+    }
+    const backupFile = path.join(backupDir, `settings-backup-${Date.now()}.json`)
+    if (fs.existsSync(SETTINGS_FILE)) {
+      fs.copyFileSync(SETTINGS_FILE, backupFile)
+    }
+
+    // 导入 settings.json
+    if (importData.config.settings) {
+      fs.writeFileSync(SETTINGS_FILE, JSON.stringify(importData.config.settings, null, 2), 'utf-8')
+    }
+
+    // 导入 hooks.json
+    if (importData.config.hooks && importData.config.hooks.length > 0) {
+      const hooksFile = path.join(CLAUDE_DIR, 'hooks.json')
+      fs.writeFileSync(
+        hooksFile,
+        JSON.stringify({ hooks: importData.config.hooks }, null, 2),
+        'utf-8'
+      )
+    }
+
+    return { success: true }
+  } catch (error) {
+    console.error('导入配置失败:', error)
+    return { success: false, error: (error as Error).message }
+  }
+})
+
 // 获取 Claude Code 完整配置
 ipcMain.handle('get-claude-code-full-config', async () => {
   try {
@@ -3872,7 +4234,30 @@ ipcMain.handle('get-claude-code-full-config', async () => {
       }
     }
 
-    return { success: true, config: { settings, mcpServers, skills, plugins } }
+    // 读取 Hooks（从 settings.json 中读取）
+    const hooks: Array<Record<string, any>> = []
+    if (settings.hooks && typeof settings.hooks === 'object') {
+      for (const [eventType, matcherGroups] of Object.entries(settings.hooks)) {
+        if (!Array.isArray(matcherGroups)) continue
+        for (const group of matcherGroups as Array<Record<string, any>>) {
+          const handlers = group.hooks || []
+          for (const handler of handlers) {
+            hooks.push({
+              type: eventType,
+              matcher: group.matcher || undefined,
+              handlerType: handler.type || 'command',
+              command: handler.command || undefined,
+              prompt: handler.prompt || undefined,
+              timeout: handler.timeout || undefined,
+              async: handler.async || false,
+              enabled: true
+            })
+          }
+        }
+      }
+    }
+
+    return { success: true, config: { settings, mcpServers, skills, plugins, hooks } }
   } catch (error) {
     console.error('读取 Claude Code 完整配置失败:', error)
     return { success: false, error: (error as Error).message }
