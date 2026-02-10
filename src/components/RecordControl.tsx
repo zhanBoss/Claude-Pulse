@@ -22,7 +22,7 @@ import { AutoCleanupConfig } from '../types'
 import { getElectronModalConfig } from './ElectronModal'
 import { getThemeVars } from '../theme'
 
-const { Title, Text } = Typography
+const { Text } = Typography
 
 interface RecordControlProps {
   darkMode: boolean

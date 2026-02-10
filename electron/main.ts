@@ -549,6 +549,41 @@ ipcMain.handle(
   }
 )
 
+// 获取 Token 价格配置
+ipcMain.handle('get-token-pricing', async () => {
+  try {
+    const settings = (store.get('appSettings') || {}) as Record<string, any>
+    return {
+      success: true,
+      tokenPricing: settings.tokenPricing || {
+        inputPrice: 3.0,
+        outputPrice: 15.0,
+        cacheWritePrice: 3.75,
+        cacheReadPrice: 0.3
+      }
+    }
+  } catch (error) {
+    return { success: false, error: (error as Error).message }
+  }
+})
+
+// 保存 Token 价格配置
+ipcMain.handle('save-token-pricing', async (_, tokenPricing: {
+  inputPrice: number
+  outputPrice: number
+  cacheWritePrice: number
+  cacheReadPrice: number
+}) => {
+  try {
+    const settings = (store.get('appSettings') || {}) as Record<string, any>
+    settings.tokenPricing = tokenPricing
+    store.set('appSettings', settings)
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: (error as Error).message }
+  }
+})
+
 // 复制到剪贴板
 ipcMain.handle('copy-to-clipboard', async (_, text: string) => {
   try {
@@ -3278,6 +3313,568 @@ ipcMain.handle('get-claude-config-backup-content', async (_, id: number) => {
     return { success: true, config: content }
   } catch (error) {
     console.error('读取备份配置失败:', error)
+    return { success: false, error: (error as Error).message }
+  }
+})
+
+// ==================== MCP/Skills/Plugins 管理 ====================
+
+// Cursor MCP 配置文件路径
+const CURSOR_MCP_FILE = path.join(os.homedir(), '.cursor', 'mcp.json')
+
+// 获取 MCP 服务器列表（同时读取 Claude Code 和 Cursor IDE 配置）
+ipcMain.handle('get-mcp-servers', async () => {
+  try {
+    const servers: Array<{
+      name: string
+      command: string
+      args: string[]
+      env?: Record<string, string>
+      cwd?: string
+      url?: string
+      source: 'claude' | 'cursor'
+    }> = []
+
+    // 读取 Claude Code 的 MCP 配置（~/.claude/settings.json）
+    if (fs.existsSync(SETTINGS_FILE)) {
+      try {
+        const content = fs.readFileSync(SETTINGS_FILE, 'utf-8')
+        const config = JSON.parse(content)
+        const mcpServers = config.mcpServers || {}
+
+        Object.entries(mcpServers).forEach(([name, serverConfig]) => {
+          const cfg = serverConfig as Record<string, any>
+          servers.push({
+            name,
+            command: cfg.command || '',
+            args: cfg.args || [],
+            env: cfg.env,
+            cwd: cfg.cwd,
+            url: cfg.url,
+            source: 'claude'
+          })
+        })
+      } catch (e) {
+        console.error('解析 Claude settings.json 失败:', e)
+      }
+    }
+
+    // 读取 Cursor IDE 的 MCP 配置（~/.cursor/mcp.json）
+    if (fs.existsSync(CURSOR_MCP_FILE)) {
+      try {
+        const content = fs.readFileSync(CURSOR_MCP_FILE, 'utf-8')
+        const config = JSON.parse(content)
+        const mcpServers = config.mcpServers || {}
+
+        Object.entries(mcpServers).forEach(([name, serverConfig]) => {
+          const cfg = serverConfig as Record<string, any>
+          servers.push({
+            name,
+            command: cfg.command || '',
+            args: cfg.args || [],
+            env: cfg.env,
+            cwd: cfg.cwd,
+            url: cfg.url,
+            source: 'cursor'
+          })
+        })
+      } catch (e) {
+        console.error('解析 Cursor mcp.json 失败:', e)
+      }
+    }
+
+    return { success: true, servers }
+  } catch (error) {
+    console.error('读取 MCP 服务器失败:', error)
+    return { success: false, error: (error as Error).message }
+  }
+})
+
+// 保存 MCP 服务器
+ipcMain.handle(
+  'save-mcp-server',
+  async (_, name: string, serverConfig: { command: string; args?: string[]; env?: Record<string, string>; cwd?: string }) => {
+    try {
+      let config: Record<string, any> = {}
+      if (fs.existsSync(SETTINGS_FILE)) {
+        const content = fs.readFileSync(SETTINGS_FILE, 'utf-8')
+        config = JSON.parse(content)
+      }
+
+      if (!config.mcpServers) {
+        config.mcpServers = {}
+      }
+
+      config.mcpServers[name] = {
+        command: serverConfig.command,
+        ...(serverConfig.args && serverConfig.args.length > 0 && { args: serverConfig.args }),
+        ...(serverConfig.env && Object.keys(serverConfig.env).length > 0 && { env: serverConfig.env }),
+        ...(serverConfig.cwd && { cwd: serverConfig.cwd })
+      }
+
+      fs.writeFileSync(SETTINGS_FILE, JSON.stringify(config, null, 2), 'utf-8')
+      return { success: true }
+    } catch (error) {
+      console.error('保存 MCP 服务器失败:', error)
+      return { success: false, error: (error as Error).message }
+    }
+  }
+)
+
+// 删除 MCP 服务器（旧版，仅删除 Claude 配置）
+ipcMain.handle('delete-mcp-server', async (_, name: string) => {
+  try {
+    if (!fs.existsSync(SETTINGS_FILE)) {
+      return { success: false, error: '配置文件不存在' }
+    }
+
+    const content = fs.readFileSync(SETTINGS_FILE, 'utf-8')
+    const config = JSON.parse(content)
+
+    if (!config.mcpServers || !config.mcpServers[name]) {
+      return { success: false, error: 'MCP 服务器不存在' }
+    }
+
+    delete config.mcpServers[name]
+    fs.writeFileSync(SETTINGS_FILE, JSON.stringify(config, null, 2), 'utf-8')
+
+    return { success: true }
+  } catch (error) {
+    console.error('删除 MCP 服务器失败:', error)
+    return { success: false, error: (error as Error).message }
+  }
+})
+
+// ==================== MCP 市场功能 ====================
+
+// MCP Registry API 端点
+const MCP_REGISTRY_API = 'https://prod.registry.modelcontextprotocol.io/v0.1/servers'
+
+// 获取 MCP 市场列表
+ipcMain.handle(
+  'fetch-mcp-market',
+  async (_, params: { search?: string; limit?: number; cursor?: string }) => {
+    try {
+      const { search, limit = 30, cursor } = params
+      const url = new URL(MCP_REGISTRY_API)
+      url.searchParams.set('limit', String(limit))
+      if (search) url.searchParams.set('search', search)
+      if (cursor) url.searchParams.set('cursor', cursor)
+
+      const response = await fetch(url.toString())
+      if (!response.ok) {
+        throw new Error(`API 请求失败: ${response.status}`)
+      }
+
+      const data = await response.json()
+
+      // 解析服务器列表
+      const servers = (data.servers || []).map(
+        (item: { server: Record<string, any>; _meta?: Record<string, any> }) => {
+          const server = item.server
+          const meta = item._meta?.['io.modelcontextprotocol.registry/official'] || {}
+
+          return {
+            name: server.name || '',
+            title: server.title || server.name?.split('/').pop() || '',
+            description: server.description || '',
+            version: server.version || '',
+            repositoryUrl: server.repository?.url,
+            packages: server.packages?.map((pkg: Record<string, any>) => ({
+              registryType: pkg.registryType || 'npm',
+              identifier: pkg.identifier || '',
+              transport: pkg.transport,
+              environmentVariables: pkg.environmentVariables
+            })),
+            remotes: server.remotes?.map((remote: Record<string, any>) => ({
+              type: remote.type || 'streamable-http',
+              url: remote.url || ''
+            })),
+            isOfficial: meta.status === 'active',
+            publishedAt: meta.publishedAt
+          }
+        }
+      )
+
+      return {
+        success: true,
+        result: {
+          servers,
+          nextCursor: data.metadata?.nextCursor,
+          count: data.metadata?.count || servers.length
+        }
+      }
+    } catch (error) {
+      console.error('获取 MCP 市场失败:', error)
+      return { success: false, error: (error as Error).message }
+    }
+  }
+)
+
+// 安装 MCP 服务器到配置文件
+ipcMain.handle(
+  'install-mcp-server',
+  async (
+    _,
+    name: string,
+    config: { command?: string; args?: string[]; env?: Record<string, string>; url?: string },
+    target: 'claude' | 'cursor'
+  ) => {
+    try {
+      const targetFile = target === 'claude' ? SETTINGS_FILE : CURSOR_MCP_FILE
+
+      // 确保目录存在
+      const targetDir = path.dirname(targetFile)
+      if (!fs.existsSync(targetDir)) {
+        fs.mkdirSync(targetDir, { recursive: true })
+      }
+
+      // 读取现有配置
+      let fileConfig: Record<string, any> = {}
+      if (fs.existsSync(targetFile)) {
+        const content = fs.readFileSync(targetFile, 'utf-8')
+        fileConfig = JSON.parse(content)
+      }
+
+      // 确保 mcpServers 字段存在
+      if (!fileConfig.mcpServers) {
+        fileConfig.mcpServers = {}
+      }
+
+      // 构建服务器配置
+      const serverConfig: Record<string, any> = {}
+      if (config.url) {
+        serverConfig.url = config.url
+      } else {
+        if (config.command) serverConfig.command = config.command
+        if (config.args && config.args.length > 0) serverConfig.args = config.args
+        if (config.env && Object.keys(config.env).length > 0) serverConfig.env = config.env
+      }
+
+      // 添加服务器
+      fileConfig.mcpServers[name] = serverConfig
+
+      // 写入文件
+      fs.writeFileSync(targetFile, JSON.stringify(fileConfig, null, 2), 'utf-8')
+
+      return { success: true }
+    } catch (error) {
+      console.error('安装 MCP 服务器失败:', error)
+      return { success: false, error: (error as Error).message }
+    }
+  }
+)
+
+// 卸载 MCP 服务器
+ipcMain.handle('uninstall-mcp-server', async (_, name: string, source: 'claude' | 'cursor') => {
+  try {
+    const targetFile = source === 'claude' ? SETTINGS_FILE : CURSOR_MCP_FILE
+
+    if (!fs.existsSync(targetFile)) {
+      return { success: false, error: '配置文件不存在' }
+    }
+
+    const content = fs.readFileSync(targetFile, 'utf-8')
+    const config = JSON.parse(content)
+
+    if (!config.mcpServers || !config.mcpServers[name]) {
+      return { success: false, error: 'MCP 服务器不存在' }
+    }
+
+    delete config.mcpServers[name]
+    fs.writeFileSync(targetFile, JSON.stringify(config, null, 2), 'utf-8')
+
+    return { success: true }
+  } catch (error) {
+    console.error('卸载 MCP 服务器失败:', error)
+    return { success: false, error: (error as Error).message }
+  }
+})
+
+// 更新 MCP 服务器配置
+ipcMain.handle(
+  'update-mcp-server',
+  async (
+    _,
+    name: string,
+    config: { command?: string; args?: string[]; env?: Record<string, string>; url?: string },
+    source: 'claude' | 'cursor'
+  ) => {
+    try {
+      const targetFile = source === 'claude' ? SETTINGS_FILE : CURSOR_MCP_FILE
+
+      if (!fs.existsSync(targetFile)) {
+        return { success: false, error: '配置文件不存在' }
+      }
+
+      const content = fs.readFileSync(targetFile, 'utf-8')
+      const fileConfig = JSON.parse(content)
+
+      if (!fileConfig.mcpServers) {
+        return { success: false, error: 'MCP 服务器配置不存在' }
+      }
+
+      // 构建服务器配置
+      const serverConfig: Record<string, any> = {}
+      if (config.url) {
+        serverConfig.url = config.url
+      } else {
+        if (config.command) serverConfig.command = config.command
+        if (config.args && config.args.length > 0) serverConfig.args = config.args
+        if (config.env && Object.keys(config.env).length > 0) serverConfig.env = config.env
+      }
+
+      // 更新服务器配置
+      fileConfig.mcpServers[name] = serverConfig
+
+      fs.writeFileSync(targetFile, JSON.stringify(fileConfig, null, 2), 'utf-8')
+
+      return { success: true }
+    } catch (error) {
+      console.error('更新 MCP 服务器失败:', error)
+      return { success: false, error: (error as Error).message }
+    }
+  }
+)
+
+// 获取 Skills 列表
+ipcMain.handle('get-claude-skills', async () => {
+  try {
+    const skillsDir = path.join(CLAUDE_DIR, 'skills')
+    if (!fs.existsSync(skillsDir)) {
+      return { success: true, skills: [] }
+    }
+
+    const skills: Array<{ name: string; path: string; description?: string; files: string[] }> = []
+    const entries = fs.readdirSync(skillsDir, { withFileTypes: true })
+
+    for (const entry of entries) {
+      if (entry.isDirectory()) {
+        const skillPath = path.join(skillsDir, entry.name)
+        const files = fs.readdirSync(skillPath).filter(f => !f.startsWith('.'))
+
+        let description: string | undefined
+        const skillMdPath = path.join(skillPath, 'SKILL.md')
+        if (fs.existsSync(skillMdPath)) {
+          const mdContent = fs.readFileSync(skillMdPath, 'utf-8')
+          const descMatch = mdContent.match(/description:\s*(.+)/i)
+          if (descMatch) {
+            description = descMatch[1].trim()
+          } else {
+            const lines = mdContent.split('\n').filter(l => l.trim())
+            if (lines.length > 0) {
+              description = lines[0].replace(/^#\s*/, '').substring(0, 100)
+            }
+          }
+        }
+
+        skills.push({ name: entry.name, path: skillPath, description, files })
+      }
+    }
+
+    return { success: true, skills }
+  } catch (error) {
+    console.error('读取 Skills 失败:', error)
+    return { success: false, error: (error as Error).message }
+  }
+})
+
+// 获取 Plugins 列表
+ipcMain.handle('get-claude-plugins', async () => {
+  try {
+    const pluginsFile = path.join(CLAUDE_DIR, 'plugins', 'installed_plugins.json')
+    if (!fs.existsSync(pluginsFile)) {
+      return { success: true, plugins: [] }
+    }
+
+    const content = fs.readFileSync(pluginsFile, 'utf-8')
+    const pluginsData = JSON.parse(content)
+
+    const plugins: Array<{ name: string; version?: string; enabled: boolean; description?: string; installPath?: string }> =
+      []
+
+    // 读取 settings.json 获取 enabledPlugins
+    let enabledPlugins: Record<string, boolean> = {}
+    if (fs.existsSync(SETTINGS_FILE)) {
+      try {
+        const settingsContent = fs.readFileSync(SETTINGS_FILE, 'utf-8')
+        const settings = JSON.parse(settingsContent)
+        enabledPlugins = settings.enabledPlugins || {}
+      } catch {
+        // 忽略解析错误
+      }
+    }
+
+    // 新版格式: { version: 2, plugins: { "pluginName@marketplace": [{ ... }] } }
+    if (pluginsData.plugins && typeof pluginsData.plugins === 'object') {
+      for (const [pluginKey, pluginVersions] of Object.entries(pluginsData.plugins)) {
+        const pluginName = pluginKey.split('@')[0]
+        const versions = pluginVersions as Array<Record<string, any>>
+        if (versions.length > 0) {
+          const latestVersion = versions[versions.length - 1]
+          plugins.push({
+            name: pluginName,
+            version: latestVersion.version,
+            enabled: enabledPlugins[pluginKey] === true,
+            installPath: latestVersion.installPath
+          })
+        }
+      }
+    }
+    // 兼容旧版格式（数组）
+    else if (Array.isArray(pluginsData)) {
+      for (const plugin of pluginsData) {
+        plugins.push({
+          name: plugin.name || plugin.id || 'Unknown',
+          version: plugin.version,
+          enabled: plugin.enabled !== false,
+          description: plugin.description
+        })
+      }
+    }
+
+    return { success: true, plugins }
+  } catch (error) {
+    console.error('读取 Plugins 失败:', error)
+    return { success: false, error: (error as Error).message }
+  }
+})
+
+// 获取 Claude Code 完整配置
+ipcMain.handle('get-claude-code-full-config', async () => {
+  try {
+    let settings: Record<string, any> = {}
+    const mcpServers: Array<{
+      name: string
+      command: string
+      args?: string[]
+      env?: Record<string, string>
+      cwd?: string
+      url?: string
+      source: 'claude' | 'cursor'
+    }> = []
+
+    // 读取 Claude Code settings.json
+    if (fs.existsSync(SETTINGS_FILE)) {
+      const content = fs.readFileSync(SETTINGS_FILE, 'utf-8')
+      settings = JSON.parse(content)
+
+      // 从 Claude settings.json 读取 MCP 服务器
+      if (settings.mcpServers) {
+        Object.entries(settings.mcpServers).forEach(([name, serverConfig]) => {
+          const cfg = serverConfig as Record<string, any>
+          mcpServers.push({
+            name,
+            command: cfg.command || '',
+            args: cfg.args || [],
+            env: cfg.env,
+            cwd: cfg.cwd,
+            url: cfg.url,
+            source: 'claude'
+          })
+        })
+      }
+    }
+
+    // 从 Cursor mcp.json 读取 MCP 服务器
+    if (fs.existsSync(CURSOR_MCP_FILE)) {
+      try {
+        const content = fs.readFileSync(CURSOR_MCP_FILE, 'utf-8')
+        const cursorConfig = JSON.parse(content)
+        if (cursorConfig.mcpServers) {
+          Object.entries(cursorConfig.mcpServers).forEach(([name, serverConfig]) => {
+            const cfg = serverConfig as Record<string, any>
+            mcpServers.push({
+              name,
+              command: cfg.command || '',
+              args: cfg.args || [],
+              env: cfg.env,
+              cwd: cfg.cwd,
+              url: cfg.url,
+              source: 'cursor'
+            })
+          })
+        }
+      } catch (e) {
+        console.error('解析 Cursor mcp.json 失败:', e)
+      }
+    }
+
+    // 读取 Skills
+    const skills: Array<{ name: string; path: string; description?: string; files: string[] }> = []
+    const skillsDir = path.join(CLAUDE_DIR, 'skills')
+    if (fs.existsSync(skillsDir)) {
+      const entries = fs.readdirSync(skillsDir, { withFileTypes: true })
+      for (const entry of entries) {
+        if (entry.isDirectory()) {
+          const skillPath = path.join(skillsDir, entry.name)
+          const files = fs.readdirSync(skillPath).filter(f => !f.startsWith('.'))
+
+          let description: string | undefined
+          const skillMdPath = path.join(skillPath, 'SKILL.md')
+          if (fs.existsSync(skillMdPath)) {
+            const mdContent = fs.readFileSync(skillMdPath, 'utf-8')
+            const descMatch = mdContent.match(/description:\s*(.+)/i)
+            if (descMatch) {
+              description = descMatch[1].trim()
+            } else {
+              const lines = mdContent.split('\n').filter(l => l.trim())
+              if (lines.length > 0) {
+                description = lines[0].replace(/^#\s*/, '').substring(0, 100)
+              }
+            }
+          }
+
+          skills.push({ name: entry.name, path: skillPath, description, files })
+        }
+      }
+    }
+
+    // 读取 Plugins（正确解析新版格式）
+    const plugins: Array<{ name: string; version?: string; enabled: boolean; description?: string; installPath?: string }> =
+      []
+    const pluginsFile = path.join(CLAUDE_DIR, 'plugins', 'installed_plugins.json')
+    if (fs.existsSync(pluginsFile)) {
+      const pluginsContent = fs.readFileSync(pluginsFile, 'utf-8')
+      const pluginsData = JSON.parse(pluginsContent)
+
+      // 新版格式: { version: 2, plugins: { "pluginName@marketplace": [{ ... }] } }
+      if (pluginsData.plugins && typeof pluginsData.plugins === 'object') {
+        const enabledPlugins = settings.enabledPlugins || {}
+
+        for (const [pluginKey, pluginVersions] of Object.entries(pluginsData.plugins)) {
+          // pluginKey 格式: "pluginName@marketplace"
+          const pluginName = pluginKey.split('@')[0]
+
+          // pluginVersions 是一个数组，取最新版本（第一个或最后一个）
+          const versions = pluginVersions as Array<Record<string, any>>
+          if (versions.length > 0) {
+            const latestVersion = versions[versions.length - 1] // 取最新安装的版本
+            plugins.push({
+              name: pluginName,
+              version: latestVersion.version,
+              enabled: enabledPlugins[pluginKey] === true,
+              installPath: latestVersion.installPath
+            })
+          }
+        }
+      }
+      // 兼容旧版格式（数组）
+      else if (Array.isArray(pluginsData)) {
+        for (const plugin of pluginsData) {
+          plugins.push({
+            name: plugin.name || plugin.id || 'Unknown',
+            version: plugin.version,
+            enabled: plugin.enabled !== false,
+            description: plugin.description
+          })
+        }
+      }
+    }
+
+    return { success: true, config: { settings, mcpServers, skills, plugins } }
+  } catch (error) {
+    console.error('读取 Claude Code 完整配置失败:', error)
     return { success: false, error: (error as Error).message }
   }
 })

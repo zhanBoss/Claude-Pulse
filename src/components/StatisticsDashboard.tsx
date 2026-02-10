@@ -111,7 +111,7 @@ const StatisticsDashboard = (props: StatisticsDashboardProps) => {
 
   // 会话地图相关状态
   const [selectedMetric, setSelectedMetric] = useState<MetricKey>('tokens')
-  const [filterRange, setFilterRange] = useState<[number, number]>([0, 100])
+  const [filterRange, _setFilterRange] = useState<[number, number]>([0, 100])
   const [hoveredSession, setHoveredSession] = useState<SessionMetadata | null>(null)
   const [selectedProject, setSelectedProject] = useState<string>('all')
   const [detailVisible, setDetailVisible] = useState(false)
@@ -700,7 +700,7 @@ const StatisticsDashboard = (props: StatisticsDashboardProps) => {
                                 borderRadius: 6,
                                 fontSize: 12
                               }}
-                              formatter={(value: number) => [`${value.toLocaleString()} tokens`, 'Token 总量']}
+                              formatter={(value) => [`${(value as number).toLocaleString()} tokens`, 'Token 总量']}
                               cursor={{ fill: darkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.04)' }}
                             />
                             <Bar
@@ -713,10 +713,11 @@ const StatisticsDashboard = (props: StatisticsDashboardProps) => {
                                 position: 'top',
                                 fontSize: 10,
                                 fill: themeVars.textTertiary,
-                                formatter: (value: number) => {
-                                  if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`
-                                  if (value >= 1000) return `${(value / 1000).toFixed(0)}K`
-                                  return value.toString()
+                                formatter: (value) => {
+                                  const numValue = value as number
+                                  if (numValue >= 1000000) return `${(numValue / 1000000).toFixed(1)}M`
+                                  if (numValue >= 1000) return `${(numValue / 1000).toFixed(0)}K`
+                                  return numValue.toString()
                                 }
                               }}
                             >

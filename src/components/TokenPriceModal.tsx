@@ -36,9 +36,9 @@ const TokenPriceModal = (props: TokenPriceModalProps) => {
   const loadSettings = async () => {
     setLoading(true)
     try {
-      const result = await window.electronAPI.getSettings()
-      if (result.success && result.settings?.tokenPricing) {
-        setTokenPricing(result.settings.tokenPricing)
+      const result = await window.electronAPI.getTokenPricing()
+      if (result.success && result.tokenPricing) {
+        setTokenPricing(result.tokenPricing)
       } else {
         // 使用默认值
         setTokenPricing({
@@ -59,19 +59,12 @@ const TokenPriceModal = (props: TokenPriceModalProps) => {
   const handleSave = async () => {
     setLoading(true)
     try {
-      const result = await window.electronAPI.getSettings()
-      if (result.success) {
-        const newSettings = {
-          ...result.settings,
-          tokenPricing
-        }
-        const saveResult = await window.electronAPI.saveSettings(newSettings)
-        if (saveResult.success) {
-          message.success('Token 价格已保存')
-          onClose()
-        } else {
-          message.error('保存失败: ' + saveResult.error)
-        }
+      const saveResult = await window.electronAPI.saveTokenPricing(tokenPricing)
+      if (saveResult.success) {
+        message.success('Token 价格已保存')
+        onClose()
+      } else {
+        message.error('保存失败: ' + saveResult.error)
       }
     } catch (error) {
       message.error('保存失败')

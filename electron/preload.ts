@@ -67,6 +67,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
   saveAppSettings: (settings: { darkMode: boolean; autoStart: boolean }) =>
     ipcRenderer.invoke('save-app-settings', settings),
 
+  // Token 价格配置
+  getTokenPricing: () => ipcRenderer.invoke('get-token-pricing'),
+  saveTokenPricing: (tokenPricing: {
+    inputPrice: number
+    outputPrice: number
+    cacheWritePrice: number
+    cacheReadPrice: number
+  }) => ipcRenderer.invoke('save-token-pricing', tokenPricing),
+
   // 导出记录
   exportRecords: (options: any) => ipcRenderer.invoke('export-records', options),
 
@@ -258,5 +267,38 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // 导出 AI 对话历史
   exportChatHistory: (messages: any[], format: 'pdf' | 'html' | 'markdown' | 'word') =>
-    ipcRenderer.invoke('export-chat-history', { messages, format })
+    ipcRenderer.invoke('export-chat-history', { messages, format }),
+
+  // Claude Code 配置管理
+  getClaudeCodeFullConfig: () => ipcRenderer.invoke('get-claude-code-full-config'),
+
+  // MCP 服务器管理
+  getMCPServers: () => ipcRenderer.invoke('get-mcp-servers'),
+  saveMCPServer: (
+    name: string,
+    config: { command: string; args?: string[]; env?: Record<string, string>; cwd?: string }
+  ) => ipcRenderer.invoke('save-mcp-server', name, config),
+  deleteMCPServer: (name: string) => ipcRenderer.invoke('delete-mcp-server', name),
+
+  // Skills 管理
+  getClaudeSkills: () => ipcRenderer.invoke('get-claude-skills'),
+
+  // Plugins 管理
+  getClaudePlugins: () => ipcRenderer.invoke('get-claude-plugins'),
+
+  // MCP 市场
+  fetchMCPMarket: (params: { search?: string; limit?: number; cursor?: string }) =>
+    ipcRenderer.invoke('fetch-mcp-market', params),
+  installMCPServer: (
+    name: string,
+    config: { command?: string; args?: string[]; env?: Record<string, string>; url?: string },
+    target: 'claude' | 'cursor'
+  ) => ipcRenderer.invoke('install-mcp-server', name, config, target),
+  uninstallMCPServer: (name: string, source: 'claude' | 'cursor') =>
+    ipcRenderer.invoke('uninstall-mcp-server', name, source),
+  updateMCPServer: (
+    name: string,
+    config: { command?: string; args?: string[]; env?: Record<string, string>; url?: string },
+    source: 'claude' | 'cursor'
+  ) => ipcRenderer.invoke('update-mcp-server', name, config, source)
 })

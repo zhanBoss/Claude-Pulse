@@ -297,6 +297,9 @@ export interface ElectronAPI {
   ) => Promise<{ success: boolean; error?: string }>
   getAppSettings: () => Promise<AppSettings>
   saveAppSettings: (settings: AppSettings) => Promise<{ success: boolean; error?: string }>
+  // Token 价格配置
+  getTokenPricing: () => Promise<{ success: boolean; tokenPricing?: TokenPricingConfig; error?: string }>
+  saveTokenPricing: (tokenPricing: TokenPricingConfig) => Promise<{ success: boolean; error?: string }>
   exportRecords: (
     options: ExportOptions
   ) => Promise<{ success: boolean; filePath?: string; error?: string }>
@@ -433,6 +436,131 @@ export interface ElectronAPI {
     messages: ChatMessage[],
     format: 'pdf' | 'html' | 'markdown' | 'word'
   ) => Promise<{ success: boolean; filePath?: string; error?: string }>
+  // Claude Code 配置管理
+  getClaudeCodeFullConfig: () => Promise<{
+    success: boolean
+    config?: ClaudeCodeConfig
+    error?: string
+  }>
+  // MCP 服务器管理
+  getMCPServers: () => Promise<{ success: boolean; servers?: MCPServer[]; error?: string }>
+  saveMCPServer: (
+    name: string,
+    config: Omit<MCPServer, 'name' | 'source'>
+  ) => Promise<{ success: boolean; error?: string }>
+  deleteMCPServer: (name: string) => Promise<{ success: boolean; error?: string }>
+  // Skills 管理
+  getClaudeSkills: () => Promise<{ success: boolean; skills?: ClaudeSkill[]; error?: string }>
+  // Plugins 管理
+  getClaudePlugins: () => Promise<{ success: boolean; plugins?: ClaudePlugin[]; error?: string }>
+
+  // MCP 市场
+  fetchMCPMarket: (params: {
+    search?: string
+    limit?: number
+    cursor?: string
+  }) => Promise<{ success: boolean; result?: MCPMarketSearchResult; error?: string }>
+  installMCPServer: (
+    name: string,
+    config: MCPInstallConfig,
+    target: 'claude' | 'cursor'
+  ) => Promise<{ success: boolean; error?: string }>
+  uninstallMCPServer: (
+    name: string,
+    source: 'claude' | 'cursor'
+  ) => Promise<{ success: boolean; error?: string }>
+  updateMCPServer: (
+    name: string,
+    config: MCPInstallConfig,
+    source: 'claude' | 'cursor'
+  ) => Promise<{ success: boolean; error?: string }>
+}
+
+// ========== Claude Code 配置类型 ==========
+
+// MCP 服务器配置
+export interface MCPServer {
+  name: string
+  command: string
+  args?: string[]
+  env?: Record<string, string>
+  cwd?: string
+  url?: string
+  source: 'claude' | 'cursor'
+}
+
+// Skill 技能
+export interface ClaudeSkill {
+  name: string
+  path: string
+  description?: string
+  files: string[]
+}
+
+// Plugin 插件
+export interface ClaudePlugin {
+  name: string
+  version?: string
+  enabled: boolean
+  description?: string
+  installPath?: string
+}
+
+// Claude Code 完整配置
+export interface ClaudeCodeConfig {
+  settings: Record<string, any>
+  mcpServers: MCPServer[]
+  skills: ClaudeSkill[]
+  plugins: ClaudePlugin[]
+}
+
+// ========== MCP 市场类型 ==========
+
+// MCP 服务器包信息
+export interface MCPPackage {
+  registryType: 'npm' | 'pypi' | 'oci'
+  identifier: string
+  transport?: { type: string }
+  environmentVariables?: Array<{
+    name: string
+    description?: string
+    isSecret?: boolean
+  }>
+}
+
+// MCP 远程服务配置
+export interface MCPRemote {
+  type: 'sse' | 'streamable-http'
+  url: string
+}
+
+// 在线 MCP 服务器信息
+export interface OnlineMCPServer {
+  name: string
+  title?: string
+  description: string
+  version: string
+  repositoryUrl?: string
+  packages?: MCPPackage[]
+  remotes?: MCPRemote[]
+  isOfficial?: boolean
+  publishedAt?: string
+  isInstalled?: boolean
+}
+
+// 市场搜索结果
+export interface MCPMarketSearchResult {
+  servers: OnlineMCPServer[]
+  nextCursor?: string
+  count: number
+}
+
+// MCP 安装配置
+export interface MCPInstallConfig {
+  command?: string
+  args?: string[]
+  env?: Record<string, string>
+  url?: string
 }
 
 // AI 总结请求参数

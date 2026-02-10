@@ -6,7 +6,8 @@
  * 避免 Vite 打包时 CJS 互操作导致 electron 命名导出丢失
  */
 
-import type { IpcMain, Dialog, Shell, App, Clipboard, NativeImage, BrowserWindow } from 'electron'
+import type { IpcMain, Dialog, Shell, App, Clipboard, BrowserWindow } from 'electron'
+import { nativeImage } from 'electron'
 import type Store from 'electron-store'
 
 /**
@@ -18,7 +19,7 @@ export interface ElectronAPIs {
   shell: Shell
   app: App
   clipboard: Clipboard
-  nativeImage: typeof NativeImage
+  nativeImage: typeof nativeImage
   BrowserWindow: typeof BrowserWindow
 }
 

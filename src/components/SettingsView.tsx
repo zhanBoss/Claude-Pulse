@@ -27,7 +27,7 @@ import {
 import { AppSettings, TokenPricingConfig } from '../types'
 import { getThemeVars } from '../theme'
 import ConfigFileEditor from './ConfigFileEditor'
-import ConfigEditor, { ConfigEditorRef } from './ConfigEditor'
+import ClaudeConfigManager, { ClaudeConfigManagerRef } from './ClaudeConfigManager'
 import RecordControl, { RecordControlRef } from './RecordControl'
 import { getElectronModalConfig } from './ElectronModal'
 import AIConfigTabs from './AIConfigTabs'
@@ -94,8 +94,8 @@ function SettingsView({
   const [navCollapsed, setNavCollapsed] = useState(true)
   const navCollapseTimerRef = useRef<NodeJS.Timeout | null>(null)
 
-  // ConfigEditor 的 ref，用于刷新数据
-  const configEditorRef = useRef<ConfigEditorRef>(null)
+  // ClaudeConfigManager 的 ref，用于刷新数据
+  const configManagerRef = useRef<ClaudeConfigManagerRef>(null)
   // RecordControl 的 ref，用于刷新数据
   const recordControlRef = useRef<RecordControlRef>(null)
   // 内容区域的 ref，用于滚动监听
@@ -835,7 +835,7 @@ function SettingsView({
               }
             }}
           >
-            <ConfigEditor ref={configEditorRef} darkMode={darkMode} />
+            <ClaudeConfigManager ref={configManagerRef} darkMode={darkMode} />
           </Card>
 
           {/* 卡片 4: 对话记录管理 */}
@@ -930,7 +930,7 @@ function SettingsView({
             await loadSettings()
             // 刷新所有组件的数据
             await Promise.all([
-              configEditorRef.current?.refresh(),
+              configManagerRef.current?.refresh(),
               recordControlRef.current?.refresh()
             ])
             // 解析配置并更新主题
