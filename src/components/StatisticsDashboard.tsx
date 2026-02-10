@@ -27,7 +27,8 @@ import {
   CloseOutlined,
   ClockCircleOutlined,
   AppstoreOutlined,
-  DashboardOutlined
+  DashboardOutlined,
+  SettingOutlined
 } from '@ant-design/icons'
 import {
   BarChart,
@@ -50,6 +51,7 @@ import {
 import { SessionMetadata } from '../types'
 import { getThemeVars, CHART_COLORS, STAT_COLORS } from '../theme'
 import ConversationDetailModal from './ConversationDetailModal'
+import TokenPriceModal from './TokenPriceModal'
 
 const { Text } = Typography
 
@@ -119,6 +121,9 @@ const StatisticsDashboard = (props: StatisticsDashboardProps) => {
   // 项目对比相关状态
   const [selectedProjects, setSelectedProjects] = useState<Set<string>>(new Set())
   const [compareVisible, setCompareVisible] = useState(false)
+
+  // Token 价格配置弹窗状态
+  const [tokenPriceModalOpen, setTokenPriceModalOpen] = useState(false)
 
   useEffect(() => {
     loadData()
@@ -475,7 +480,27 @@ const StatisticsDashboard = (props: StatisticsDashboardProps) => {
                         formatter={(value) => Number(value).toLocaleString()}
                       />
                     </Card>
-                    <Card size="small" styles={{ body: { padding: 16 } }}>
+                    <Card
+                      size="small"
+                      styles={{ body: { padding: 16, position: 'relative' } }}
+                    >
+                      <AntTooltip title="设置 Token 价格">
+                        <Button
+                          type="text"
+                          size="small"
+                          icon={<SettingOutlined />}
+                          onClick={() => setTokenPriceModalOpen(true)}
+                          style={{
+                            position: 'absolute',
+                            top: 8,
+                            right: 8,
+                            color: themeVars.textSecondary,
+                            padding: 4,
+                            height: 'auto',
+                            lineHeight: 1
+                          }}
+                        />
+                      </AntTooltip>
                       <Statistic
                         title="总成本 (USD)"
                         value={globalStats.totalCost}
@@ -1286,6 +1311,13 @@ const StatisticsDashboard = (props: StatisticsDashboardProps) => {
           <Empty description="请至少选择 2 个项目" />
         )}
       </Modal>
+
+      {/* Token 价格配置弹窗 */}
+      <TokenPriceModal
+        open={tokenPriceModalOpen}
+        onClose={() => setTokenPriceModalOpen(false)}
+        darkMode={darkMode}
+      />
     </div>
   )
 }

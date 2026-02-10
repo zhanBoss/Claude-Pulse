@@ -728,6 +728,24 @@ function SettingsView({
                 <span style={{ fontSize: 15, fontWeight: 600 }}>Token 价格配置</span>
               </Space>
             }
+            extra={
+              <Button
+                type="text"
+                size="small"
+                onClick={() => {
+                  const newSettings = {
+                    ...settings,
+                    tokenPricing: undefined
+                  }
+                  setSettings(newSettings)
+                  saveSettingsImmediately(newSettings)
+                  message.success('已重置为默认价格')
+                }}
+                style={{ color: themeVars.textSecondary, fontSize: 12 }}
+              >
+                重置默认
+              </Button>
+            }
             style={{
               backgroundColor: themeVars.bgContainer,
               borderColor: themeVars.border,
@@ -740,46 +758,52 @@ function SettingsView({
             styles={{
               header: {
                 borderBottom: `1px solid ${themeVars.borderSecondary}`,
-                padding: '16px 20px'
+                padding: '12px 20px'
               },
               body: {
-                padding: '20px'
+                padding: '16px 20px'
               }
             }}
           >
-            <Space direction="vertical" size={20} style={{ width: '100%' }}>
-              <div>
-                <Text
-                  type="secondary"
-                  style={{
-                    fontSize: 13,
-                    color: themeVars.textSecondary,
-                    lineHeight: 1.6,
-                    display: 'block',
-                    marginBottom: 16
-                  }}
-                >
-                  配置 Token 价格以计算使用成本。价格单位为 USD per Million Tokens (MTok)。
-                  <br />
-                  如果不设置，将使用默认价格（Claude 3.5 Sonnet: 输入 $3/MTok，输出 $15/MTok）
-                </Text>
-              </div>
+            <Text
+              type="secondary"
+              style={{
+                fontSize: 12,
+                color: themeVars.textSecondary,
+                lineHeight: 1.5,
+                display: 'block',
+                marginBottom: 12
+              }}
+            >
+              价格单位: USD/MTok，默认值基于 Claude 3.5 Sonnet
+            </Text>
 
+            {/* 2x2 网格布局 */}
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(2, 1fr)',
+                gap: 12
+              }}
+            >
               <div>
                 <Text
                   style={{
                     color: themeVars.text,
                     fontWeight: 500,
-                    fontSize: 14
+                    fontSize: 12,
+                    display: 'block',
+                    marginBottom: 4
                   }}
                 >
-                  输入 Token 价格 (USD/MTok)
+                  输入价格
                 </Text>
                 <Input
                   type="number"
+                  size="small"
                   min={0}
                   step={0.01}
-                  placeholder="3.0 (默认值)"
+                  placeholder="3.0"
                   value={settings.tokenPricing?.inputPrice ?? ''}
                   onChange={e => {
                     const value = e.target.value === '' ? undefined : parseFloat(e.target.value)
@@ -796,9 +820,6 @@ function SettingsView({
                     setSettings(newSettings)
                     saveSettingsImmediately(newSettings)
                   }}
-                  style={{
-                    marginTop: 8
-                  }}
                 />
               </div>
 
@@ -807,16 +828,19 @@ function SettingsView({
                   style={{
                     color: themeVars.text,
                     fontWeight: 500,
-                    fontSize: 14
+                    fontSize: 12,
+                    display: 'block',
+                    marginBottom: 4
                   }}
                 >
-                  输出 Token 价格 (USD/MTok)
+                  输出价格
                 </Text>
                 <Input
                   type="number"
+                  size="small"
                   min={0}
                   step={0.01}
-                  placeholder="15.0 (默认值)"
+                  placeholder="15.0"
                   value={settings.tokenPricing?.outputPrice ?? ''}
                   onChange={e => {
                     const value = e.target.value === '' ? undefined : parseFloat(e.target.value)
@@ -833,9 +857,6 @@ function SettingsView({
                     setSettings(newSettings)
                     saveSettingsImmediately(newSettings)
                   }}
-                  style={{
-                    marginTop: 8
-                  }}
                 />
               </div>
 
@@ -844,16 +865,19 @@ function SettingsView({
                   style={{
                     color: themeVars.text,
                     fontWeight: 500,
-                    fontSize: 14
+                    fontSize: 12,
+                    display: 'block',
+                    marginBottom: 4
                   }}
                 >
-                  缓存写入价格 (USD/MTok)
+                  缓存写入
                 </Text>
                 <Input
                   type="number"
+                  size="small"
                   min={0}
                   step={0.01}
-                  placeholder="3.75 (默认值)"
+                  placeholder="3.75"
                   value={settings.tokenPricing?.cacheWritePrice ?? ''}
                   onChange={e => {
                     const value = e.target.value === '' ? undefined : parseFloat(e.target.value)
@@ -870,9 +894,6 @@ function SettingsView({
                     setSettings(newSettings)
                     saveSettingsImmediately(newSettings)
                   }}
-                  style={{
-                    marginTop: 8
-                  }}
                 />
               </div>
 
@@ -881,16 +902,19 @@ function SettingsView({
                   style={{
                     color: themeVars.text,
                     fontWeight: 500,
-                    fontSize: 14
+                    fontSize: 12,
+                    display: 'block',
+                    marginBottom: 4
                   }}
                 >
-                  缓存读取价格 (USD/MTok)
+                  缓存读取
                 </Text>
                 <Input
                   type="number"
+                  size="small"
                   min={0}
                   step={0.01}
-                  placeholder="0.3 (默认值)"
+                  placeholder="0.3"
                   value={settings.tokenPricing?.cacheReadPrice ?? ''}
                   onChange={e => {
                     const value = e.target.value === '' ? undefined : parseFloat(e.target.value)
@@ -907,32 +931,9 @@ function SettingsView({
                     setSettings(newSettings)
                     saveSettingsImmediately(newSettings)
                   }}
-                  style={{
-                    marginTop: 8
-                  }}
                 />
               </div>
-
-              <Divider style={{ margin: '4px 0' }} />
-
-              <div>
-                <Button
-                  type="default"
-                  block
-                  onClick={() => {
-                    const newSettings = {
-                      ...settings,
-                      tokenPricing: undefined
-                    }
-                    setSettings(newSettings)
-                    saveSettingsImmediately(newSettings)
-                    message.success('已重置为默认价格')
-                  }}
-                >
-                  重置为默认价格
-                </Button>
-              </div>
-            </Space>
+            </div>
           </Card>
 
           {/* 卡片 3: Claude Code 配置 */}
