@@ -8,7 +8,6 @@ interface MainLayoutProps {
   currentRoute: string
   onRouteChange: (route: string) => void
   darkMode: boolean
-  showRecentEditsEntry?: boolean
   children: React.ReactNode
 }
 
@@ -16,7 +15,7 @@ interface MainLayoutProps {
 const MOBILE_BREAKPOINT = 768
 
 const MainLayout = (props: MainLayoutProps) => {
-  const { currentRoute, onRouteChange, darkMode, showRecentEditsEntry = false, children } = props
+  const { currentRoute, onRouteChange, darkMode, children } = props
   const themeVars = getThemeVars(darkMode)
   const [sidebarVisible, setSidebarVisible] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
@@ -39,7 +38,6 @@ const MainLayout = (props: MainLayoutProps) => {
           currentRoute={currentRoute}
           onNavigate={onRouteChange}
           darkMode={darkMode}
-          showRecentEditsEntry={showRecentEditsEntry}
         />
       )}
 
@@ -62,7 +60,6 @@ const MainLayout = (props: MainLayoutProps) => {
               setSidebarVisible(false)
             }}
             darkMode={darkMode}
-            showRecentEditsEntry={showRecentEditsEntry}
             inDrawer
           />
         </Drawer>

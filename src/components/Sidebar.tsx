@@ -16,18 +16,15 @@ interface SidebarProps {
   currentRoute: string
   onNavigate: (route: string) => void
   darkMode: boolean
-  showRecentEditsEntry?: boolean
   /** 是否在 Drawer 中渲染（移动端），不需要 macOS 安全区处理 */
   inDrawer?: boolean
 }
 
-/* macOS hiddenInset 模式下交通灯高度 */
+/* 顶部标题区域高度 */
 const TRAFFIC_LIGHT_HEIGHT = 42
-/* 交通灯安全区（避免标题被遮挡，兼顾 200px 侧栏宽度） */
-const TRAFFIC_LIGHT_SAFE_PADDING_LEFT = 88
 
 const Sidebar = (props: SidebarProps) => {
-  const { currentRoute, onNavigate, darkMode, showRecentEditsEntry = false, inDrawer = false } = props
+  const { currentRoute, onNavigate, darkMode, inDrawer = false } = props
   const themeVars = getThemeVars(darkMode)
 
   const menuItems = [
@@ -56,15 +53,11 @@ const Sidebar = (props: SidebarProps) => {
       icon: <CommentOutlined />,
       label: 'AI 助手'
     },
-    ...(showRecentEditsEntry
-      ? [
-          {
-            key: 'recent-edits',
-            icon: <EditOutlined />,
-            label: '最近编辑'
-          }
-        ]
-      : []),
+    {
+      key: 'recent-edits',
+      icon: <EditOutlined />,
+      label: '最近编辑'
+    },
     {
       key: 'settings',
       icon: <SettingOutlined />,
@@ -96,16 +89,16 @@ const Sidebar = (props: SidebarProps) => {
       }}
     >
       {/* 顶部区域：交通灯 + Logo 同行，Logo 避开交通灯 */}
-      {/* macOS 交通灯是窗口级的，Drawer 弹出层也会被遮挡，统一右对齐 */}
+      {/* Drawer 场景右对齐；桌面侧栏场景居中显示 */}
       <div
         style={
           {
             height: TRAFFIC_LIGHT_HEIGHT,
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'flex-start',
-            paddingLeft: inDrawer ? 24 : TRAFFIC_LIGHT_SAFE_PADDING_LEFT,
-            paddingRight: 16,
+            justifyContent: inDrawer ? 'flex-end' : 'center',
+            paddingLeft: inDrawer ? 24 : 0,
+            paddingRight: inDrawer ? 24 : 0,
             fontSize: 16,
             fontWeight: 600,
             fontFamily: 'Fira Code, monospace',

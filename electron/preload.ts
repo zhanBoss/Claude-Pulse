@@ -70,7 +70,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
     aiChat?: any
     aiSummary?: any
     autoCleanup?: any
-    showRecentEditsEntry?: boolean
   }) =>
     ipcRenderer.invoke('save-app-settings', settings),
 
