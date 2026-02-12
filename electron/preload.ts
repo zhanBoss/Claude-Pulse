@@ -283,8 +283,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Skills 管理
   getClaudeSkills: () => ipcRenderer.invoke('get-claude-skills'),
   deleteClaudeSkill: (name: string) => ipcRenderer.invoke('delete-claude-skill', name),
-  createClaudeSkill: (name: string, description: string) =>
-    ipcRenderer.invoke('create-claude-skill', name, description),
+  createClaudeSkill: (name: string, description: string, content?: string) =>
+    ipcRenderer.invoke('create-claude-skill', name, description, content),
+  readClaudeSkillContent: (name: string) => ipcRenderer.invoke('read-claude-skill-content', name),
+  updateClaudeSkill: (name: string, description: string, content: string) =>
+    ipcRenderer.invoke('update-claude-skill', name, description, content),
 
   // Plugins 管理
   getClaudePlugins: () => ipcRenderer.invoke('get-claude-plugins'),

@@ -4,13 +4,11 @@
  */
 
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { Spin, Empty, message, Input, Button, Tooltip } from 'antd'
+import { Spin, Empty, message, Input, Button, Tooltip, Space } from 'antd'
 import { ReloadOutlined, SearchOutlined } from '@ant-design/icons'
 import { OnlineMCPServer, MCPServer } from '../types'
 import { getThemeVars } from '../theme'
 import MCPServerCard from './MCPServerCard'
-
-const { Search } = Input
 
 interface MCPMarketListProps {
   darkMode: boolean
@@ -130,20 +128,28 @@ const MCPMarketList = (props: MCPMarketListProps) => {
         style={{
           display: 'flex',
           gap: 8,
+          alignItems: 'center',
           marginBottom: 12
         }}
       >
-        <Search
-          placeholder="搜索 MCP 服务器..."
-          value={searchValue}
-          onChange={e => setSearchValue(e.target.value)}
-          onSearch={handleSearch}
-          enterButton={<SearchOutlined />}
-          allowClear
-          style={{ flex: 1 }}
-        />
+        <Space.Compact style={{ flex: 1 }}>
+          <Input
+            placeholder="搜索 MCP 服务器..."
+            value={searchValue}
+            onChange={e => setSearchValue(e.target.value)}
+            onPressEnter={() => handleSearch(searchValue)}
+            allowClear
+            size="large"
+          />
+          <Button
+            type="primary"
+            icon={<SearchOutlined />}
+            onClick={() => handleSearch(searchValue)}
+            size="large"
+          />
+        </Space.Compact>
         <Tooltip title="刷新">
-          <Button icon={<ReloadOutlined />} onClick={handleRefresh} />
+          <Button icon={<ReloadOutlined />} onClick={handleRefresh} size="large" />
         </Tooltip>
       </div>
 

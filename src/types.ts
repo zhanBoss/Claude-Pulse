@@ -454,9 +454,18 @@ export interface ElectronAPI {
   deleteClaudeSkill: (name: string) => Promise<{ success: boolean; error?: string }>
   createClaudeSkill: (
     name: string,
-    description: string
+    description: string,
+    content?: string
   ) => Promise<{ success: boolean; skillPath?: string; error?: string }>
-  
+  readClaudeSkillContent: (
+    name: string
+  ) => Promise<{ success: boolean; content?: string; error?: string }>
+  updateClaudeSkill: (
+    name: string,
+    description: string,
+    content: string
+  ) => Promise<{ success: boolean; error?: string }>
+
   // Plugins 管理
   getClaudePlugins: () => Promise<{ success: boolean; plugins?: ClaudePlugin[]; error?: string }>
   toggleClaudePlugin: (

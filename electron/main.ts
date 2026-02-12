@@ -3759,7 +3759,7 @@ ipcMain.handle('delete-claude-skill', async (_, name: string) => {
 })
 
 // 创建新 Skill
-ipcMain.handle('create-claude-skill', async (_, name: string, description: string) => {
+ipcMain.handle('create-claude-skill', async (_, name: string, description: string, content?: string) => {
   try {
     const skillsDir = path.join(CLAUDE_DIR, 'skills')
     if (!fs.existsSync(skillsDir)) {
@@ -3774,10 +3774,13 @@ ipcMain.handle('create-claude-skill', async (_, name: string, description: strin
     // 创建 Skill 文件夹
     fs.mkdirSync(skillPath, { recursive: true })
 
-    // 创建 SKILL.md 文件
-    const skillMdContent = `# ${name}
-
+    // 创建 SKILL.md 文件（支持自定义内容）
+    const skillMdContent = content || `---
+name: ${name}
 description: ${description}
+---
+
+# ${name}
 
 ## 使用说明
 
@@ -3795,6 +3798,40 @@ description: ${description}
     return { success: true, skillPath }
   } catch (error) {
     console.error('创建 Skill 失败:', error)
+    return { success: false, error: (error as Error).message }
+  }
+})
+
+// 读取 Skill 内容
+ipcMain.handle('read-claude-skill-content', async (_, name: string) => {
+  try {
+    const skillPath = path.join(CLAUDE_DIR, 'skills', name, 'SKILL.md')
+    if (!fs.existsSync(skillPath)) {
+      return { success: false, error: 'SKILL.md 文件不存在' }
+    }
+
+    const content = fs.readFileSync(skillPath, 'utf-8')
+    return { success: true, content }
+  } catch (error) {
+    console.error('读取 Skill 内容失败:', error)
+    return { success: false, error: (error as Error).message }
+  }
+})
+
+// 更新 Skill
+ipcMain.handle('update-claude-skill', async (_, name: string, _description: string, content: string) => {
+  try {
+    const skillPath = path.join(CLAUDE_DIR, 'skills', name)
+    if (!fs.existsSync(skillPath)) {
+      return { success: false, error: 'Skill 不存在' }
+    }
+
+    // 更新 SKILL.md 文件
+    fs.writeFileSync(path.join(skillPath, 'SKILL.md'), content, 'utf-8')
+
+    return { success: true }
+  } catch (error) {
+    console.error('更新 Skill 失败:', error)
     return { success: false, error: (error as Error).message }
   }
 })
