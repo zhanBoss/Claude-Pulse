@@ -3,7 +3,7 @@
  * 提供 MCP 服务器、Skills、Plugins、Hooks 的可视化管理
  */
 
-import { useState, useEffect, forwardRef, useImperativeHandle } from 'react'
+import { useState, useEffect, forwardRef, useImperativeHandle, type ReactNode } from 'react'
 import {
   Tabs,
   Space,
@@ -12,19 +12,18 @@ import {
   Tag,
   Spin,
   message,
-  Tooltip,
-  Empty
+  Tooltip
 } from 'antd'
 import {
   CloudServerOutlined,
   ThunderboltOutlined,
   AppstoreOutlined,
   CodeOutlined,
+  InfoCircleOutlined,
   EditOutlined,
   FolderOpenOutlined,
   ReloadOutlined,
   ShopOutlined,
-  StarOutlined,
   ApiOutlined,
   ExportOutlined,
   ImportOutlined
@@ -39,6 +38,12 @@ import MCPInstallModal from './MCPInstallModal'
 import SkillsManager from './SkillsManager'
 import PluginsManager from './PluginsManager'
 import HooksManager from './HooksManager'
+import EcosystemCatalogList from './EcosystemCatalogList'
+import {
+  SKILL_CATALOG_ITEMS,
+  PLUGIN_CATALOG_ITEMS,
+  HOOK_CATALOG_ITEMS
+} from '../constants/claudeEcosystem'
 
 const { Text } = Typography
 
@@ -68,9 +73,13 @@ const ClaudeConfigManager = forwardRef<ClaudeConfigManagerRef, ClaudeConfigManag
     const [editorVisible, setEditorVisible] = useState(false)
     const [editedConfig, setEditedConfig] = useState<string>('')
     const [saving, setSaving] = useState(false)
+    const [lastRefreshAt, setLastRefreshAt] = useState<number | null>(null)
 
     // MCP Tab 子 Tab 状态
     const [mcpSubTab, setMcpSubTab] = useState('installed')
+    const [skillsSubTab, setSkillsSubTab] = useState('installed')
+    const [pluginsSubTab, setPluginsSubTab] = useState('installed')
+    const [hooksSubTab, setHooksSubTab] = useState('installed')
     const [installModalVisible, setInstallModalVisible] = useState(false)
     const [serverToInstall, setServerToInstall] = useState<OnlineMCPServer | null>(null)
 
@@ -84,6 +93,7 @@ const ClaudeConfigManager = forwardRef<ClaudeConfigManagerRef, ClaudeConfigManag
           setSkills(result.config.skills || [])
           setPlugins(result.config.plugins || [])
           setHooks(result.config.hooks || [])
+          setLastRefreshAt(Date.now())
 
           try {
             const formatted = JSON.stringify(result.config.settings, null, 2)
@@ -204,6 +214,23 @@ const ClaudeConfigManager = forwardRef<ClaudeConfigManagerRef, ClaudeConfigManag
       }
     }
 
+    const getLastRefreshText = () => {
+      if (!lastRefreshAt) {
+        return '未刷新'
+      }
+      return new Date(lastRefreshAt).toLocaleString('zh-CN', { hour12: false })
+    }
+
+    const renderSubTabLabel = (icon: ReactNode, text: string, count?: number) => (
+      <Space size={4}>
+        {icon}
+        <span style={{ fontSize: 11 }}>{text}</span>
+        {typeof count === 'number' && (
+          <Tag style={{ fontSize: 9, padding: '0 3px', margin: 0 }}>{count}</Tag>
+        )}
+      </Space>
+    )
+
     if (loading) {
       return (
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 80 }}>
@@ -299,42 +326,14 @@ const ClaudeConfigManager = forwardRef<ClaudeConfigManagerRef, ClaudeConfigManag
                   children: <MCPInstalledList darkMode={darkMode} onRefresh={refreshMcpServers} />
                 },
                 {
-                  key: 'market',
-                  label: (
-                    <Space size={4}>
-                      <ShopOutlined style={{ fontSize: 12 }} />
-                      <span style={{ fontSize: 11 }}>市场</span>
-                    </Space>
-                  ),
+                  key: 'discover',
+                  label: renderSubTabLabel(<ShopOutlined style={{ fontSize: 12 }} />, '发现'),
                   children: (
                     <MCPMarketList
                       darkMode={darkMode}
                       installedServers={mcpServers}
                       onInstall={handleOpenInstallModal}
-                      onRefreshInstalled={refreshMcpServers}
                     />
-                  )
-                },
-                {
-                  key: 'recommend',
-                  label: (
-                    <Space size={4}>
-                      <StarOutlined style={{ fontSize: 12 }} />
-                      <span style={{ fontSize: 11 }}>推荐</span>
-                    </Space>
-                  ),
-                  children: (
-                    <div style={{ padding: '20px 0', textAlign: 'center' }}>
-                      <Empty
-                        image={Empty.PRESENTED_IMAGE_SIMPLE}
-                        description={
-                          <Space direction="vertical" size={4}>
-                            <Text type="secondary" style={{ fontSize: 11 }}>精选 MCP 服务器推荐</Text>
-                            <Text type="secondary" style={{ fontSize: 10 }}>功能开发中，敬请期待...</Text>
-                          </Space>
-                        }
-                      />
-                    </div>
                   )
                 }
               ]}
@@ -353,7 +352,31 @@ const ClaudeConfigManager = forwardRef<ClaudeConfigManagerRef, ClaudeConfigManag
         ),
         children: (
           <div style={{ padding: '8px 0' }}>
-            <SkillsManager darkMode={darkMode} onRefresh={loadData} />
+            <Tabs
+              activeKey={skillsSubTab}
+              onChange={setSkillsSubTab}
+              size="small"
+              items={[
+                {
+                  key: 'installed',
+                  label: renderSubTabLabel(<ThunderboltOutlined style={{ fontSize: 12 }} />, '已安装', skills.length),
+                  children: <SkillsManager darkMode={darkMode} onRefresh={loadData} />
+                },
+                {
+                  key: 'resources',
+                  label: renderSubTabLabel(<ShopOutlined style={{ fontSize: 12 }} />, '资源'),
+                  children: (
+                    <EcosystemCatalogList
+                      darkMode={darkMode}
+                      title="Skills 资源"
+                      subtitle="聚合官方文档、开源示例与社区实践，自动按可用分类展示。"
+                      emptyDescription="暂无可用 Skill 资源"
+                      items={SKILL_CATALOG_ITEMS}
+                    />
+                  )
+                }
+              ]}
+            />
           </div>
         )
       },
@@ -368,7 +391,31 @@ const ClaudeConfigManager = forwardRef<ClaudeConfigManagerRef, ClaudeConfigManag
         ),
         children: (
           <div style={{ padding: '8px 0' }}>
-            <PluginsManager darkMode={darkMode} onRefresh={loadData} />
+            <Tabs
+              activeKey={pluginsSubTab}
+              onChange={setPluginsSubTab}
+              size="small"
+              items={[
+                {
+                  key: 'installed',
+                  label: renderSubTabLabel(<AppstoreOutlined style={{ fontSize: 12 }} />, '已安装', plugins.length),
+                  children: <PluginsManager darkMode={darkMode} onRefresh={loadData} />
+                },
+                {
+                  key: 'resources',
+                  label: renderSubTabLabel(<ShopOutlined style={{ fontSize: 12 }} />, '资源'),
+                  children: (
+                    <EcosystemCatalogList
+                      darkMode={darkMode}
+                      title="Plugins 资源"
+                      subtitle="支持官方 marketplace 与第三方分发，按官方/推荐/社区自动聚合。"
+                      emptyDescription="暂无可用 Plugin 资源"
+                      items={PLUGIN_CATALOG_ITEMS}
+                    />
+                  )
+                }
+              ]}
+            />
           </div>
         )
       },
@@ -383,7 +430,31 @@ const ClaudeConfigManager = forwardRef<ClaudeConfigManagerRef, ClaudeConfigManag
         ),
         children: (
           <div style={{ padding: '8px 0' }}>
-            <HooksManager darkMode={darkMode} onRefresh={loadData} />
+            <Tabs
+              activeKey={hooksSubTab}
+              onChange={setHooksSubTab}
+              size="small"
+              items={[
+                {
+                  key: 'installed',
+                  label: renderSubTabLabel(<ApiOutlined style={{ fontSize: 12 }} />, '已安装', hooks.length),
+                  children: <HooksManager darkMode={darkMode} onRefresh={loadData} />
+                },
+                {
+                  key: 'resources',
+                  label: renderSubTabLabel(<ShopOutlined style={{ fontSize: 12 }} />, '资源'),
+                  children: (
+                    <EcosystemCatalogList
+                      darkMode={darkMode}
+                      title="Hooks 资源"
+                      subtitle="以官方规范和模板实践为主，按可用分类动态展示。"
+                      emptyDescription="暂无可用 Hook 资源"
+                      items={HOOK_CATALOG_ITEMS}
+                    />
+                  )
+                }
+              ]}
+            />
           </div>
         )
       }
@@ -410,6 +481,27 @@ const ClaudeConfigManager = forwardRef<ClaudeConfigManagerRef, ClaudeConfigManag
                 onClick={() => window.electronAPI.showClaudeConfigInFolder()}
               />
             </Tooltip>
+          </Space>
+        </div>
+
+        <div
+          style={{
+            marginBottom: 8,
+            padding: '6px 10px',
+            border: `1px solid ${themeVars.border}`,
+            borderRadius: 6,
+            backgroundColor: themeVars.bgSection
+          }}
+        >
+          <Space size={8} wrap>
+            <InfoCircleOutlined style={{ color: themeVars.primary, fontSize: 12 }} />
+            <Tag color="blue" style={{ margin: 0, fontSize: 10, padding: '0 5px' }}>
+              数据来源
+            </Tag>
+            <Text type="secondary" style={{ fontSize: 11 }}>
+              MCP 数据来自官方 Registry，资源数据来自官方文档与社区仓库
+            </Text>
+            <Tag style={{ margin: 0, fontSize: 10, padding: '0 5px' }}>最近刷新: {getLastRefreshText()}</Tag>
           </Space>
         </div>
 

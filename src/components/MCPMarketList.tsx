@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { Spin, Empty, message, Input, Button, Tooltip, Space } from 'antd'
+import { Spin, Empty, message, Input, Button, Tooltip, Space, Segmented } from 'antd'
 import { ReloadOutlined, SearchOutlined } from '@ant-design/icons'
 import { OnlineMCPServer, MCPServer } from '../types'
 import { getThemeVars } from '../theme'
@@ -14,7 +14,6 @@ interface MCPMarketListProps {
   darkMode: boolean
   installedServers: MCPServer[]
   onInstall: (server: OnlineMCPServer) => void
-  onRefreshInstalled: () => void
 }
 
 const MCPMarketList = (props: MCPMarketListProps) => {
@@ -27,13 +26,13 @@ const MCPMarketList = (props: MCPMarketListProps) => {
   const [searchValue, setSearchValue] = useState('')
   const [nextCursor, setNextCursor] = useState<string | undefined>()
   const [hasMore, setHasMore] = useState(true)
-  const [totalCount, setTotalCount] = useState(0)
+  const [activeCategory, setActiveCategory] = useState<'all' | 'official' | 'recommended'>('all')
 
   const isInitialLoad = useRef(true)
 
   // 加载市场数据
   const loadMarket = useCallback(
-    async (cursor?: string, append = false) => {
+    async (cursor?: string, append = false, searchOverride?: string) => {
       if (append) {
         setLoadingMore(true)
       } else {
@@ -42,8 +41,9 @@ const MCPMarketList = (props: MCPMarketListProps) => {
       }
 
       try {
+        const searchKeyword = typeof searchOverride === 'string' ? searchOverride : searchValue
         const result = await window.electronAPI.fetchMCPMarket({
-          search: searchValue || undefined,
+          search: searchKeyword || undefined,
           limit: 20,
           cursor
         })
@@ -52,7 +52,6 @@ const MCPMarketList = (props: MCPMarketListProps) => {
           const newServers = result.result.servers
           setNextCursor(result.result.nextCursor)
           setHasMore(!!result.result.nextCursor)
-          setTotalCount(result.result.count)
 
           if (append) {
             setServers(prev => [...prev, ...newServers])
@@ -83,13 +82,13 @@ const MCPMarketList = (props: MCPMarketListProps) => {
   // 搜索处理
   const handleSearch = (value: string) => {
     setSearchValue(value)
-    loadMarket()
+    loadMarket(undefined, false, value)
   }
 
   // 刷新
   const handleRefresh = () => {
     setSearchValue('')
-    loadMarket()
+    loadMarket(undefined, false, '')
   }
 
   // 加载更多
@@ -120,6 +119,59 @@ const MCPMarketList = (props: MCPMarketListProps) => {
 
     return isNameMatch
   }
+
+  const RECOMMEND_KEYWORDS = [
+    'github',
+    'figma',
+    'notion',
+    'slack',
+    'sentry',
+    'linear',
+    'postgres',
+    'supabase',
+    'vercel',
+    'gitlab'
+  ]
+
+  const isRecommendedServer = (server: OnlineMCPServer) => {
+    const nameText = `${server.name} ${server.title || ''} ${server.description || ''}`.toLowerCase()
+    return RECOMMEND_KEYWORDS.some(keyword => nameText.includes(keyword))
+  }
+
+  const allCount = servers.length
+  const officialCount = servers.filter(server => !!server.isOfficial).length
+  const recommendedCount = servers.filter(server => isRecommendedServer(server)).length
+
+  const availableCategoryOptions = [
+    { value: 'all' as const, label: `全部 ${allCount}` },
+    ...(officialCount > 0 ? [{ value: 'official' as const, label: `官方 ${officialCount}` }] : []),
+    ...(recommendedCount > 0
+      ? [{ value: 'recommended' as const, label: `推荐 ${recommendedCount}` }]
+      : [])
+  ]
+
+  const filteredServers = servers.filter(server => {
+    if (activeCategory === 'official') {
+      return !!server.isOfficial
+    }
+    if (activeCategory === 'recommended') {
+      return isRecommendedServer(server)
+    }
+    return true
+  })
+
+  const getListTitle = () => {
+    if (activeCategory === 'official') return '官方 MCP 列表'
+    if (activeCategory === 'recommended') return '推荐 MCP 列表'
+    return 'MCP 市场'
+  }
+
+  useEffect(() => {
+    const values = availableCategoryOptions.map(option => option.value)
+    if (!values.includes(activeCategory)) {
+      setActiveCategory('all')
+    }
+  }, [activeCategory, availableCategoryOptions])
 
   return (
     <div>
@@ -165,15 +217,26 @@ const MCPMarketList = (props: MCPMarketListProps) => {
           '加载中...'
         ) : (
           <>
-            共找到 {totalCount} 个服务器
+            {`${getListTitle()}，当前展示 ${filteredServers.length} 个`}
             {searchValue && ` (搜索: "${searchValue}")`}
           </>
         )}
       </div>
 
+      {availableCategoryOptions.length > 1 && (
+        <div style={{ marginBottom: 12 }}>
+          <Segmented
+            size="small"
+            value={activeCategory}
+            options={availableCategoryOptions}
+            onChange={value => setActiveCategory(value as 'all' | 'official' | 'recommended')}
+          />
+        </div>
+      )}
+
       {/* 服务器列表 */}
       <Spin spinning={loading}>
-        {servers.length === 0 && !loading ? (
+        {filteredServers.length === 0 && !loading ? (
           <Empty
             image={Empty.PRESENTED_IMAGE_SIMPLE}
             description={searchValue ? '未找到匹配的 MCP 服务器' : '暂无 MCP 服务器'}
@@ -181,7 +244,7 @@ const MCPMarketList = (props: MCPMarketListProps) => {
           />
         ) : (
           <div style={{ maxHeight: 400, overflowY: 'auto' }}>
-            {servers.map((server, index) => (
+            {filteredServers.map((server, index) => (
               <MCPServerCard
                 key={`${server.name}-${index}`}
                 onlineServer={server}
