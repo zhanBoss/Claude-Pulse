@@ -40,6 +40,7 @@ function App() {
   const [showRecentEditsEntry, setShowRecentEditsEntry] = useState(false)
   const [scrollToSection, setScrollToSection] = useState<string | null>(null)
   const [chatInitialPrompt, setChatInitialPrompt] = useState<string | null>(null)
+  console.log('测试最近编辑功能')
 
   // 检测系统主题
   useEffect(() => {

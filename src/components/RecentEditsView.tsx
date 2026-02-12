@@ -62,6 +62,7 @@ const RecentEditsView = (props: RecentEditsViewProps) => {
   const [previewMessageId, setPreviewMessageId] = useState('')
   const [showDiff, setShowDiff] = useState(false)
   const [diffResult, setDiffResult] = useState<Change[]>([])
+  const [diffHasChanges, setDiffHasChanges] = useState(true)
   const [diffLoading, setDiffLoading] = useState(false)
   const [previewWrap, setPreviewWrap] = useState(false)
   const [guideExpanded, setGuideExpanded] = useState(false)
@@ -233,12 +234,15 @@ const RecentEditsView = (props: RecentEditsViewProps) => {
       const result = await window.electronAPI.readFileContent(previewFilePath)
       if (result.success && result.content !== undefined) {
         const changes = diffLines(result.content, previewContent)
+        const hasChanges = changes.some(change => change.added || change.removed)
         setDiffResult(changes)
+        setDiffHasChanges(hasChanges)
         setShowDiff(true)
       } else {
         // 文件可能已被删除
         const changes = diffLines('', previewContent)
         setDiffResult(changes)
+        setDiffHasChanges(true)
         setShowDiff(true)
         message.info('当前文件不存在或无法读取，显示快照为新增内容')
       }
@@ -666,6 +670,7 @@ const RecentEditsView = (props: RecentEditsViewProps) => {
           setPreviewVisible(false)
           setShowDiff(false)
           setDiffResult([])
+          setDiffHasChanges(true)
         }}
         width="70%"
         footer={[
@@ -688,6 +693,7 @@ const RecentEditsView = (props: RecentEditsViewProps) => {
             setPreviewVisible(false)
             setShowDiff(false)
             setDiffResult([])
+            setDiffHasChanges(true)
           }}>
             关闭
           </Button>
@@ -731,6 +737,21 @@ const RecentEditsView = (props: RecentEditsViewProps) => {
               <Tag color="red">- 当前文件内容</Tag>
               <Tag color="green">+ 快照内容</Tag>
             </div>
+            {!diffHasChanges && (
+              <div
+                style={{
+                  marginBottom: 8,
+                  padding: '6px 8px',
+                  borderRadius: 6,
+                  background: themeVars.errorLight,
+                  color: themeVars.error,
+                  border: `1px solid ${themeVars.errorBorder}`,
+                  fontSize: 12
+                }}
+              >
+                无变更差异：当前文件与快照内容一致
+              </div>
+            )}
             {diffResult.map((part, index) => {
               const color = part.added
                 ? themeVars.diffAddBg
@@ -769,9 +790,6 @@ const RecentEditsView = (props: RecentEditsViewProps) => {
                 </pre>
               )
             })}
-            {diffResult.length === 0 && (
-              <Text type="secondary">没有差异 - 文件内容相同</Text>
-            )}
           </div>
         ) : (
           <Editor

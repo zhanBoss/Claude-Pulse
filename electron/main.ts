@@ -1381,19 +1381,34 @@ ipcMain.handle('read-full-conversation', async (_, sessionId: string, project: s
       return { success: false, error: 'project 路径不能为空' }
     }
 
-    // 构建 project 路径
+    // 优先按 project 推断路径；若失败则按 sessionId 全局兜底查找
     const projectFolderName = getProjectFolderName(project)
-    const projectSessionFile = path.join(
+    const preferredSessionFile = path.join(
       CLAUDE_DIR,
       'projects',
       projectFolderName,
       `${sessionId}.jsonl`
     )
+    let projectSessionFile = preferredSessionFile
+
+    if (!fs.existsSync(projectSessionFile)) {
+      const projectsDir = PROJECTS_DIR
+      if (fs.existsSync(projectsDir)) {
+        const folders = fs.readdirSync(projectsDir)
+        for (const folder of folders) {
+          const candidate = path.join(projectsDir, folder, `${sessionId}.jsonl`)
+          if (fs.existsSync(candidate)) {
+            projectSessionFile = candidate
+            break
+          }
+        }
+      }
+    }
 
     if (!fs.existsSync(projectSessionFile)) {
       return {
         success: false,
-        error: '完整对话文件不存在。可能是旧版本 Claude Code 或会话文件已被删除。'
+        error: `完整对话文件不存在（sessionId: ${sessionId}）`
       }
     }
 
