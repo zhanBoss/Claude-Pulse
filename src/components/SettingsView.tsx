@@ -37,6 +37,7 @@ const { Text } = Typography
 interface SettingsViewProps {
   darkMode: boolean
   onThemeModeChange?: (themeMode: 'light' | 'dark' | 'system') => void
+  onRecentEditsEntryChange?: (show: boolean) => void
   claudeDir?: string
   scrollToSection?: string | null
   onScrollComplete?: () => void
@@ -45,6 +46,7 @@ interface SettingsViewProps {
 function SettingsView({
   darkMode,
   onThemeModeChange,
+  onRecentEditsEntryChange,
   claudeDir,
   scrollToSection,
   onScrollComplete
@@ -52,6 +54,7 @@ function SettingsView({
   const [settings, setSettings] = useState<AppSettings>({
     themeMode: 'system',
     autoStart: false,
+    showRecentEditsEntry: false,
     // AI 对话配置（简化版，只需三个字段）
     aiChat: {
       apiKey: '',
@@ -588,6 +591,30 @@ function SettingsView({
                     const newSettings = { ...settings, autoStart: checked }
                     setSettings(newSettings)
                     saveSettingsImmediately(newSettings)
+                  }}
+                />
+              </div>
+
+              <Divider style={{ margin: 0 }} />
+
+              {/* 最近编辑入口 */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div>
+                  <Text style={{ color: themeVars.text, fontSize: 13, fontWeight: 500 }}>
+                    显示最近编辑入口
+                  </Text>
+                  <Text type="secondary" style={{ fontSize: 12, marginLeft: 8 }}>
+                    在侧边栏显示“最近编辑”页面入口（默认关闭）
+                  </Text>
+                </div>
+                <Switch
+                  size="small"
+                  checked={settings.showRecentEditsEntry ?? false}
+                  onChange={checked => {
+                    const newSettings = { ...settings, showRecentEditsEntry: checked }
+                    setSettings(newSettings)
+                    saveSettingsImmediately(newSettings)
+                    onRecentEditsEntryChange?.(checked)
                   }}
                 />
               </div>

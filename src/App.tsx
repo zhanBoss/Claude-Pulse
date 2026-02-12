@@ -37,6 +37,7 @@ function App() {
   const [currentRoute, setCurrentRoute] = useState<Route>('realtime')
   const [darkMode, setDarkMode] = useState<boolean>(false)
   const [themeMode, setThemeMode] = useState<'light' | 'dark' | 'system'>('system')
+  const [showRecentEditsEntry, setShowRecentEditsEntry] = useState(false)
   const [scrollToSection, setScrollToSection] = useState<string | null>(null)
   const [chatInitialPrompt, setChatInitialPrompt] = useState<string | null>(null)
 
@@ -78,6 +79,7 @@ function App() {
     // 加载应用设置
     window.electronAPI.getAppSettings().then(settings => {
       setThemeMode(settings.themeMode)
+      setShowRecentEditsEntry(settings.showRecentEditsEntry ?? false)
     })
 
     // 只展示打开软件后的实时记录，不加载历史数据
@@ -87,6 +89,13 @@ function App() {
 
     return cleanup
   }, [])
+
+  // 当入口被隐藏时，避免仍停留在“最近编辑”页面
+  useEffect(() => {
+    if (!showRecentEditsEntry && currentRoute === 'recent-edits') {
+      setCurrentRoute('realtime')
+    }
+  }, [showRecentEditsEntry, currentRoute])
 
   // 检测中显示加载状态
   if (isCheckingClaude) {
@@ -231,6 +240,7 @@ function App() {
           <SettingsView
             darkMode={darkMode}
             onThemeModeChange={setThemeMode}
+            onRecentEditsEntryChange={setShowRecentEditsEntry}
             claudeDir={claudeDir}
             scrollToSection={scrollToSection}
             onScrollComplete={() => setScrollToSection(null)}
@@ -246,12 +256,21 @@ function App() {
   }
 
   const handleRouteChange = (route: string) => {
+    if (route === 'recent-edits' && !showRecentEditsEntry) {
+      setCurrentRoute('realtime')
+      return
+    }
     setCurrentRoute(route as Route)
   }
 
   return (
     <ConfigProvider theme={darkMode ? darkTheme : lightTheme} locale={zhCN}>
-      <MainLayout currentRoute={currentRoute} onRouteChange={handleRouteChange} darkMode={darkMode}>
+      <MainLayout
+        currentRoute={currentRoute}
+        onRouteChange={handleRouteChange}
+        darkMode={darkMode}
+        showRecentEditsEntry={showRecentEditsEntry}
+      >
         {renderContent()}
       </MainLayout>
 

@@ -418,6 +418,7 @@ ipcMain.handle('get-app-settings', async () => {
   const defaultSettings = {
     themeMode: 'system' as 'light' | 'dark' | 'system',
     autoStart: false,
+    showRecentEditsEntry: false,
     // AI 对话配置（简化版，只需三个字段）
     aiChat: {
       apiKey: '',
@@ -441,6 +442,10 @@ ipcMain.handle('get-app-settings', async () => {
 
   const themeMode = store.get('themeMode', defaultSettings.themeMode) as 'light' | 'dark' | 'system'
   const autoStart = store.get('autoStart', defaultSettings.autoStart) as boolean
+  const showRecentEditsEntry = store.get(
+    'showRecentEditsEntry',
+    defaultSettings.showRecentEditsEntry
+  ) as boolean
 
   // 数据迁移：从旧的 ai 配置迁移到新的 aiChat 和 aiSummary 配置
   const oldAi = store.get('ai', null) as any
@@ -501,7 +506,7 @@ ipcMain.handle('get-app-settings', async () => {
     showFloatingBall: true // 默认显示悬浮球
   }) as any
 
-  return { themeMode, autoStart, aiChat, aiSummary, autoCleanup }
+  return { themeMode, autoStart, showRecentEditsEntry, aiChat, aiSummary, autoCleanup }
 })
 
 // 保存应用设置
@@ -512,6 +517,7 @@ ipcMain.handle(
     settings: {
       themeMode: 'light' | 'dark' | 'system'
       autoStart: boolean
+      showRecentEditsEntry?: boolean
       aiChat: any
       aiSummary: any
       autoCleanup?: any
@@ -520,6 +526,7 @@ ipcMain.handle(
     try {
       store.set('themeMode', settings.themeMode)
       store.set('autoStart', settings.autoStart)
+      store.set('showRecentEditsEntry', settings.showRecentEditsEntry ?? false)
       if (settings.aiChat) {
         store.set('aiChat', settings.aiChat)
       }
@@ -3466,7 +3473,16 @@ ipcMain.handle(
         throw new Error(`API 请求失败: ${response.status}`)
       }
 
-      const data = await response.json()
+      const data = (await response.json()) as {
+        servers?: Array<{
+          server: Record<string, any>
+          _meta?: Record<string, any>
+        }>
+        metadata?: {
+          nextCursor?: string
+          count?: number
+        }
+      }
 
       // 解析服务器列表
       const servers = (data.servers || []).map(

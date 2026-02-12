@@ -14,7 +14,8 @@ import {
   Modal,
   List,
   Tooltip,
-  Switch
+  Switch,
+  Pagination
 } from 'antd'
 import {
   FileOutlined,
@@ -27,7 +28,10 @@ import {
   EyeOutlined,
   EditOutlined,
   RollbackOutlined,
-  SwapOutlined
+  SwapOutlined,
+  InfoCircleOutlined,
+  QuestionCircleOutlined,
+  AppstoreOutlined
 } from '@ant-design/icons'
 import { FileEditSnapshot } from '../types'
 import { getThemeVars } from '../theme'
@@ -60,6 +64,9 @@ const RecentEditsView = (props: RecentEditsViewProps) => {
   const [diffResult, setDiffResult] = useState<Change[]>([])
   const [diffLoading, setDiffLoading] = useState(false)
   const [previewWrap, setPreviewWrap] = useState(false)
+  const [guideExpanded, setGuideExpanded] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [pageSize, setPageSize] = useState(10)
 
   // 完整对话弹窗
   const [conversationModalVisible, setConversationModalVisible] = useState(false)
@@ -150,6 +157,36 @@ const RecentEditsView = (props: RecentEditsViewProps) => {
 
     return files
   }, [filteredEdits])
+
+  // 当前页数据
+  const paginatedFiles = useMemo(() => {
+    const startIndex = (currentPage - 1) * pageSize
+    return flattenedFiles.slice(startIndex, startIndex + pageSize)
+  }, [flattenedFiles, currentPage, pageSize])
+
+  const latestEditTime = useMemo(() => {
+    if (flattenedFiles.length === 0) return ''
+    const latest = flattenedFiles[0]
+    return dayjs(latest.timestamp).format('YYYY-MM-DD HH:mm:ss')
+  }, [flattenedFiles])
+
+  // 筛选条件变化时回到第一页
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchKeyword, selectedProject])
+
+  // 数据变化后，修正越界页码
+  useEffect(() => {
+    const maxPage = Math.max(1, Math.ceil(flattenedFiles.length / pageSize))
+    if (currentPage > maxPage) {
+      setCurrentPage(maxPage)
+    }
+  }, [flattenedFiles.length, pageSize, currentPage])
+
+  const totalSizeKb = useMemo(() => {
+    const total = flattenedFiles.reduce((sum, file) => sum + file.contentLength, 0)
+    return (total / 1024).toFixed(1)
+  }, [flattenedFiles])
 
   // 查看文件快照内容
   const handleViewSnapshot = async (sessionId: string, messageId: string, filePath: string) => {
@@ -332,14 +369,85 @@ const RecentEditsView = (props: RecentEditsViewProps) => {
         style={{
           flex: 1,
           overflow: 'auto',
-          padding: '16px 24px',
+          padding: '10px 16px',
           minHeight: 0
         }}
       >
-        <Space direction="vertical" size="middle" style={{ width: '100%' }}>
+        <Space direction="vertical" size="small" style={{ width: '100%' }}>
+          {/* 工作台顶部 */}
+          <Card
+            size="small"
+            style={{
+              borderColor: themeVars.borderSecondary,
+              background: themeVars.bgContainer
+            }}
+            styles={{ body: { padding: '10px 12px' } }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+              <div>
+                <Space size={8}>
+                  <InfoCircleOutlined style={{ color: themeVars.primary }} />
+                  <Text strong style={{ fontSize: 14 }}>最近编辑工作台</Text>
+                </Space>
+                <Text type="secondary" style={{ fontSize: 12, marginTop: 2, display: 'block' }}>
+                  按文件回看对话改动，快速定位变化并支持安全恢复。
+                </Text>
+              </div>
+              <div>
+                <Button
+                  type={guideExpanded ? 'primary' : 'default'}
+                  size="small"
+                  icon={<QuestionCircleOutlined />}
+                  onClick={() => setGuideExpanded(prev => !prev)}
+                >
+                  {guideExpanded ? '收起指南' : '使用指南'}
+                </Button>
+              </div>
+            </div>
+
+            <Space wrap size={6} style={{ marginTop: 8 }}>
+              <Tag icon={<AppstoreOutlined />} color="#D97757" style={{ marginInlineEnd: 0 }}>
+                文件 {flattenedFiles.length}
+              </Tag>
+              <Tag icon={<FolderOutlined />} color="default" style={{ marginInlineEnd: 0 }}>
+                项目 {projects.length}
+              </Tag>
+              <Tag color="default" style={{ marginInlineEnd: 0 }}>
+                体积 {totalSizeKb} KB
+              </Tag>
+              {latestEditTime && (
+                <Tag icon={<ClockCircleOutlined />} color="processing" style={{ marginInlineEnd: 0 }}>
+                  更新 {latestEditTime}
+                </Tag>
+              )}
+            </Space>
+
+            {guideExpanded && (
+              <div
+                style={{
+                  marginTop: 10,
+                  background: themeVars.bgSection,
+                  border: `1px solid ${themeVars.borderSecondary}`,
+                  borderRadius: 8,
+                  padding: '10px 12px'
+                }}
+              >
+                <Space direction="vertical" size={2}>
+                  <Text type="secondary" style={{ fontSize: 12 }}>1. 先按项目筛选，或输入关键字快速定位文件</Text>
+                  <Text type="secondary" style={{ fontSize: 12 }}>2. 点开快照后使用“对比差异”确认变更内容</Text>
+                  <Text type="secondary" style={{ fontSize: 12 }}>3. 需要回滚时点击“恢复文件”，系统会先自动备份当前文件</Text>
+                </Space>
+              </div>
+            )}
+          </Card>
+
           {/* 过滤器 */}
-          <Card size="small" styles={{ body: { padding: 12 } }}>
-            <Space direction="vertical" size="small" style={{ width: '100%' }}>
+          <Card
+            size="small"
+            style={{ borderColor: themeVars.borderSecondary }}
+            styles={{ body: { padding: '8px 10px' } }}
+          >
+            <Space direction="vertical" size={6} style={{ width: '100%' }}>
               {/* 搜索 */}
               <Input
                 placeholder="搜索文件路径或项目名称..."
@@ -359,6 +467,14 @@ const RecentEditsView = (props: RecentEditsViewProps) => {
               />
 
               {/* 项目筛选 */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Text type="secondary" style={{ fontSize: 11 }}>项目筛选</Text>
+                {selectedProject && (
+                  <Button size="small" type="link" onClick={() => setSelectedProject(null)} style={{ padding: 0 }}>
+                    清除筛选
+                  </Button>
+                )}
+              </div>
               <Space wrap size={4}>
                 <Button
                   type={!selectedProject ? 'primary' : 'default'}
@@ -388,100 +504,148 @@ const RecentEditsView = (props: RecentEditsViewProps) => {
               style={{ padding: 60 }}
             />
           ) : (
-            <List
-              dataSource={flattenedFiles}
-              renderItem={file => {
-                const ext = getFileExtension(file.filePath)
-                const fileName = getFileName(file.filePath)
-                return (
-                  <List.Item style={{ padding: '8px 0' }}>
-                    <Card
-                      hoverable
-                      size="small"
-                      style={{ width: '100%' }}
-                      onClick={() =>
-                        handleViewSnapshot(file.sessionId, file.messageId, file.filePath)
-                      }
-                    >
+            <>
+              <List
+                dataSource={paginatedFiles}
+                style={{ background: themeVars.bgContainer, border: `1px solid ${themeVars.borderSecondary}`, borderRadius: 8, paddingInline: 8 }}
+                renderItem={file => {
+                  const ext = getFileExtension(file.filePath)
+                  const fileName = getFileName(file.filePath)
+                  return (
+                    <List.Item style={{ padding: 0, borderBottom: `1px solid ${themeVars.borderSecondary}` }}>
                       <div
+                        role="button"
+                        tabIndex={0}
                         style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'flex-start'
+                          width: '100%',
+                          padding: '7px 4px',
+                          cursor: 'pointer',
+                          background: themeVars.bgContainer,
+                          transition: 'background 0.15s ease'
+                        }}
+                        onClick={() => handleViewSnapshot(file.sessionId, file.messageId, file.filePath)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault()
+                            handleViewSnapshot(file.sessionId, file.messageId, file.filePath)
+                          }
+                        }}
+                        onMouseEnter={e => {
+                          e.currentTarget.style.background = themeVars.hoverBg
+                        }}
+                        onMouseLeave={e => {
+                          e.currentTarget.style.background = themeVars.bgContainer
                         }}
                       >
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <Space size={8} style={{ marginBottom: 4 }}>
-                            <FileOutlined style={{ color: themeVars.primary }} />
-                            <Text strong style={{ fontSize: 13 }}>
-                              {fileName}
-                            </Text>
-                            {ext && (
-                              <Tag color={getExtColor(ext)} style={{ fontSize: 10 }}>
-                                .{ext}
-                              </Tag>
-                            )}
-                            <Text type="secondary" style={{ fontSize: 11 }}>
-                              {(file.contentLength / 1024).toFixed(1)} KB
-                            </Text>
-                          </Space>
-                          <div>
-                            <Text
-                              code
-                              style={{
-                                fontSize: 11,
-                                color: themeVars.textSecondary,
-                                wordBreak: 'break-all'
-                              }}
-                            >
-                              {file.filePath}
-                            </Text>
-                          </div>
-                          <div style={{ marginTop: 4 }}>
-                            <Space size={12}>
-                              <Text type="secondary" style={{ fontSize: 11 }}>
-                                <ClockCircleOutlined style={{ marginRight: 4 }} />
-                                {dayjs(file.timestamp).format('YYYY-MM-DD HH:mm:ss')}
+                        <div
+                          style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            gap: 10
+                          }}
+                        >
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <Space size={6} style={{ marginBottom: 1 }}>
+                              <FileOutlined style={{ color: themeVars.primary }} />
+                              <Text strong style={{ fontSize: 12, maxWidth: 320 }} ellipsis={{ tooltip: fileName }}>
+                                {fileName}
                               </Text>
-                              <Text type="secondary" style={{ fontSize: 11 }}>
-                                <FolderOutlined style={{ marginRight: 4 }} />
+                              {ext && (
+                                <Tag color={getExtColor(ext)} style={{ fontSize: 10, marginInlineEnd: 0, lineHeight: '16px', paddingInline: 5 }}>
+                                  .{ext}
+                                </Tag>
+                              )}
+                              <Tag color="default" style={{ fontSize: 10, marginInlineEnd: 0, lineHeight: '16px', paddingInline: 5 }}>
+                                {(file.contentLength / 1024).toFixed(1)} KB
+                              </Tag>
+                            </Space>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                              <div
+                                style={{
+                                  fontSize: 10,
+                                  color: themeVars.textSecondary,
+                                  fontFamily: 'monospace',
+                                  borderRadius: 6,
+                                  padding: '1px 0',
+                                  whiteSpace: 'nowrap',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  flex: 1
+                                }}
+                                title={file.filePath}
+                              >
+                                {file.filePath}
+                              </div>
+                              <Text type="secondary" style={{ fontSize: 10, whiteSpace: 'nowrap' }}>
+                                <ClockCircleOutlined style={{ marginRight: 3 }} />
+                                {dayjs(file.timestamp).format('MM-DD HH:mm:ss')}
+                              </Text>
+                              <Text type="secondary" style={{ fontSize: 10, whiteSpace: 'nowrap' }}>
+                                <FolderOutlined style={{ marginRight: 3 }} />
                                 {getProjectName(file.project)}
                               </Text>
-                            </Space>
+                            </div>
+                          </div>
+                          <div
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 4,
+                              padding: 2,
+                              borderRadius: 8,
+                              height: 'fit-content'
+                            }}
+                          >
+                            <Tooltip title="查看快照">
+                              <Button
+                                type="text"
+                                size="small"
+                                icon={<EyeOutlined />}
+                                onClick={e => {
+                                  e.stopPropagation()
+                                  handleViewSnapshot(file.sessionId, file.messageId, file.filePath)
+                                }}
+                              />
+                            </Tooltip>
+                            <Tooltip title="相关会话">
+                              <Button
+                                type="text"
+                                size="small"
+                                icon={<FileOutlined />}
+                                onClick={e => {
+                                  e.stopPropagation()
+                                  setConversationSessionId(file.sessionId)
+                                  setConversationProject(file.project)
+                                  setConversationModalVisible(true)
+                                }}
+                              />
+                            </Tooltip>
                           </div>
                         </div>
-                        <Space direction="vertical" size={0}>
-                          <Tooltip title="查看快照内容">
-                            <Button
-                              type="text"
-                              size="small"
-                              icon={<EyeOutlined />}
-                              onClick={e => {
-                                e.stopPropagation()
-                                handleViewSnapshot(file.sessionId, file.messageId, file.filePath)
-                              }}
-                            />
-                          </Tooltip>
-                          <Tooltip title="查看相关会话">
-                            <Button
-                              type="text"
-                              size="small"
-                              icon={<FileOutlined />}
-                              onClick={e => {
-                                e.stopPropagation()
-                                setConversationSessionId(file.sessionId)
-                                setConversationProject(file.project)
-                                setConversationModalVisible(true)
-                              }}
-                            />
-                          </Tooltip>
-                        </Space>
                       </div>
-                    </Card>
-                  </List.Item>
-                )
-              }}
-            />
+                    </List.Item>
+                  )
+                }}
+              />
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
+                <Pagination
+                  current={currentPage}
+                  pageSize={pageSize}
+                  total={flattenedFiles.length}
+                  size="small"
+                  showSizeChanger
+                  pageSizeOptions={['10', '20', '50', '100']}
+                  showTotal={total => `共 ${total} 条`}
+                  onChange={(page, size) => {
+                    setCurrentPage(page)
+                    if (size !== pageSize) {
+                      setPageSize(size)
+                    }
+                  }}
+                />
+              </div>
+            </>
           )}
         </Space>
       </div>

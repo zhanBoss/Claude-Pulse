@@ -47,6 +47,12 @@ const toolbarIconStyle: React.CSSProperties = {
   padding: 4
 }
 
+/* 预览工具栏 Tooltip 层级，避免被毛玻璃操作条遮挡 */
+const previewToolbarTooltipProps = {
+  getPopupContainer: () => document.body,
+  zIndex: 10000
+}
+
 /**
  * 工具栏图标 hover 处理
  */
@@ -99,7 +105,7 @@ export const getCopyablePreviewConfig = (darkMode?: boolean) => {
           }}
         >
           {builtinItems.map((item, i) => (
-            <Tooltip key={i} title={item.title}>
+            <Tooltip key={i} title={item.title} {...previewToolbarTooltipProps}>
               <span
                 onClick={item.action}
                 style={toolbarIconStyle}
@@ -112,7 +118,7 @@ export const getCopyablePreviewConfig = (darkMode?: boolean) => {
           ))}
 
           {/* 复制图片 */}
-          <Tooltip title="复制图片">
+          <Tooltip title="复制图片" {...previewToolbarTooltipProps}>
             <span
               onClick={() => {
                 const imageUrl = info.image?.url || info.image?.src || ''

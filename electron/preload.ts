@@ -64,7 +64,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
   // 应用设置
   getAppSettings: () => ipcRenderer.invoke('get-app-settings'),
-  saveAppSettings: (settings: { darkMode: boolean; autoStart: boolean }) =>
+  saveAppSettings: (settings: {
+    themeMode: 'light' | 'dark' | 'system'
+    autoStart: boolean
+    aiChat?: any
+    aiSummary?: any
+    autoCleanup?: any
+    showRecentEditsEntry?: boolean
+  }) =>
     ipcRenderer.invoke('save-app-settings', settings),
 
   // Token 价格配置

@@ -16,6 +16,7 @@ interface SidebarProps {
   currentRoute: string
   onNavigate: (route: string) => void
   darkMode: boolean
+  showRecentEditsEntry?: boolean
   /** 是否在 Drawer 中渲染（移动端），不需要 macOS 安全区处理 */
   inDrawer?: boolean
 }
@@ -24,7 +25,7 @@ interface SidebarProps {
 const TRAFFIC_LIGHT_HEIGHT = 38
 
 const Sidebar = (props: SidebarProps) => {
-  const { currentRoute, onNavigate, darkMode, inDrawer = false } = props
+  const { currentRoute, onNavigate, darkMode, showRecentEditsEntry = false, inDrawer = false } = props
   const themeVars = getThemeVars(darkMode)
 
   const menuItems = [
@@ -44,11 +45,6 @@ const Sidebar = (props: SidebarProps) => {
       label: '使用统计'
     },
     {
-      key: 'recent-edits',
-      icon: <EditOutlined />,
-      label: '最近编辑'
-    },
-    {
       key: 'prompts',
       icon: <StarOutlined />,
       label: '常用Prompt'
@@ -58,6 +54,15 @@ const Sidebar = (props: SidebarProps) => {
       icon: <CommentOutlined />,
       label: 'AI 助手'
     },
+    ...(showRecentEditsEntry
+      ? [
+          {
+            key: 'recent-edits',
+            icon: <EditOutlined />,
+            label: '最近编辑'
+          }
+        ]
+      : []),
     {
       key: 'settings',
       icon: <SettingOutlined />,

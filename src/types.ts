@@ -215,6 +215,8 @@ export interface AutoCleanupConfig {
 export interface AppSettings {
   themeMode: 'light' | 'dark' | 'system'
   autoStart: boolean
+  // 是否在侧边栏显示“最近编辑”入口（默认隐藏）
+  showRecentEditsEntry?: boolean
   // AI 对话配置（用于 ChatView，无需 enabled）
   aiChat: AIChatSettings
   // AI 总结配置（用于 Summary 功能，包含 enabled 和格式化）
