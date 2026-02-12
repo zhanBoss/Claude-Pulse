@@ -362,7 +362,7 @@ const SYSTEM_PROMPTS = {
   'claude-code-expert': {
     name: 'Claude Code 专家',
     prompt: `你是 Claude Code 使用专家。可以回答关于 Claude Code 的配置、使用技巧、最佳实践等问题。
-当前用户正在使用 CCMonitor 监控 Claude Code 的对话历史。`
+当前用户正在使用 ClaudePulse 监控 Claude Code 的对话历史。`
   },
   general: {
     name: '通用助手',

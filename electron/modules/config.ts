@@ -180,8 +180,6 @@ export const registerConfigHandlers = (ctx: ModuleContext) => {
     let aiSummary = store.get('aiSummary', null) as any
 
     if (oldAi && (!aiChat || !aiSummary)) {
-      console.log('[数据迁移] 检测到旧的 AI 配置，开始迁移...')
-
       if (!aiChat) {
         const oldProvider = oldAi.provider || 'deepseek'
         const oldProviderConfig = oldAi.providers?.[oldProvider] || {}
@@ -203,7 +201,6 @@ export const registerConfigHandlers = (ctx: ModuleContext) => {
       }
 
       store.delete('ai')
-      console.log('[数据迁移] 迁移完成，已删除旧配置')
     }
 
     if (!aiChat) {

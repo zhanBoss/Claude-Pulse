@@ -1,6 +1,6 @@
 #!/bin/bash
 
-echo "🚀 启动 Claude Code Monitor..."
+echo "🚀 启动 ClaudePulse..."
 echo ""
 echo "提示："
 echo "- 应用会自动检测 Claude Code 安装状态"

@@ -15,7 +15,7 @@ const yellow = '\x1b[33m'
 const blue = '\x1b[34m'
 const reset = '\x1b[0m'
 
-console.log(`\n${blue}🔍 CCMonitor 环境验证${reset}\n`)
+console.log(`\n${blue}🔍 ClaudePulse 环境验证${reset}\n`)
 console.log('='.repeat(60))
 
 const checks = []

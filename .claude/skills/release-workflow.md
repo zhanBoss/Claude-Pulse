@@ -123,7 +123,7 @@ npm run dist
 
 ### 步骤 5: 创建 GitHub Release
 
-1. 访问 https://github.com/zhanBoss/Claude-Code-Monitor/releases/new
+1. 访问 https://github.com/zhanBoss/Claude-Pulse/releases/new
 2. 选择刚创建的标签
 3. 设置 Release 标题：`v{版本号}`
 4. 复制 `RELEASE_NOTES_v{版本号}.md` 的内容到描述框

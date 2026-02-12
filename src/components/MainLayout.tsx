@@ -119,7 +119,7 @@ const MainLayout = (props: MainLayoutProps) => {
                 color: themeVars.primary
               }}
             >
-              CCMonitor
+              ClaudePulse
             </span>
           </div>
         )}

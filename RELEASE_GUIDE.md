@@ -1,4 +1,4 @@
-# 📦 CCMonitor 发布完整指南
+# 📦 ClaudePulse 发布完整指南
 
 > **适用人群**: GitHub 新手、第一次发布应用的开发者
 > **目标**: 从本地代码到 GitHub Release 的完整流程，保证一次成功
@@ -74,7 +74,7 @@ git config --global user.email "你的邮箱"
 
 ```bash
 # 进入项目目录
-cd /path/to/claude-code-monitor
+cd /path/to/claude-pulse
 
 # 安装项目依赖
 pnpm install
@@ -97,7 +97,7 @@ pnpm run dev  # 启动开发服务器测试
 1. 访问 https://github.com/settings/tokens
 2. 点击 "Generate new token" → "Generate new token (classic)"
 3. 设置 Token 信息:
-   - **Note**: `CCMonitor Release Token`
+   - **Note**: `ClaudePulse Release Token`
    - **Expiration**: 选择过期时间 (建议 90 days)
    - **Select scopes**: 勾选 `repo` (完整权限)
 4. 点击 "Generate token"
@@ -140,7 +140,7 @@ gh auth status
 echo $GH_TOKEN
 
 # 验证可以访问仓库
-gh repo view zhanBoss/Claude-Code-Monitor
+gh repo view zhanBoss/Claude-Pulse
 ```
 
 ---
@@ -282,18 +282,18 @@ pnpm run build:prod
 # 等待构建完成 (大约 1-2 分钟)
 # 构建成功后会显示:
 # ✓ built in XXs
-# • building target=DMG arch=arm64 file=release/CCMonitor-1.8.0-arm64.dmg
+# • building target=DMG arch=arm64 file=release/ClaudePulse-1.8.0-arm64.dmg
 ```
 
 **构建产物位置**:
 
 ```
 release/
-├── CCMonitor-1.8.0-arm64.dmg          # macOS 安装镜像 (95MB)
-├── CCMonitor-1.8.0-arm64-mac.zip      # macOS ZIP 包 (91MB)
+├── ClaudePulse-1.8.0-arm64.dmg          # macOS 安装镜像 (95MB)
+├── ClaudePulse-1.8.0-arm64-mac.zip      # macOS ZIP 包 (91MB)
 ├── latest-mac.yml                      # 自动更新配置
 └── mac-arm64/
-    └── CCMonitor.app                   # macOS 应用
+    └── ClaudePulse.app                   # macOS 应用
 ```
 
 ### 步骤 4: 创建 GitHub Release
@@ -303,8 +303,8 @@ release/
 ```bash
 # 1. 创建 Release 并上传文件
 gh release create v1.8.0 \
-  --repo zhanBoss/Claude-Code-Monitor \
-  --title "CCMonitor v1.8.0" \
+  --repo zhanBoss/Claude-Pulse \
+  --title "ClaudePulse v1.8.0" \
   --notes "## v1.8.0 更新日志
 
 ### ✨ 新功能
@@ -320,18 +320,18 @@ gh release create v1.8.0 \
 - 解决了 DDD 崩溃
 
 ### 📦 下载
-- macOS (Apple Silicon): CCMonitor-1.8.0-arm64.dmg
-- macOS (ZIP): CCMonitor-1.8.0-arm64-mac.zip
+- macOS (Apple Silicon): ClaudePulse-1.8.0-arm64.dmg
+- macOS (ZIP): ClaudePulse-1.8.0-arm64-mac.zip
 
 ---
 
-完整更新日志: https://github.com/zhanBoss/Claude-Code-Monitor/blob/main/CHANGELOG.md" \
-  release/CCMonitor-1.8.0-arm64.dmg \
-  release/CCMonitor-1.8.0-arm64-mac.zip \
+完整更新日志: https://github.com/zhanBoss/Claude-Pulse/blob/main/CHANGELOG.md" \
+  release/ClaudePulse-1.8.0-arm64.dmg \
+  release/ClaudePulse-1.8.0-arm64-mac.zip \
   release/latest-mac.yml
 
 # 2. 验证 Release 创建成功
-gh release view v1.8.0 --repo zhanBoss/Claude-Code-Monitor
+gh release view v1.8.0 --repo zhanBoss/Claude-Pulse
 ```
 
 #### 方法 2: 手动在网页创建 (备选)
@@ -341,18 +341,18 @@ gh release view v1.8.0 --repo zhanBoss/Claude-Code-Monitor
 1. **访问 Release 页面**:
 
    ```
-   https://github.com/zhanBoss/Claude-Code-Monitor/releases/new
+   https://github.com/zhanBoss/Claude-Pulse/releases/new
    ```
 
 2. **填写 Release 信息**:
    - **Choose a tag**: 选择 `v1.8.0` (刚才推送的标签)
-   - **Release title**: `CCMonitor v1.8.0`
+   - **Release title**: `ClaudePulse v1.8.0`
    - **Describe this release**: 复制更新日志内容
 
 3. **上传文件**:
    - 拖拽或点击上传以下文件:
-     - `release/CCMonitor-1.8.0-arm64.dmg`
-     - `release/CCMonitor-1.8.0-arm64-mac.zip`
+     - `release/ClaudePulse-1.8.0-arm64.dmg`
+     - `release/ClaudePulse-1.8.0-arm64-mac.zip`
      - `release/latest-mac.yml`
 
 4. **发布**:
@@ -366,14 +366,14 @@ gh release view v1.8.0 --repo zhanBoss/Claude-Code-Monitor
 ```bash
 # 上传新的构建文件 (会覆盖同名文件)
 gh release upload v1.8.0 \
-  --repo zhanBoss/Claude-Code-Monitor \
+  --repo zhanBoss/Claude-Pulse \
   --clobber \
-  release/CCMonitor-1.8.0-arm64.dmg \
-  release/CCMonitor-1.8.0-arm64-mac.zip \
+  release/ClaudePulse-1.8.0-arm64.dmg \
+  release/ClaudePulse-1.8.0-arm64-mac.zip \
   release/latest-mac.yml
 
 # 验证上传成功
-gh release view v1.8.0 --repo zhanBoss/Claude-Code-Monitor
+gh release view v1.8.0 --repo zhanBoss/Claude-Pulse
 ```
 
 **`--clobber` 参数说明**:
@@ -385,13 +385,13 @@ gh release view v1.8.0 --repo zhanBoss/Claude-Code-Monitor
 
 ```bash
 # 1. 查看所有 Release
-gh release list --repo zhanBoss/Claude-Code-Monitor
+gh release list --repo zhanBoss/Claude-Pulse
 
 # 2. 查看最新 Release 详情
-gh release view v1.8.0 --repo zhanBoss/Claude-Code-Monitor
+gh release view v1.8.0 --repo zhanBoss/Claude-Pulse
 
 # 3. 在浏览器中打开 Release 页面
-gh release view v1.8.0 --repo zhanBoss/Claude-Code-Monitor --web
+gh release view v1.8.0 --repo zhanBoss/Claude-Pulse --web
 ```
 
 **验证清单**:
@@ -544,16 +544,16 @@ release already exists
 ```bash
 # 只上传新文件,不创建新 Release
 gh release upload v1.8.0 \
-  --repo zhanBoss/Claude-Code-Monitor \
+  --repo zhanBoss/Claude-Pulse \
   --clobber \
-  release/CCMonitor-1.8.0-arm64.dmg
+  release/ClaudePulse-1.8.0-arm64.dmg
 ```
 
 **方法 2: 删除并重新创建**
 
 ```bash
 # 删除 Release (保留标签)
-gh release delete v1.8.0 --repo zhanBoss/Claude-Code-Monitor --yes
+gh release delete v1.8.0 --repo zhanBoss/Claude-Pulse --yes
 
 # 重新创建
 gh release create v1.8.0 ...
@@ -586,7 +586,7 @@ gh auth login
 **错误信息**:
 
 ```
-file not found: release/CCMonitor-1.8.0-arm64.dmg
+file not found: release/ClaudePulse-1.8.0-arm64.dmg
 ```
 
 **原因**: 构建失败或版本号不匹配
@@ -627,8 +627,8 @@ pnpm run build:prod
 - [ ] 旧构建产物已清理 (`pnpm run clear:build`)
 - [ ] 生产版本构建成功 (`pnpm run build:prod`)
 - [ ] 构建产物存在:
-  - [ ] `release/CCMonitor-{version}-arm64.dmg`
-  - [ ] `release/CCMonitor-{version}-arm64-mac.zip`
+  - [ ] `release/ClaudePulse-{version}-arm64.dmg`
+  - [ ] `release/ClaudePulse-{version}-arm64-mac.zip`
   - [ ] `release/latest-mac.yml`
 - [ ] 文件大小正常 (dmg ~95MB, zip ~91MB)
 
@@ -670,7 +670,7 @@ NC='\033[0m' # No Color
 # 读取版本号
 VERSION=$(node -p "require('./package.json').version")
 
-echo -e "${GREEN}🚀 开始发布 CCMonitor v${VERSION}${NC}"
+echo -e "${GREEN}🚀 开始发布 ClaudePulse v${VERSION}${NC}"
 
 # 1. 检查工作区是否干净
 if [[ -n $(git status -s) ]]; then
@@ -699,15 +699,15 @@ pnpm run build:prod
 # 5. 创建 Release
 echo -e "${GREEN}📦 创建 GitHub Release${NC}"
 gh release create "v${VERSION}" \
-  --repo zhanBoss/Claude-Code-Monitor \
-  --title "CCMonitor v${VERSION}" \
+  --repo zhanBoss/Claude-Pulse \
+  --title "ClaudePulse v${VERSION}" \
   --notes-file CHANGELOG.md \
-  release/CCMonitor-${VERSION}-arm64.dmg \
-  release/CCMonitor-${VERSION}-arm64-mac.zip \
+  release/ClaudePulse-${VERSION}-arm64.dmg \
+  release/ClaudePulse-${VERSION}-arm64-mac.zip \
   release/latest-mac.yml
 
 echo -e "${GREEN}✅ 发布成功!${NC}"
-echo -e "${GREEN}🔗 查看 Release: https://github.com/zhanBoss/Claude-Code-Monitor/releases/tag/v${VERSION}${NC}"
+echo -e "${GREEN}🔗 查看 Release: https://github.com/zhanBoss/Claude-Pulse/releases/tag/v${VERSION}${NC}"
 ```
 
 **使用方法**:
@@ -755,11 +755,11 @@ pnpm run dev
 
 # 2. 构建测试
 pnpm run build:dev
-# 安装并测试 debug/CCMonitor-Dev-{version}-arm64.dmg
+# 安装并测试 debug/ClaudePulse-Dev-{version}-arm64.dmg
 
 # 3. 生产构建测试
 pnpm run build:prod
-# 安装并测试 release/CCMonitor-{version}-arm64.dmg
+# 安装并测试 release/ClaudePulse-{version}-arm64.dmg
 ```
 
 ### 4. 发布后监控
@@ -774,7 +774,7 @@ pnpm run build:prod
 
 ```bash
 # 1. 标记 Release 为 Pre-release
-gh release edit v1.8.0 --repo zhanBoss/Claude-Code-Monitor --prerelease
+gh release edit v1.8.0 --repo zhanBoss/Claude-Pulse --prerelease
 
 # 2. 快速修复并发布补丁版本
 # 修改代码...
@@ -783,7 +783,7 @@ pnpm run build:prod
 gh release create v1.8.1 ...
 
 # 3. 删除有问题的 Release (可选)
-gh release delete v1.8.0 --repo zhanBoss/Claude-Code-Monitor --yes
+gh release delete v1.8.0 --repo zhanBoss/Claude-Pulse --yes
 ```
 
 ---
@@ -802,7 +802,7 @@ gh release delete v1.8.0 --repo zhanBoss/Claude-Code-Monitor --yes
 如果遇到问题:
 
 1. **查看本文档的常见问题部分**
-2. **搜索 GitHub Issues**: https://github.com/zhanBoss/Claude-Code-Monitor/issues
+2. **搜索 GitHub Issues**: https://github.com/zhanBoss/Claude-Pulse/issues
 3. **创建新 Issue**: 描述问题、错误信息、操作步骤
 4. **联系维护者**: 在 Issue 中 @zhanBoss
 

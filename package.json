@@ -1,5 +1,5 @@
 {
-  "name": "ccmonitor",
+  "name": "claude-pulse",
   "version": "1.7.0",
   "description": "Claude Code 配置管理和对话记录监控工具",
   "main": "dist-electron/main.js",
@@ -35,7 +35,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/mac033/claude-code-monitor.git"
+    "url": "https://github.com/mac033/claude-pulse.git"
   },
   "devDependencies": {
     "@types/diff": "^8.0.0",
@@ -96,8 +96,8 @@
     "sortablejs": "^1.15.6"
   },
   "build": {
-    "appId": "com.ccmonitor.app",
-    "productName": "CCMonitor",
+    "appId": "com.claudepulse.app",
+    "productName": "ClaudePulse",
     "mac": {
       "category": "public.app-category.developer-tools",
       "target": [
@@ -139,7 +139,7 @@
     "publish": {
       "provider": "github",
       "owner": "zhanBoss",
-      "repo": "Claude-Code-Monitor"
+      "repo": "Claude-Pulse"
     }
   }
 }

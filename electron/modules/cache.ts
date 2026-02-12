@@ -113,10 +113,6 @@ export const setupAutoCleanupTimer = (ctx: ModuleContext) => {
       store.set('autoCleanup.lastCleanupTime', Date.now())
       store.set('autoCleanup.nextCleanupTime', newNextCleanupTime)
 
-      console.log(
-        `[自动清理] 完成，删除了 ${deletedCount} 条记录，下次清理时间: ${new Date(newNextCleanupTime).toLocaleString()}`
-      )
-
       const mainWindow = getMainWindow()
       if (mainWindow && !mainWindow.isDestroyed()) {
         mainWindow.webContents.send('auto-cleanup-executed', {
@@ -180,9 +176,6 @@ export const setupAutoCleanupTimer = (ctx: ModuleContext) => {
     }
   }, 1000)
 
-  console.log(
-    `[自动清理] 定时器已启动，间隔: ${autoCleanup.intervalMs}ms，保留: ${autoCleanup.retainMs}ms，下次执行: ${new Date(nextCleanupTime).toLocaleString()}`
-  )
 }
 
 /**
@@ -282,8 +275,6 @@ export const registerCacheHandlers = (ctx: ModuleContext) => {
       const newNextCleanupTime = Date.now() + config.intervalMs
       store.set('autoCleanup.lastCleanupTime', Date.now())
       store.set('autoCleanup.nextCleanupTime', newNextCleanupTime)
-
-      console.log(`[手动清理] 完成，删除了 ${deletedCount} 条记录`)
 
       // 重新启动定时器
       setupAutoCleanupTimer(ctx)

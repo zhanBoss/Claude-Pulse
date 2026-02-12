@@ -1,4 +1,4 @@
-# CCMonitor
+# ClaudePulse
 
 <div align="center">
 
@@ -7,8 +7,8 @@
 一个功能强大的桌面应用，帮助开发者管理 Claude Code 配置、监控对话历史，并提供智能摘要功能。
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey.svg)](https://github.com/zhanBoss/Claude-Code-Monitor/releases)
-[![Version](https://img.shields.io/badge/version-1.7.0-green.svg)](https://github.com/zhanBoss/Claude-Code-Monitor/releases)
+[![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey.svg)](https://github.com/zhanBoss/Claude-Pulse/releases)
+[![Version](https://img.shields.io/badge/version-1.7.0-green.svg)](https://github.com/zhanBoss/Claude-Pulse/releases)
 
 [English](README.md) | [中文文档](README_zh.md)
 
@@ -109,26 +109,26 @@
 
 ### macOS
 
-从 [Releases](https://github.com/zhanBoss/Claude-Code-Monitor/releases) 下载最新版本的 DMG 文件。
+从 [Releases](https://github.com/zhanBoss/Claude-Pulse/releases) 下载最新版本的 DMG 文件。
 
 **重要提示**：由于应用未经过 Apple 公证，首次打开时可能会提示"已损坏"。请按以下步骤操作：
 
 #### 方法 1：使用终端命令（推荐）
 
 ```bash
-# 下载并安装 CCMonitor-x.x.x-arm64.dmg 后，执行：
-xattr -cr /Applications/CCMonitor.app
+# 下载并安装 ClaudePulse-x.x.x-arm64.dmg 后，执行：
+xattr -cr /Applications/ClaudePulse.app
 ```
 
 #### 方法 2：系统设置允许
 
 1. 尝试打开应用，点击"取消"
 2. 打开"系统设置" → "隐私与安全性"
-3. 找到关于 CCMonitor 的提示，点击"仍要打开"
+3. 找到关于 ClaudePulse 的提示，点击"仍要打开"
 
 ### Windows & Linux
 
-从 [Releases](https://github.com/zhanBoss/Claude-Code-Monitor/releases) 下载对应平台的安装包。
+从 [Releases](https://github.com/zhanBoss/Claude-Pulse/releases) 下载对应平台的安装包。
 
 ## 🚀 开发
 
@@ -167,7 +167,7 @@ pnpm run clear:build
 ### 项目结构
 
 ```
-claude-code-monitor/
+claude-pulse/
 ├── electron/              # Electron 主进程和预加载脚本
 │   ├── main.ts           # 主进程入口
 │   └── preload.ts        # 预加载脚本
@@ -303,7 +303,7 @@ claude-code-monitor/
 ## 📧 联系方式
 
 - GitHub: [@zhanBoss](https://github.com/zhanBoss)
-- 问题反馈: [GitHub Issues](https://github.com/zhanBoss/Claude-Code-Monitor/issues)
+- 问题反馈: [GitHub Issues](https://github.com/zhanBoss/Claude-Pulse/issues)
 
 ---
 

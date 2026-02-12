@@ -80,7 +80,7 @@ function AboutView({ darkMode }: AboutViewProps) {
                     <InfoCircleOutlined style={{ fontSize: 40, color: themeVars.bgContainer }} />
                   </div>
                   <Text strong style={{ fontSize: 24, display: 'block', marginBottom: 8 }}>
-                    Claude Code Monitor
+                    ClaudePulse
                   </Text>
                   <Text type="secondary" style={{ fontSize: 14 }}>
                     实时监控 Claude Code 对话历史的开源工具
@@ -151,7 +151,7 @@ function AboutView({ darkMode }: AboutViewProps) {
                   <Button
                     type="primary"
                     icon={<GithubOutlined />}
-                    href="https://github.com/zhanBoss/Claude-Code-Monitor"
+                    href="https://github.com/zhanBoss/Claude-Pulse"
                     target="_blank"
                     size="large"
                   >
@@ -211,7 +211,7 @@ function AboutView({ darkMode }: AboutViewProps) {
                 <div>
                   <Text type="secondary">问题反馈: </Text>
                   <Link
-                    href="https://github.com/zhanBoss/Claude-Code-Monitor/issues"
+                    href="https://github.com/zhanBoss/Claude-Pulse/issues"
                     target="_blank"
                   >
                     GitHub Issues

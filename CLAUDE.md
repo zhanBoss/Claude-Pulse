@@ -98,7 +98,7 @@
 
 ## 项目概述
 
-CCMonitor 是一个基于 Electron 的桌面应用程序，用于监控和管理 Claude Code 的配置和对话历史。它提供实时监控 Claude Code 的 `history.jsonl` 文件、配置管理和 AI 驱动的对话摘要功能。
+ClaudePulse 是一个基于 Electron 的桌面应用程序，用于监控和管理 Claude Code 的配置和对话历史。它提供实时监控 Claude Code 的 `history.jsonl` 文件、配置管理和 AI 驱动的对话摘要功能。
 
 ## 技术栈
 

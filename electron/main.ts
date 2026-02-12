@@ -144,7 +144,6 @@ async function extractImagesFromProjects(
   try {
     // 参数验证
     if (!project || project.trim() === '') {
-      console.log('[Image Extract] Project 路径为空，跳过图片提取')
       return images
     }
 
@@ -167,8 +166,6 @@ async function extractImagesFromProjects(
       return images
     }
 
-    console.log(`[Image Extract] 记录中需要 ${imageNumbers.length} 张图片:`, imageNumbers)
-
     // 构建 project 路径
     const projectFolderName = getProjectFolderName(project)
     const projectSessionFile = path.join(
@@ -179,7 +176,6 @@ async function extractImagesFromProjects(
     )
 
     if (!fs.existsSync(projectSessionFile)) {
-      console.log(`[Image Extract] Session 文件不存在，跳过`)
       return images
     }
 
@@ -221,8 +217,6 @@ async function extractImagesFromProjects(
       }
     }
 
-    console.log(`[Image Extract] Session 中共有 ${base64Images.length} 张图片`)
-
     // 只保存当前记录需要的图片（保存到应用内部缓存目录）
     const imagesDir = path.join(APP_CACHE_DIR, 'images', sessionId)
     if (!fs.existsSync(imagesDir)) {
@@ -242,7 +236,6 @@ async function extractImagesFromProjects(
           // 将 base64 数据写入文件
           const buffer = Buffer.from(imageData.data, 'base64')
           fs.writeFileSync(imagePath, buffer)
-          console.log(`[Image Extract] 成功提取图片 #${imageNum}`)
         }
 
         images.push(`images/${sessionId}/${imageFileName}`)
@@ -251,9 +244,6 @@ async function extractImagesFromProjects(
       }
     }
 
-    if (images.length > 0) {
-      console.log(`[Image Extract] 本条记录提取了 ${images.length} 张图片`)
-    }
   } catch (err) {
     console.error('[Image Extract] 提取图片失败:', err)
   }
@@ -329,7 +319,6 @@ app.whenReady().then(() => {
   }
 
   // 应用启动时，自动启动文件监控（直接读取 ~/.claude，无需用户配置）
-  console.log('[启动] 自动启动文件监控')
   startHistoryMonitor()
 
   app.on('activate', () => {
@@ -455,8 +444,6 @@ ipcMain.handle('get-app-settings', async () => {
 
   // 如果旧配置存在且新配置不存在，执行迁移
   if (oldAi && (!aiChat || !aiSummary)) {
-    console.log('[数据迁移] 检测到旧的 AI 配置，开始迁移...')
-
     // 迁移到 aiChat（对话配置简化为三个字段）
     if (!aiChat) {
       const oldProvider = oldAi.provider || 'deepseek'
@@ -482,7 +469,6 @@ ipcMain.handle('get-app-settings', async () => {
 
     // 删除旧配置
     store.delete('ai')
-    console.log('[数据迁移] 迁移完成，已删除旧配置')
   }
 
   // 如果没有旧配置，使用默认值
@@ -649,12 +635,10 @@ function startHistoryMonitor() {
   stopHistoryMonitor()
 
   if (!fs.existsSync(HISTORY_FILE)) {
-    console.log('[监控] history.jsonl 不存在，等待创建...')
     // 文件不存在时也启动轮询，等待文件创建
     pollingTimer = setInterval(() => {
       if (fs.existsSync(HISTORY_FILE)) {
         lastFileSize = 0 // 从头开始读取
-        console.log('[监控] history.jsonl 已创建，开始监控')
         readNewLines()
       }
     }, POLLING_INTERVAL_MS)
@@ -664,7 +648,6 @@ function startHistoryMonitor() {
   // 获取当前文件大小
   const stats = fs.statSync(HISTORY_FILE)
   lastFileSize = stats.size
-  console.log(`[监控] 开始轮询监控 history.jsonl，当前大小: ${lastFileSize}`)
 
   pollingTimer = setInterval(() => {
     try {
@@ -844,7 +827,6 @@ ipcMain.handle('read-recent-records', async (_, hoursAgo: number = 24) => {
       }
     }
 
-    console.log(`[实时记录] 加载最近 ${hoursAgo} 小时的记录: ${recentRecords.length} 条`)
     return { success: true, records: recentRecords }
   } catch (error) {
     console.error('[实时记录] 加载失败:', error)
@@ -1082,10 +1064,6 @@ ipcMain.handle('read-history-metadata', async () => {
     // 按最新时间倒序排序
     enrichedSessions.sort((a, b) => b.latestTimestamp - a.latestTimestamp)
 
-    console.log(
-      `[History Metadata] 从 history.jsonl 聚合了 ${enrichedSessions.length} 个会话，已提取 Token 和工具调用信息`
-    )
-
     /* 更新缓存 */
     metadataCache = {
       sessions: enrichedSessions,
@@ -1283,8 +1261,6 @@ ipcMain.handle('read-project-statistics', async () => {
         latestTimestamp: project.latestTimestamp
       }))
       .sort((a, b) => b.latestTimestamp - a.latestTimestamp)
-
-    console.log(`[Project Statistics] 聚合了 ${projects.length} 个项目的统计数据`)
 
     return { success: true, projects }
   } catch (error) {
@@ -1792,7 +1768,6 @@ ipcMain.handle(
       if (fs.existsSync(filePath)) {
         const backupPath = `${filePath}.backup-${Date.now()}`
         fs.copyFileSync(filePath, backupPath)
-        console.log(`文件已备份到: ${backupPath}`)
       }
 
       // 写入快照内容
@@ -2629,8 +2604,6 @@ ipcMain.handle('clear-all-cache', async () => {
     lastFileSize = 0
     startHistoryMonitor()
 
-    console.log('[清除缓存] 所有资源已清除')
-
     return { success: true, result }
   } catch (error) {
     console.error('[清除缓存] 失败:', error)
@@ -2820,8 +2793,6 @@ ipcMain.handle('trigger-auto-cleanup', async () => {
     store.set('autoCleanup.lastCleanupTime', Date.now())
     store.set('autoCleanup.nextCleanupTime', newNextCleanupTime)
 
-    console.log(`[手动清理] 完成，清理了 ${deletedCount} 项资源`)
-
     setupAutoCleanupTimer()
 
     if (mainWindow && !mainWindow.isDestroyed()) {
@@ -2879,10 +2850,6 @@ const setupAutoCleanupTimer = () => {
       const newNextCleanupTime = Date.now() + config.intervalMs
       store.set('autoCleanup.lastCleanupTime', Date.now())
       store.set('autoCleanup.nextCleanupTime', newNextCleanupTime)
-
-      console.log(
-        `[自动清理] 完成，清理了 ${deletedCount} 项资源，下次: ${new Date(newNextCleanupTime).toLocaleString()}`
-      )
 
       // 通知渲染进程
       if (mainWindow && !mainWindow.isDestroyed()) {
@@ -2950,9 +2917,6 @@ const setupAutoCleanupTimer = () => {
     }
   }, 1000)
 
-  console.log(
-    `[自动清理] 定时器已启动，间隔: ${autoCleanup.intervalMs}ms，保留: ${autoCleanup.retainMs}ms，下次执行: ${new Date(nextCleanupTime).toLocaleString()}`
-  )
 }
 
 // 卸载应用

@@ -149,7 +149,7 @@ const changelog: VersionData[] = [
       { type: 'feat', description: '优化构建配置，分离开发版和生产版构建流程' },
       { type: 'feat', description: '添加开发/生产构建脚本和清理脚本' },
       { type: 'fix', description: '修复生产环境白屏和 DevTools 显示问题' },
-      { type: 'refactor', description: '更名为 CCMonitor 并使用圆角图标，提升品牌识别度' }
+      { type: 'refactor', description: '更名为 ClaudePulse 并使用圆角图标，提升品牌识别度' }
     ]
   },
   {
@@ -288,7 +288,7 @@ const ChangelogView = ({ darkMode }: ChangelogViewProps) => {
               color: themeVars.textSecondary
             }}
           >
-            记录 CCMonitor 的版本演进历程
+            记录 ClaudePulse 的版本演进历程
           </p>
         </div>
 

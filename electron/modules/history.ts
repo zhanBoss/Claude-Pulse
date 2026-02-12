@@ -49,8 +49,6 @@ const extractImagesFromProjects = async (
       return images
     }
 
-    console.log(`[Image Extract] 记录中需要 ${imageNumbers.length} 张图片:`, imageNumbers)
-
     // 构建 project 路径
     const projectFolderName = project.replace(/\//g, '-')
     const projectSessionFile = path.join(
@@ -61,7 +59,6 @@ const extractImagesFromProjects = async (
     )
 
     if (!fs.existsSync(projectSessionFile)) {
-      console.log(`[Image Extract] Session 文件不存在，跳过`)
       return images
     }
 
@@ -102,8 +99,6 @@ const extractImagesFromProjects = async (
       }
     }
 
-    console.log(`[Image Extract] Session 中共有 ${base64Images.length} 张图片`)
-
     // 只保存当前记录需要的图片
     const imagesDir = path.join(savePath, 'images', sessionId)
     if (!fs.existsSync(imagesDir)) {
@@ -120,7 +115,6 @@ const extractImagesFromProjects = async (
         if (!fs.existsSync(imagePath)) {
           const buffer = Buffer.from(imageData.data, 'base64')
           fs.writeFileSync(imagePath, buffer)
-          console.log(`[Image Extract] 成功提取图片 #${imageNum}`)
         }
 
         images.push(`images/${sessionId}/${imageFileName}`)
@@ -129,9 +123,6 @@ const extractImagesFromProjects = async (
       }
     }
 
-    if (images.length > 0) {
-      console.log(`[Image Extract] 本条记录提取了 ${images.length} 张图片`)
-    }
   } catch (err) {
     console.error('[Image Extract] 提取图片失败:', err)
   }
@@ -246,10 +237,6 @@ const processImageCache = async (
           return numA - numB
         })
 
-        console.log(
-          `[Image Matcher] 找到 ${imageNumbers.length} 个图片标记, ${sortedImageFiles.length} 个图片文件`
-        )
-
         for (const imageNum of imageNumbers) {
           let imageFile = sortedImageFiles.find(f => {
             const fileNum = parseInt(f.match(/\d+/)?.[0] || '0')
@@ -270,7 +257,6 @@ const processImageCache = async (
             try {
               if (!fs.existsSync(destPath)) {
                 fs.copyFileSync(srcPath, destPath)
-                console.log(`[Image Copy] 成功复制: ${imageFile}`)
               }
               images.push(`images/${record.sessionId}/${imageFile}`)
             } catch (err) {
@@ -280,7 +266,6 @@ const processImageCache = async (
         }
       } else {
         // 使用时间戳匹配
-        console.log(`[Image Matcher] 无标记，使用时间戳匹配`)
         for (const imageFile of allImageFiles) {
           const srcPath = path.join(imageCacheDir, imageFile)
           const stat = fs.statSync(srcPath)
@@ -292,7 +277,6 @@ const processImageCache = async (
             try {
               if (!fs.existsSync(destPath)) {
                 fs.copyFileSync(srcPath, destPath)
-                console.log(`[Image Copy] 时间戳匹配复制: ${imageFile}`)
               }
               images.push(`images/${record.sessionId}/${imageFile}`)
             } catch (err) {

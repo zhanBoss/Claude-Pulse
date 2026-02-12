@@ -260,7 +260,7 @@ const CleanupCountdown = (props: CleanupCountdownProps) => {
         ) : (
           <img
             src={logoRounded}
-            alt="CCMonitor"
+            alt="ClaudePulse"
             style={{
               width: 32,
               height: 32,
@@ -287,7 +287,7 @@ const CleanupCountdown = (props: CleanupCountdownProps) => {
           >
             <img
               src={logoRounded}
-              alt="CCMonitor"
+              alt="ClaudePulse"
               style={{
                 width: 32,
                 height: 32,

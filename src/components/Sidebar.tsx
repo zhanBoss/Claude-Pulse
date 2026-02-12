@@ -22,7 +22,9 @@ interface SidebarProps {
 }
 
 /* macOS hiddenInset 模式下交通灯高度 */
-const TRAFFIC_LIGHT_HEIGHT = 38
+const TRAFFIC_LIGHT_HEIGHT = 42
+/* 交通灯安全区（避免标题被遮挡，兼顾 200px 侧栏宽度） */
+const TRAFFIC_LIGHT_SAFE_PADDING_LEFT = 88
 
 const Sidebar = (props: SidebarProps) => {
   const { currentRoute, onNavigate, darkMode, showRecentEditsEntry = false, inDrawer = false } = props
@@ -101,18 +103,20 @@ const Sidebar = (props: SidebarProps) => {
             height: TRAFFIC_LIGHT_HEIGHT,
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'flex-end',
-            paddingRight: 24,
-            fontSize: 18,
+            justifyContent: 'flex-start',
+            paddingLeft: inDrawer ? 24 : TRAFFIC_LIGHT_SAFE_PADDING_LEFT,
+            paddingRight: 16,
+            fontSize: 16,
             fontWeight: 600,
             fontFamily: 'Fira Code, monospace',
             color: themeVars.primary,
+            lineHeight: 1,
             flexShrink: 0,
             ...(inDrawer ? {} : { WebkitAppRegion: 'drag' as const })
           } as React.CSSProperties
         }
       >
-        CCMonitor
+        ClaudePulse
       </div>
 
       {/* 分割线 */}

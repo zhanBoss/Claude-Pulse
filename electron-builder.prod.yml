@@ -1,8 +1,8 @@
 # 生产版本构建配置
 # 用于正式发布，不包含 DevTools
 
-appId: com.ccmonitor.app
-productName: CCMonitor
+appId: com.claudepulse.app
+productName: ClaudePulse
 
 mac:
   category: public.app-category.developer-tools
@@ -49,4 +49,4 @@ directories:
 publish:
   provider: github
   owner: zhanBoss
-  repo: Claude-Code-Monitor
+  repo: Claude-Pulse
