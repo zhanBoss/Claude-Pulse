@@ -563,9 +563,33 @@ function SettingsView({
                     onThemeModeChange?.(value as 'light' | 'dark' | 'system')
                   }}
                   options={[
-                    { label: <span><SunOutlined style={{ marginRight: 4 }} />浅色</span>, value: 'light' },
-                    { label: <span><MoonOutlined style={{ marginRight: 4 }} />深色</span>, value: 'dark' },
-                    { label: <span><LaptopOutlined style={{ marginRight: 4 }} />跟随系统</span>, value: 'system' }
+                    {
+                      label: (
+                        <span>
+                          <SunOutlined style={{ marginRight: 4 }} />
+                          浅色
+                        </span>
+                      ),
+                      value: 'light'
+                    },
+                    {
+                      label: (
+                        <span>
+                          <MoonOutlined style={{ marginRight: 4 }} />
+                          深色
+                        </span>
+                      ),
+                      value: 'dark'
+                    },
+                    {
+                      label: (
+                        <span>
+                          <LaptopOutlined style={{ marginRight: 4 }} />
+                          跟随系统
+                        </span>
+                      ),
+                      value: 'system'
+                    }
                   ]}
                   block
                   style={{ marginTop: 8 }}
@@ -575,7 +599,9 @@ function SettingsView({
               <Divider style={{ margin: 0 }} />
 
               {/* 开机自启动 */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+              >
                 <div>
                   <Text style={{ color: themeVars.text, fontSize: 13, fontWeight: 500 }}>
                     开机自启动
@@ -598,7 +624,9 @@ function SettingsView({
               <Divider style={{ margin: 0 }} />
 
               {/* 最近编辑入口 */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div
+                style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+              >
                 <div>
                   <Text style={{ color: themeVars.text, fontSize: 13, fontWeight: 500 }}>
                     显示最近编辑入口
@@ -716,7 +744,15 @@ function SettingsView({
             {/* 2x2 网格布局 */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
               <div>
-                <Text style={{ color: themeVars.text, fontWeight: 500, fontSize: 11, display: 'block', marginBottom: 2 }}>
+                <Text
+                  style={{
+                    color: themeVars.text,
+                    fontWeight: 500,
+                    fontSize: 11,
+                    display: 'block',
+                    marginBottom: 2
+                  }}
+                >
                   输入价格
                 </Text>
                 <Input
@@ -744,7 +780,15 @@ function SettingsView({
                 />
               </div>
               <div>
-                <Text style={{ color: themeVars.text, fontWeight: 500, fontSize: 11, display: 'block', marginBottom: 2 }}>
+                <Text
+                  style={{
+                    color: themeVars.text,
+                    fontWeight: 500,
+                    fontSize: 11,
+                    display: 'block',
+                    marginBottom: 2
+                  }}
+                >
                   输出价格
                 </Text>
                 <Input
@@ -772,7 +816,15 @@ function SettingsView({
                 />
               </div>
               <div>
-                <Text style={{ color: themeVars.text, fontWeight: 500, fontSize: 11, display: 'block', marginBottom: 2 }}>
+                <Text
+                  style={{
+                    color: themeVars.text,
+                    fontWeight: 500,
+                    fontSize: 11,
+                    display: 'block',
+                    marginBottom: 2
+                  }}
+                >
                   缓存写入
                 </Text>
                 <Input
@@ -800,7 +852,15 @@ function SettingsView({
                 />
               </div>
               <div>
-                <Text style={{ color: themeVars.text, fontWeight: 500, fontSize: 11, display: 'block', marginBottom: 2 }}>
+                <Text
+                  style={{
+                    color: themeVars.text,
+                    fontWeight: 500,
+                    fontSize: 11,
+                    display: 'block',
+                    marginBottom: 2
+                  }}
+                >
                   缓存读取
                 </Text>
                 <Input
