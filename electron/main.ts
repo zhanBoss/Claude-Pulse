@@ -1393,7 +1393,13 @@ ipcMain.handle('read-full-conversation', async (_, sessionId: string, project: s
     let hasErrors = false
     let toolUseCount = 0
     const toolUsageMap = new Map<string, number>()
-    const fileEdits: Array<{ messageId: string; timestamp: string; files: string[] }> = []
+    const fileEdits: Array<{
+      messageId: string
+      snapshotMessageId?: string
+      timestamp: string
+      files: string[]
+      isSnapshotUpdate?: boolean
+    }> = []
 
     for (const line of lines) {
       try {
@@ -1429,8 +1435,10 @@ ipcMain.handle('read-full-conversation', async (_, sessionId: string, project: s
 
             fileEdits.push({
               messageId: entry.messageId || '',
+              snapshotMessageId: snapshot.messageId || undefined,
               timestamp: String(timestampValue),
-              files: filePaths
+              files: filePaths,
+              isSnapshotUpdate: entry.isSnapshotUpdate || false
             })
           }
           continue
@@ -1465,6 +1473,7 @@ ipcMain.handle('read-full-conversation', async (_, sessionId: string, project: s
             role: entry.message.role,
             content: messageContent,
             timestamp: entry.timestamp || Date.now(),
+            messageId: entry.messageId || undefined,
             subType: entryType
           })
         }
@@ -1509,6 +1518,7 @@ ipcMain.handle('read-full-conversation', async (_, sessionId: string, project: s
             role: entry.response.role,
             content: responseContent,
             timestamp: entry.timestamp || Date.now(),
+            messageId: entry.messageId || undefined,
             subType: entryType,
             model,
             usage,
@@ -1540,78 +1550,6 @@ ipcMain.handle('read-full-conversation', async (_, sessionId: string, project: s
     return { success: true, conversation }
   } catch (error) {
     console.error('读取完整对话时发生错误:', error)
-    return { success: false, error: (error as Error).message }
-  }
-})
-
-// 读取文件编辑快照（从所有会话中提取 file-history-snapshot）
-ipcMain.handle('read-file-edits', async () => {
-  try {
-    const projectsDir = PROJECTS_DIR
-    if (!fs.existsSync(projectsDir)) {
-      return { success: true, edits: [] }
-    }
-
-    const edits: any[] = []
-    const projectFolders = fs.readdirSync(projectsDir)
-
-    for (const folder of projectFolders) {
-      const folderPath = path.join(projectsDir, folder)
-      if (!fs.statSync(folderPath).isDirectory()) continue
-
-      // 从目录名还原项目路径
-      const projectPath = '/' + folder.replace(/-/g, '/')
-
-      const sessionFiles = fs.readdirSync(folderPath).filter(f => f.endsWith('.jsonl'))
-
-      for (const sessionFile of sessionFiles) {
-        const sessionId = sessionFile.replace('.jsonl', '')
-        const filePath = path.join(folderPath, sessionFile)
-
-        try {
-          const content = fs.readFileSync(filePath, 'utf-8')
-          const lines = content.split('\n').filter(l => l.trim())
-
-          for (const line of lines) {
-            try {
-              const entry = JSON.parse(line)
-
-              if (entry.type === 'file-history-snapshot') {
-                const snapshot = entry.snapshot || {}
-                const trackedFiles = snapshot.trackedFileBackups || {}
-                const fileEntries = Object.entries(trackedFiles).map(([fp, content]) => ({
-                  filePath: fp,
-                  contentLength: typeof content === 'string' ? content.length : 0,
-                  preview: typeof content === 'string' ? content.slice(0, 200) : undefined
-                }))
-
-                if (fileEntries.length > 0) {
-                  edits.push({
-                    messageId: entry.messageId || '',
-                    timestamp: snapshot.timestamp || '',
-                    sessionId,
-                    project: projectPath,
-                    files: fileEntries,
-                    isSnapshotUpdate: entry.isSnapshotUpdate || false
-                  })
-                }
-              }
-            } catch {
-              // 跳过解析失败的行
-            }
-          }
-        } catch {
-          // 跳过无法读取的文件
-        }
-      }
-    }
-
-    // 按时间倒序排列
-    edits.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-
-    return { success: true, edits }
-  } catch (error) {
-    console.error('读取文件编辑快照失败:', error)
     return { success: false, error: (error as Error).message }
   }
 })
@@ -1667,6 +1605,20 @@ ipcMain.handle(
                 } else if (typeof fileMetadata === 'string') {
                   // 旧版本可能直接存储字符串内容
                   return { success: true, content: fileMetadata }
+                } else if (
+                  typeof fileMetadata === 'object' &&
+                  'backupFileName' in fileMetadata &&
+                  !fileMetadata.backupFileName
+                ) {
+                  // 新建文件场景：创建前不存在备份，返回当前文件内容用于预览，并标记为新增快照
+                  const currentContent = fs.existsSync(filePath)
+                    ? fs.readFileSync(filePath, 'utf-8')
+                    : ''
+                  return {
+                    success: true,
+                    content: currentContent,
+                    isNewFileSnapshot: true
+                  }
                 } else {
                   return { success: false, error: '无效的文件快照格式' }
                 }
@@ -1699,6 +1651,7 @@ ipcMain.handle(
 
       const projectFolders = fs.readdirSync(projectsDir)
       let snapshotContent: string | null = null
+      let isNewFileSnapshot = false
 
       for (const folder of projectFolders) {
         const sessionFile = path.join(projectsDir, folder, `${sessionId}.jsonl`)
@@ -1737,6 +1690,15 @@ ipcMain.handle(
                   // 旧版本可能直接存储字符串内容
                   snapshotContent = fileMetadata
                   break
+                } else if (
+                  typeof fileMetadata === 'object' &&
+                  'backupFileName' in fileMetadata &&
+                  !fileMetadata.backupFileName
+                ) {
+                  // 新建文件快照：表示恢复到「文件不存在」状态
+                  isNewFileSnapshot = true
+                  snapshotContent = ''
+                  break
                 }
               }
             }
@@ -1749,6 +1711,16 @@ ipcMain.handle(
 
       if (snapshotContent === null) {
         return { success: false, error: '未找到对应的文件快照内容' }
+      }
+
+      // 新建文件快照恢复：目标状态为文件不存在，若当前存在则删除
+      if (isNewFileSnapshot) {
+        if (fs.existsSync(filePath)) {
+          const backupPath = `${filePath}.backup-${Date.now()}`
+          fs.copyFileSync(filePath, backupPath)
+          fs.unlinkSync(filePath)
+        }
+        return { success: true }
       }
 
       // 检查目标文件所在目录是否存在

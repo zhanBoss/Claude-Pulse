@@ -2,6 +2,34 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.1] - 2026-02-13
+
+### Added
+
+- 新增 Prompt 详情“变更文件”标签页
+  - 按当前 Prompt 轮次聚合变更文件
+  - 支持查看快照、Diff 对比、文件还原
+- 新增文件快照预览增强
+  - Markdown 文件支持“预览 / 源码”切换
+  - 文件内容按扩展名自动语法高亮渲染（TypeScript/JavaScript/Vue/Markdown/Java 等）
+  - 折行控制改为 Switch 交互
+
+### Changed
+
+- 移除“最近编辑”独立页面及相关入口
+  - 删除侧边栏“最近编辑”菜单
+  - 删除对应路由与前端上下文逻辑
+  - 删除 `read-file-edits` IPC 接口
+- 变更文件关联策略优化
+  - read-full-conversation 输出消息级 `messageId`
+  - 文件快照关联同时兼容 `entry.messageId` 与 `snapshot.messageId`
+
+### Fixed
+
+- 修复新建文件快照预览时报“无效的文件快照格式”问题（`backupFileName = null` 场景）
+- 修复新建文件快照还原行为，支持正确恢复到“文件不存在”状态
+- 修复前端新增文件判定可能误判的问题，改为仅信任后端显式标记
+
 ## [2.0.0] - 2026-02-13
 
 ### Added

@@ -3,7 +3,6 @@ import {
   ThunderboltOutlined,
   ClockCircleOutlined,
   BarChartOutlined,
-  EditOutlined,
   StarOutlined,
   CommentOutlined,
   SettingOutlined,
@@ -52,11 +51,6 @@ const Sidebar = (props: SidebarProps) => {
       key: 'chat',
       icon: <CommentOutlined />,
       label: 'AI 助手'
-    },
-    {
-      key: 'recent-edits',
-      icon: <EditOutlined />,
-      label: '最近编辑'
     },
     {
       key: 'settings',

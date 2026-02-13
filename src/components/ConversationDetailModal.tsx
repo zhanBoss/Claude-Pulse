@@ -1,10 +1,13 @@
-import { Modal, Spin, Alert, Typography, Tag, Space, Button, message, Segmented, Empty, Image, theme as antdTheme } from 'antd'
+import { Modal, Spin, Alert, Typography, Tag, Space, Button, Switch, message, Segmented, Empty, Image, theme as antdTheme } from 'antd'
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
+import { diffLines, Change } from 'diff'
+import Editor from '@monaco-editor/react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { vscDarkPlus, prism } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import { ClaudeRecord, FullConversation, FullMessage, MessageContent, MessageSubType } from '../types'
+import { getLanguageByFilePath, getMonacoLanguage } from '../utils/codeDetector'
 import { getCopyablePreviewConfig } from './CopyableImage'
 import { getThemeVars } from '../theme'
 import ImageContextMenu from './ImageContextMenu'
@@ -24,7 +27,10 @@ import {
   SortAscendingOutlined,
   SortDescendingOutlined,
   StarOutlined,
-  LoadingOutlined
+  LoadingOutlined,
+  EyeOutlined,
+  SwapOutlined,
+  RollbackOutlined
 } from '@ant-design/icons'
 
 const { Text } = Typography
@@ -70,7 +76,7 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
    */
   const [pageView, setPageView] = useState<'list' | 'detail'>('list')
   const [currentRound, setCurrentRound] = useState(0)
-  const [viewMode, setViewMode] = useState<'round' | 'tool-flow' | 'images' | 'pastes'>('round')
+  const [viewMode, setViewMode] = useState<'round' | 'tool-flow' | 'file-changes' | 'images' | 'pastes'>('round')
   /* Prompt 列表排序：newest = 最新在前，oldest = 最旧在前 */
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest')
 
@@ -93,6 +99,18 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
 
   /* 单张图片预览状态（点击 [Image #N] Tag 触发） */
   const [previewSrc, setPreviewSrc] = useState<string | null>(null)
+  const [filePreviewVisible, setFilePreviewVisible] = useState(false)
+  const [filePreviewLoading, setFilePreviewLoading] = useState(false)
+  const [filePreviewContent, setFilePreviewContent] = useState('')
+  const [previewFilePath, setPreviewFilePath] = useState('')
+  const [previewMessageId, setPreviewMessageId] = useState('')
+  const [showFileDiff, setShowFileDiff] = useState(false)
+  const [fileDiffLoading, setFileDiffLoading] = useState(false)
+  const [fileDiffResult, setFileDiffResult] = useState<Change[]>([])
+  const [fileDiffHasChanges, setFileDiffHasChanges] = useState(true)
+  const [filePreviewWrap, setFilePreviewWrap] = useState(false)
+  const [filePreviewMode, setFilePreviewMode] = useState<'source' | 'preview'>('source')
+  const [isNewFileSnapshot, setIsNewFileSnapshot] = useState(false)
 
   /* 计算主题变量（用于 getCopyablePreviewConfig 和右键菜单样式） */
   const themeVars = getThemeVars(isDark)
@@ -339,6 +357,70 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
     return items
   }, [round])
 
+  interface RoundChangedFile {
+    filePath: string
+    messageId: string
+    snapshotMessageId?: string
+    timestamp: string
+    isSnapshotUpdate: boolean
+  }
+
+  const currentRoundChangedFiles = useMemo((): RoundChangedFile[] => {
+    if (!conversation?.fileEdits || !round) return []
+
+    const roundMessageIds = new Set<string>()
+    const roundMessages = [round.userMessage, ...round.assistantMessages]
+    for (const msg of roundMessages) {
+      if (msg.messageId) {
+        roundMessageIds.add(msg.messageId)
+      }
+    }
+
+    let matchedEdits = conversation.fileEdits.filter(edit => edit.files.length > 0)
+    if (roundMessageIds.size > 0) {
+      const exactMatched = matchedEdits.filter(
+        edit =>
+          roundMessageIds.has(edit.messageId) ||
+          (edit.snapshotMessageId ? roundMessageIds.has(edit.snapshotMessageId) : false)
+      )
+      if (exactMatched.length > 0) {
+        matchedEdits = exactMatched
+      }
+    }
+
+    if (roundMessageIds.size === 0 || matchedEdits.length === 0) {
+      const currentRoundStart = toEpochMs(round.timestamp as unknown as string | number)
+      const nextRound = rounds[currentRound + 1]
+      const nextRoundStart = nextRound
+        ? toEpochMs(nextRound.timestamp as unknown as string | number)
+        : Number.MAX_SAFE_INTEGER
+
+      matchedEdits = conversation.fileEdits.filter(edit => {
+        const editTime = toEpochMs(edit.timestamp)
+        return editTime >= currentRoundStart && editTime < nextRoundStart
+      })
+    }
+
+    const files: RoundChangedFile[] = []
+    for (const edit of matchedEdits) {
+      for (const filePath of edit.files) {
+        files.push({
+          filePath,
+          messageId: edit.messageId,
+          snapshotMessageId: edit.snapshotMessageId,
+          timestamp: edit.timestamp,
+          isSnapshotUpdate: !!edit.isSnapshotUpdate
+        })
+      }
+    }
+
+    return files.sort((a, b) => toEpochMs(b.timestamp) - toEpochMs(a.timestamp))
+  }, [conversation?.fileEdits, round, rounds, currentRound])
+
+  const isMarkdownFile = useMemo(() => {
+    return getLanguageByFilePath(previewFilePath, filePreviewContent) === 'markdown'
+  }, [previewFilePath, filePreviewContent])
+
   /* 辅助函数 */
   const copyText = async (text: string) => {
     const result = await window.electronAPI.copyToClipboard(text)
@@ -368,6 +450,101 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
       return next
     })
   }, [])
+
+  const handleViewFileSnapshot = async (messageId: string, filePath: string) => {
+    setPreviewMessageId(messageId)
+    setPreviewFilePath(filePath)
+    setFilePreviewVisible(true)
+    setFilePreviewLoading(true)
+    setFilePreviewContent('')
+    setShowFileDiff(false)
+    setFileDiffResult([])
+    setFileDiffHasChanges(true)
+    setIsNewFileSnapshot(false)
+    setFilePreviewMode(getLanguageByFilePath(filePath) === 'markdown' ? 'preview' : 'source')
+    try {
+      const result = await window.electronAPI.readFileSnapshotContent(sessionId, messageId, filePath)
+      if (result.success && result.content !== undefined) {
+        setFilePreviewContent(result.content)
+        setIsNewFileSnapshot(!!result.isNewFileSnapshot)
+      } else {
+        setFilePreviewContent(`// 加载失败: ${result.error || '未知错误'}`)
+        setIsNewFileSnapshot(false)
+      }
+    } catch (error) {
+      setFilePreviewContent(`// 加载失败: ${(error as Error).message}`)
+      setIsNewFileSnapshot(false)
+    } finally {
+      setFilePreviewLoading(false)
+    }
+  }
+
+  const handleToggleFileDiff = async () => {
+    if (isNewFileSnapshot) {
+      message.info('该文件为新增快照，无需对比差异')
+      return
+    }
+
+    if (showFileDiff) {
+      setShowFileDiff(false)
+      return
+    }
+
+    setFileDiffLoading(true)
+    try {
+      const result = await window.electronAPI.readFileContent(previewFilePath)
+      if (result.success && result.content !== undefined) {
+        const changes = diffLines(result.content, filePreviewContent)
+        const hasChanges = changes.some(change => change.added || change.removed)
+        setFileDiffResult(changes)
+        setFileDiffHasChanges(hasChanges)
+        setShowFileDiff(true)
+      } else {
+        const changes = diffLines('', filePreviewContent)
+        setFileDiffResult(changes)
+        setFileDiffHasChanges(true)
+        setShowFileDiff(true)
+        message.info('当前文件不存在或无法读取，显示快照为新增内容')
+      }
+    } catch {
+      message.error('读取当前文件失败')
+    } finally {
+      setFileDiffLoading(false)
+    }
+  }
+
+  const handleRestoreFileFromSnapshot = () => {
+    Modal.confirm({
+      title: '确认恢复文件',
+      content: (
+        <div>
+          <p>将从该 Prompt 的文件快照恢复到原始路径：</p>
+          <p style={{ fontFamily: 'monospace', fontSize: 12 }}>{previewFilePath}</p>
+          <p style={{ color: themeVars.warning, marginTop: 8 }}>
+            注意：当前文件会先自动备份（.backup-时间戳），再写入快照内容。
+          </p>
+        </div>
+      ),
+      okText: '确认恢复',
+      cancelText: '取消',
+      onOk: async () => {
+        try {
+          const result = await window.electronAPI.restoreFileFromSnapshot(
+            sessionId,
+            previewMessageId,
+            previewFilePath
+          )
+          if (result.success) {
+            message.success('文件恢复成功')
+          } else {
+            message.error(`恢复失败: ${result.error || '未知错误'}`)
+          }
+        } catch (error) {
+          message.error(`恢复失败: ${(error as Error).message}`)
+        }
+      }
+    })
+  }
 
   /* 提取用户 Prompt 的纯文本 */
   const getUserPromptText = (msg: FullMessage): string => {
@@ -866,6 +1043,70 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
     )
   }
 
+  const renderRoundFileChanges = () => {
+    if (currentRoundChangedFiles.length === 0) {
+      return <Empty description="当前 Prompt 没有关联的变更文件" style={{ padding: 20 }} />
+    }
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
+          <Tag icon={<FileTextOutlined />} color="#D97757">{currentRoundChangedFiles.length} 个变更文件</Tag>
+          <Text type="secondary" style={{ fontSize: 11 }}>
+            文件来源于当前 Prompt 关联的 file-history-snapshot
+          </Text>
+        </div>
+
+        {currentRoundChangedFiles.map((item, index) => (
+          <div
+            key={`${item.messageId}-${item.filePath}-${index}`}
+            style={{
+              borderRadius: 8,
+              border: `1px solid ${themeVars.itemBorder}`,
+              background: themeVars.itemBg,
+              padding: '10px 12px'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+              <Text
+                style={{
+                  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+                  fontSize: 12
+                }}
+                ellipsis={{ tooltip: item.filePath }}
+              >
+                {item.filePath}
+              </Text>
+              <Space size={4}>
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<EyeOutlined />}
+                  onClick={() => handleViewFileSnapshot(item.messageId, item.filePath)}
+                >
+                  查看快照
+                </Button>
+              </Space>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 6, flexWrap: 'wrap' }}>
+              <Tag style={{ fontSize: 10 }}>{item.messageId.slice(0, 10)}</Tag>
+              {item.snapshotMessageId && item.snapshotMessageId !== item.messageId && (
+                <Tag style={{ fontSize: 10 }}>base:{item.snapshotMessageId.slice(0, 10)}</Tag>
+              )}
+              <Tag style={{ fontSize: 10 }}>
+                {toEpochMs(item.timestamp) > 0
+                  ? new Date(toEpochMs(item.timestamp)).toLocaleString('zh-CN')
+                  : '未知时间'}
+              </Tag>
+              {item.isSnapshotUpdate && <Tag color="processing" style={{ fontSize: 10 }}>快照更新</Tag>}
+            </div>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
   /* 渲染单轮对话内容 */
   const renderRoundContent = () => {
     if (!round) return <Empty description="没有对话数据" />
@@ -1120,6 +1361,7 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
                 options={[
                   { value: 'round', label: '对话', icon: <MessageOutlined /> },
                   { value: 'tool-flow', label: `工具 (${currentToolFlow.length})`, icon: <NodeIndexOutlined /> },
+                  { value: 'file-changes', label: `变更文件 (${currentRoundChangedFiles.length})`, icon: <FileTextOutlined /> },
                   { value: 'images', label: `图片 (${allImages.length})`, icon: <PictureOutlined />, disabled: allImages.length === 0 },
                   { value: 'pastes', label: `粘贴 (${sessionPastes.length})`, icon: <FileTextOutlined />, disabled: sessionPastes.length === 0 }
                 ]}
@@ -1130,6 +1372,7 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
             <div style={{ maxHeight: 480, overflow: 'auto' }}>
               {viewMode === 'round' && renderRoundContent()}
               {viewMode === 'tool-flow' && renderToolFlow(currentToolFlow)}
+              {viewMode === 'file-changes' && renderRoundFileChanges()}
           {/* 图片资源视图（仅当前轮次的内联图片） */}
           {viewMode === 'images' && (
             <div>
@@ -1341,6 +1584,204 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
         pageView === 'list' ? renderPromptList() : renderDetailView()
       )}
 
+    </Modal>
+
+    <Modal
+      title={
+        <Space>
+          <FileTextOutlined style={{ color: themeVars.primary }} />
+          <Text>文件快照</Text>
+          <Text code style={{ fontSize: 11 }}>
+            {previewFilePath}
+          </Text>
+        </Space>
+      }
+      open={filePreviewVisible}
+      onCancel={() => {
+        setFilePreviewVisible(false)
+        setShowFileDiff(false)
+        setFileDiffResult([])
+        setFileDiffHasChanges(true)
+        setIsNewFileSnapshot(false)
+      }}
+      width={900}
+      footer={[
+        ...(!isNewFileSnapshot ? [
+          <Button
+            key="diff"
+            icon={<SwapOutlined />}
+            type={showFileDiff ? 'primary' : 'default'}
+            loading={fileDiffLoading}
+            onClick={handleToggleFileDiff}
+          >
+            {showFileDiff ? '查看快照' : '对比差异'}
+          </Button>
+        ] : []),
+        <Button
+          key="restore"
+          icon={<RollbackOutlined />}
+          onClick={handleRestoreFileFromSnapshot}
+          disabled={!previewMessageId || !previewFilePath}
+        >
+          恢复文件
+        </Button>,
+        <Button
+          key="copy"
+          icon={<CopyOutlined />}
+          onClick={() => copyText(filePreviewContent)}
+          disabled={!filePreviewContent}
+        >
+          复制内容
+        </Button>,
+        <Button key="close" type="primary" onClick={() => setFilePreviewVisible(false)}>
+          关闭
+        </Button>
+      ]}
+      styles={{
+        body: {
+          maxHeight: 'calc(100vh - 260px)',
+          overflowY: 'auto'
+        } as React.CSSProperties
+      }}
+    >
+      {!filePreviewLoading && !fileDiffLoading && (
+        <div style={{ marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+          <Space size={8}>
+            {isNewFileSnapshot && (
+              <Tag color="success" style={{ marginInlineEnd: 2 }}>新增文件</Tag>
+            )}
+            {isMarkdownFile && (
+              <Segmented
+                size="small"
+                value={filePreviewMode}
+                onChange={value => setFilePreviewMode(value as 'source' | 'preview')}
+                options={[
+                  { label: '预览', value: 'preview' },
+                  { label: '源码', value: 'source' }
+                ]}
+              />
+            )}
+            {filePreviewMode === 'source' && (
+              <>
+                <Text type="secondary" style={{ fontSize: 12 }}>折行</Text>
+                <Switch size="small" checked={filePreviewWrap} onChange={setFilePreviewWrap} />
+              </>
+            )}
+          </Space>
+        </div>
+      )}
+
+      {filePreviewLoading || fileDiffLoading ? (
+        <div style={{ textAlign: 'center', padding: 40 }}>
+          <Spin size="large" tip="加载中..."><div style={{ padding: 40 }} /></Spin>
+        </div>
+      ) : showFileDiff ? (
+        <div
+          style={{
+            background: themeVars.bgCode,
+            border: `1px solid ${themeVars.borderSecondary}`,
+            borderRadius: 8,
+            maxHeight: 500,
+            overflow: 'auto',
+            fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+            fontSize: 12
+          }}
+        >
+          {!fileDiffHasChanges && (
+            <div
+              style={{
+                margin: 8,
+                padding: '6px 8px',
+                borderRadius: 6,
+                background: themeVars.errorLight,
+                color: themeVars.error,
+                border: `1px solid ${themeVars.errorBorder}`
+              }}
+            >
+              无变更差异：当前文件与快照内容一致
+            </div>
+          )}
+          {fileDiffResult.map((part, index) => {
+            const color = part.added ? themeVars.diffAddBg : part.removed ? themeVars.diffRemoveBg : 'transparent'
+            const textColor = part.added ? themeVars.diffAddText : part.removed ? themeVars.diffRemoveText : themeVars.diffNeutralText
+            const prefix = part.added ? '+' : part.removed ? '-' : ' '
+            return (
+              <pre
+                key={index}
+                style={{
+                  margin: 0,
+                  padding: '0 8px',
+                  whiteSpace: filePreviewWrap ? 'pre-wrap' : 'pre',
+                  wordBreak: filePreviewWrap ? 'break-word' : 'normal',
+                  background: color,
+                  color: textColor,
+                  borderLeft: part.added
+                    ? `3px solid ${themeVars.diffAddBorder}`
+                    : part.removed
+                      ? `3px solid ${themeVars.diffRemoveBorder}`
+                      : '3px solid transparent'
+                }}
+              >
+                {part.value
+                  .split('\n')
+                  .filter((l, i, arr) => i < arr.length - 1 || l !== '')
+                  .map(line => `${prefix} ${line}`)
+                  .join('\n')}
+              </pre>
+            )
+          })}
+        </div>
+      ) : (
+        filePreviewMode === 'preview' && isMarkdownFile ? (
+          <div
+            style={{
+              padding: '14px 16px',
+              borderRadius: 8,
+              border: `1px solid ${themeVars.borderSecondary}`,
+              background: themeVars.bgContainer,
+              maxHeight: 500,
+              overflow: 'auto'
+            }}
+          >
+            {filePreviewContent.trim()
+              ? renderMarkdownContent(filePreviewContent)
+              : <Text type="secondary">Markdown 内容为空</Text>}
+          </div>
+        ) : (
+          <div
+            style={{
+              borderRadius: 8,
+              border: `1px solid ${themeVars.borderSecondary}`,
+              overflow: 'hidden'
+            }}
+          >
+            <Editor
+              height="500px"
+              language={getMonacoLanguage(previewFilePath, filePreviewContent)}
+              value={filePreviewContent || '// 文件内容为空'}
+              theme={isDark ? 'vs-dark' : 'light'}
+              options={{
+                readOnly: true,
+                minimap: { enabled: false },
+                fontSize: 12,
+                lineNumbers: 'on',
+                scrollBeyondLastLine: false,
+                wordWrap: filePreviewWrap ? 'on' : 'off',
+                wrappingIndent: 'indent',
+                automaticLayout: true,
+                domReadOnly: true,
+                renderLineHighlight: 'none',
+                overviewRulerLanes: 0,
+                hideCursorInOverviewRuler: true,
+                scrollbar: {
+                  verticalScrollbarSize: 8,
+                  horizontalScrollbarSize: 8
+                }
+              }}
+            />
+          </div>
+        )
+      )}
     </Modal>
 
     {/* 点击 [Image #N] Tag 时的图片预览（带复制功能） */}

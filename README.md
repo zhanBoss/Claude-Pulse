@@ -8,7 +8,7 @@ A powerful desktop application that helps developers manage Claude Code configur
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey.svg)](https://github.com/zhanBoss/Claude-Pulse/releases)
-[![Version](https://img.shields.io/badge/version-2.0.0-green.svg)](https://github.com/zhanBoss/Claude-Pulse/releases)
+[![Version](https://img.shields.io/badge/version-2.0.1-green.svg)](https://github.com/zhanBoss/Claude-Pulse/releases)
 
 [English](README.md) | [中文文档](README_zh.md)
 
@@ -35,10 +35,10 @@ A powerful desktop application that helps developers manage Claude Code configur
 
 ### 📝 File Modification Tracking
 
-- **Recent Edits**: Independent page showing file modification history with quick jump to related sessions
-- **File Snapshots**: Automatically saves file content before and after modifications
-- **Diff Comparison**: Visual comparison of file changes before and after
-- **File Restoration**: Support restoring files to their pre-modification state from snapshots
+- **Prompt-level File Changes**: View changed files directly in `Prompt Detail`, no context switching
+- **File Snapshots**: Automatically captures tracked file snapshots in each conversation round
+- **Smart Diff**: One-click compare current file and snapshot, with automatic "new file" handling
+- **Safe Restore**: Restore from snapshot with automatic backup before overwrite/delete
 
 ### ⚙️ Configuration Management
 
@@ -205,7 +205,7 @@ Please read [CLAUDE.md](CLAUDE.md) for detailed development guidelines and best 
 2. **Real-time Monitoring**: View current conversations in "Real-time Conversation" page, displayed by rounds
 3. **History Browsing**: View all saved conversations in "History" page, supports project filtering and Prompt search
 4. **Statistics Analysis**: View Token usage, costs, tool calls, and other data in "Statistics Panel"
-5. **File Tracking**: View file modification history in "Recent Edits" page, supports snapshot comparison and restoration
+5. **File Tracking**: Open "Prompt Detail" to view changed files, snapshots, diff, and restore actions in one place
 6. **Configuration Management**: Manage Claude Code configuration, MCP, Hooks, Skills, Plugins in "App Settings"
 7. **AI Features**: After configuring AI provider, use AI summary and AI conversation features
 
@@ -249,38 +249,26 @@ Conversation records are stored in JSONL format, filename: `{project-name}_{date
 
 ## 🌟 Version History
 
-See [Changelog](src/components/ChangelogView.tsx) for detailed version history.
+See [CHANGELOG.md](CHANGELOG.md) for detailed version history.
 
-### Latest Version v2.0.0 (2026-02-13)
+### Latest Version v2.0.1 (2026-02-13)
 
-#### 🎯 Global Statistics & Analysis System
+#### 📝 Prompt-level File Change Experience
 
-- ✨ Added global statistics panel, supports Token/cost/tool call and other core metrics analysis
-- ✨ Added project comparison, session comparison, and Session Board capabilities
-- ✨ Added tool call flow visualization, supports call chain and input/output details viewing
+- ✨ Added "File Changes" tab in Prompt Detail with per-round file tracking
+- ✨ Added snapshot modal improvements: Markdown preview/source toggle and multi-language syntax rendering
+- ✨ Added new-file snapshot identification and removed meaningless diff entry for new files
 
-#### 📝 File Modification Tracking System
+#### 🔧 Architecture & Consistency
 
-- ✨ Added file modification tracking, snapshot viewing, Diff comparison, and file restoration complete workflow
-- ✨ Added "Recent Edits" page with quick jump to related sessions
+- 🔧 Removed deprecated "Recent Edits" page and related IPC/context
+- 🔧 Unified file-change data association by message IDs to reduce mismatch risk
+- 🔧 Updated docs and changelog to align with the latest interaction flow
 
-#### ⚙️ Configuration Management Enhancements
+#### 🐛 Fixes
 
-- ✨ Added MCP management system, supports service configuration and marketplace capability extensions
-- ✨ Added Hooks / Skills / Plugins independent management modules with configuration import/export
-
-#### 🎨 Interface & Interaction Refactoring
-
-- 🔧 Refactored real-time conversation and history pages, unified round-based browsing and detail interaction experience
-- 🔧 History supports project filtering, search upgraded to Prompt content search with highlighting
-- 🔧 Settings page layout and navigation system refactored, optimized drawer and desktop scenario title alignment
-- 🔧 Unified project naming to ClaudePulse, synchronized build configuration and documentation
-- 🔧 Unified theme color system and cleaned up hardcoded colors, improved global visual consistency
-
-#### 🐛 Bug Fixes
-
-- 🐛 Fixed file monitoring not triggering, conversation detail rendering issues, and file snapshot reading problems
-- 🐛 Fixed Prompt list internal message misidentification, duplicate counting, and sorting issues
+- 🐛 Fixed "invalid snapshot format" when previewing new-file snapshots (`backupFileName = null`)
+- 🐛 Fixed new-file restore behavior to correctly recover to "file not exists" state
 
 ## 🤝 Contributing
 

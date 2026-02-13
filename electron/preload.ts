@@ -51,9 +51,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   readSessionPasteCache: (sessionId: string) =>
     ipcRenderer.invoke('read-session-paste-cache', sessionId),
 
-  // 读取文件编辑快照
-  readFileEdits: () => ipcRenderer.invoke('read-file-edits'),
-
   // 读取文件快照内容
   readFileSnapshotContent: (sessionId: string, messageId: string, filePath: string) =>
     ipcRenderer.invoke('read-file-snapshot-content', sessionId, messageId, filePath),

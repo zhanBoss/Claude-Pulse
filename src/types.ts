@@ -52,6 +52,8 @@ export interface FullMessage {
   role: 'user' | 'assistant'
   content: MessageContent[]
   timestamp: number
+  // 对应 projects jsonl 的 messageId，用于关联文件快照
+  messageId?: string
   // 消息子类型
   subType?: MessageSubType
   // Token 和成本信息
@@ -76,8 +78,10 @@ export interface FullConversation {
   // 文件编辑快照
   fileEdits?: Array<{
     messageId: string
+    snapshotMessageId?: string
     timestamp: string
     files: string[] // 文件路径列表
+    isSnapshotUpdate?: boolean
   }>
 }
 
@@ -277,18 +281,12 @@ export interface ElectronAPI {
     }>
     error?: string
   }>
-  // 读取文件编辑快照
-  readFileEdits: () => Promise<{
-    success: boolean
-    edits?: FileEditSnapshot[]
-    error?: string
-  }>
   // 读取文件快照内容
   readFileSnapshotContent: (
     sessionId: string,
     messageId: string,
     filePath: string
-  ) => Promise<{ success: boolean; content?: string; error?: string }>
+  ) => Promise<{ success: boolean; content?: string; isNewFileSnapshot?: boolean; error?: string }>
   // 从快照恢复文件
   restoreFileFromSnapshot: (
     sessionId: string,
