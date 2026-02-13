@@ -79,9 +79,13 @@ export interface FullConversation {
   fileEdits?: Array<{
     messageId: string
     snapshotMessageId?: string
+    previewMessageId?: string
     timestamp: string
     files: string[] // 文件路径列表
     isSnapshotUpdate?: boolean
+    changeType?: 'added' | 'modified' | 'deleted'
+    deletedTargetType?: 'file' | 'directory'
+    hasSnapshot?: boolean
   }>
 }
 

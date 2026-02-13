@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain, dialog, clipboard, nativeImage, shell } fr
 import path from 'path'
 import fs from 'fs'
 import os from 'os'
+import { execFileSync } from 'child_process'
 import Store from 'electron-store'
 import { request as httpRequest } from './utils/http'
 
@@ -259,6 +260,75 @@ const CLAUDE_DIR = path.join(os.homedir(), '.claude')
 const HISTORY_FILE = path.join(CLAUDE_DIR, 'history.jsonl')
 const SETTINGS_FILE = path.join(CLAUDE_DIR, 'settings.json')
 const PROJECTS_DIR = path.join(CLAUDE_DIR, 'projects')
+
+const findGitRoot = (targetPath: string): string | null => {
+  let current = path.resolve(targetPath)
+  if (!fs.existsSync(current) || !fs.statSync(current).isDirectory()) {
+    current = path.dirname(current)
+  }
+
+  while (true) {
+    if (fs.existsSync(path.join(current, '.git'))) {
+      return current
+    }
+    const parent = path.dirname(current)
+    if (parent === current) break
+    current = parent
+  }
+
+  return null
+}
+
+const getGitFallbackContent = (targetPath: string): string | null => {
+  try {
+    const gitRoot = findGitRoot(targetPath)
+    if (!gitRoot) return null
+
+    const relativePath = path.relative(gitRoot, targetPath).replace(/\\/g, '/')
+    if (!relativePath || relativePath.startsWith('..')) return null
+
+    try {
+      return execFileSync('git', ['-C', gitRoot, 'show', `HEAD:${relativePath}`], {
+        encoding: 'utf-8'
+      })
+    } catch {
+      const treeOutput = execFileSync(
+        'git',
+        ['-C', gitRoot, 'ls-tree', '--name-only', 'HEAD', relativePath],
+        { encoding: 'utf-8' }
+      ).trim()
+      if (!treeOutput) return null
+      const lines = treeOutput
+        .split('\n')
+        .filter(Boolean)
+        .map(line => `- ${line}`)
+        .join('\n')
+      return `# 目录快照\n\n${lines}\n`
+    }
+  } catch {
+    return null
+  }
+}
+
+const restorePathFromGitHead = (targetPath: string): { success: boolean; error?: string } => {
+  try {
+    const gitRoot = findGitRoot(targetPath)
+    if (!gitRoot) return { success: false, error: '未找到 Git 仓库，无法恢复已删除文件' }
+
+    const relativePath = path.relative(gitRoot, targetPath).replace(/\\/g, '/')
+    if (!relativePath || relativePath.startsWith('..')) {
+      return { success: false, error: '文件路径不在当前 Git 仓库内，无法恢复' }
+    }
+
+    execFileSync('git', ['-C', gitRoot, 'checkout', 'HEAD', '--', relativePath], {
+      encoding: 'utf-8'
+    })
+    return { success: true }
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : '未知错误'
+    return { success: false, error: `Git 恢复失败: ${msg}` }
+  }
+}
 
 function createWindow() {
   /* 应用图标路径：开发模式使用 build 目录，打包后使用 resources 目录 */
@@ -1396,14 +1466,113 @@ ipcMain.handle('read-full-conversation', async (_, sessionId: string, project: s
     const fileEdits: Array<{
       messageId: string
       snapshotMessageId?: string
+      previewMessageId?: string
       timestamp: string
       files: string[]
       isSnapshotUpdate?: boolean
+      changeType?: 'added' | 'modified' | 'deleted'
+      deletedTargetType?: 'file' | 'directory'
+      hasSnapshot?: boolean
     }> = []
+    const fileEditKeys = new Set<string>()
+    const latestSnapshotMessageByFile = new Map<string, string>()
+
+    const resolveMessageId = (entry: any): string => {
+      if (typeof entry.messageId === 'string' && entry.messageId) return entry.messageId
+      if (typeof entry.uuid === 'string' && entry.uuid) return entry.uuid
+      if (typeof entry?.message?.id === 'string' && entry.message.id) return entry.message.id
+      if (typeof entry?.response?.id === 'string' && entry.response.id) return entry.response.id
+      return ''
+    }
+
+    const pushFileEdit = (item: {
+      messageId: string
+      snapshotMessageId?: string
+      previewMessageId?: string
+      timestamp: string
+      files: string[]
+      isSnapshotUpdate?: boolean
+      changeType?: 'added' | 'modified' | 'deleted'
+      deletedTargetType?: 'file' | 'directory'
+      hasSnapshot?: boolean
+    }) => {
+      const uniqueFiles: string[] = []
+      for (const filePath of item.files) {
+        const dedupeKey = `${item.messageId}|${item.snapshotMessageId || ''}|${item.changeType || 'modified'}|${item.deletedTargetType || ''}|${filePath}`
+        if (fileEditKeys.has(dedupeKey)) continue
+        fileEditKeys.add(dedupeKey)
+        uniqueFiles.push(filePath)
+      }
+      if (uniqueFiles.length === 0) return
+      fileEdits.push({
+        ...item,
+        files: uniqueFiles
+      })
+    }
+
+    const extractDeletedPathsFromCommand = (
+      command: string,
+      cwd: string
+    ): Array<{ filePath: string; deletedTargetType: 'file' | 'directory' }> => {
+      if (!command || !/\brm\b/.test(command)) return []
+
+      const statements = command
+        .split(/&&|\|\||;/)
+        .map(s => s.trim())
+        .filter(Boolean)
+      const deletedPaths: Array<{ filePath: string; deletedTargetType: 'file' | 'directory' }> = []
+
+      for (const statement of statements) {
+        if (!/\brm\b/.test(statement)) continue
+
+        const tokens: string[] = []
+        const tokenRegex = /"([^"]+)"|'([^']+)'|(\S+)/g
+        let tokenMatch: RegExpExecArray | null
+        while ((tokenMatch = tokenRegex.exec(statement)) !== null) {
+          tokens.push(tokenMatch[1] || tokenMatch[2] || tokenMatch[3] || '')
+        }
+        const rmIndex = tokens.findIndex(t => t === 'rm')
+        if (rmIndex === -1) continue
+        let isRecursiveRemove = false
+
+        for (let i = rmIndex + 1; i < tokens.length; i++) {
+          const rawPath = tokens[i]
+          if (!rawPath) continue
+          if (rawPath.startsWith('-')) {
+            if (rawPath.includes('r') || rawPath.includes('R')) {
+              isRecursiveRemove = true
+            }
+            continue
+          }
+          if (rawPath.includes('*') || rawPath.startsWith('$') || rawPath.startsWith('~')) continue
+          const resolvedPath = path.isAbsolute(rawPath) ? rawPath : path.resolve(cwd || project, rawPath)
+          deletedPaths.push({
+            filePath: resolvedPath,
+            deletedTargetType: isRecursiveRemove || rawPath.endsWith('/') ? 'directory' : 'file'
+          })
+        }
+      }
+
+      const deduped = new Map<string, { filePath: string; deletedTargetType: 'file' | 'directory' }>()
+      for (const item of deletedPaths) {
+        deduped.set(item.filePath, item)
+      }
+      return Array.from(deduped.values())
+    }
+
+    const getLatestSnapshotMessageIdByFile = (filePath: string): string | undefined => {
+      if (latestSnapshotMessageByFile.has(filePath)) {
+        return latestSnapshotMessageByFile.get(filePath)
+      }
+      const normalizedPath = path.normalize(filePath)
+      return latestSnapshotMessageByFile.get(normalizedPath)
+    }
 
     for (const line of lines) {
       try {
         const entry = JSON.parse(line)
+        const currentMessageId = resolveMessageId(entry)
+        const currentTimestamp = String(entry.timestamp || Date.now())
 
         // 获取消息子类型
         const entryType = entry.type || 'unknown'
@@ -1417,8 +1586,11 @@ ipcMain.handle('read-full-conversation', async (_, sessionId: string, project: s
         if (entryType === 'file-history-snapshot') {
           const snapshot = entry.snapshot || {}
           const trackedFiles = snapshot.trackedFileBackups || {}
-          const filePaths = Object.keys(trackedFiles)
-          if (filePaths.length > 0) {
+          const fileEntries = Object.entries(trackedFiles)
+          const snapshotEntryMessageId = typeof entry.messageId === 'string' ? entry.messageId : currentMessageId
+          const snapshotBaseMessageId =
+            typeof snapshot.messageId === 'string' ? snapshot.messageId : undefined
+          if (fileEntries.length > 0) {
             // 安全处理 timestamp：确保它是字符串或数字
             let timestampValue: string | number = ''
             if (snapshot.timestamp) {
@@ -1433,15 +1605,92 @@ ipcMain.handle('read-full-conversation', async (_, sessionId: string, project: s
               }
             }
 
-            fileEdits.push({
-              messageId: entry.messageId || '',
-              snapshotMessageId: snapshot.messageId || undefined,
-              timestamp: String(timestampValue),
-              files: filePaths,
-              isSnapshotUpdate: entry.isSnapshotUpdate || false
-            })
+            for (const [filePath, fileMetadata] of fileEntries) {
+              const changeType =
+                typeof fileMetadata === 'object' &&
+                fileMetadata !== null &&
+                'backupFileName' in fileMetadata &&
+                !fileMetadata.backupFileName
+                  ? 'added'
+                  : 'modified'
+
+              if (snapshotEntryMessageId) {
+                latestSnapshotMessageByFile.set(filePath, snapshotEntryMessageId)
+                latestSnapshotMessageByFile.set(path.normalize(filePath), snapshotEntryMessageId)
+              }
+
+              pushFileEdit({
+                messageId: snapshotEntryMessageId,
+                snapshotMessageId: snapshotBaseMessageId,
+                previewMessageId: snapshotEntryMessageId || undefined,
+                timestamp: String(timestampValue),
+                files: [filePath],
+                isSnapshotUpdate: entry.isSnapshotUpdate || false,
+                changeType,
+                hasSnapshot: !!snapshotEntryMessageId
+              })
+            }
           }
           continue
+        }
+
+        // 提取删除文件（Delete / Bash rm）
+        if (Array.isArray(entry?.message?.content)) {
+          for (const content of entry.message.content) {
+            if (content?.type !== 'tool_use' || !content?.name) continue
+
+            if (content.name === 'Delete') {
+              const deletePath =
+                content.input?.file_path ||
+                content.input?.path ||
+                content.input?.filePath ||
+                content.input?.target_file
+              if (typeof deletePath === 'string' && deletePath.trim()) {
+                const normalizedDeletePath = path.isAbsolute(deletePath.trim())
+                  ? deletePath.trim()
+                  : path.resolve(entry.cwd || project, deletePath.trim())
+                const snapshotMessageId = getLatestSnapshotMessageIdByFile(normalizedDeletePath)
+                pushFileEdit({
+                  messageId: currentMessageId,
+                  snapshotMessageId,
+                  previewMessageId: snapshotMessageId,
+                  timestamp: currentTimestamp,
+                  files: [normalizedDeletePath],
+                  isSnapshotUpdate: false,
+                  changeType: 'deleted',
+                  deletedTargetType: 'file',
+                  hasSnapshot: !!snapshotMessageId
+                })
+              }
+            }
+
+            if (content.name === 'Bash' && typeof content.input?.command === 'string') {
+              const deletedPaths = extractDeletedPathsFromCommand(
+                content.input.command,
+                entry.cwd || project
+              )
+              if (deletedPaths.length > 0) {
+                const deletableSnapshots = deletedPaths.map(item => ({
+                  filePath: item.filePath,
+                  deletedTargetType: item.deletedTargetType,
+                  snapshotMessageId: getLatestSnapshotMessageIdByFile(item.filePath)
+                }))
+                for (const deleteItem of deletableSnapshots) {
+                  pushFileEdit({
+                    messageId: currentMessageId,
+                    snapshotMessageId: deleteItem.snapshotMessageId,
+                    previewMessageId: deleteItem.snapshotMessageId,
+                    timestamp: currentTimestamp,
+                    files: [deleteItem.filePath],
+                    isSnapshotUpdate: false,
+                    changeType: 'deleted',
+                    deletedTargetType: deleteItem.deletedTargetType,
+                    hasSnapshot: !!deleteItem.snapshotMessageId
+                  })
+                }
+              }
+            }
+          }
         }
 
         // 跳过非消息类型（如 queue-operation）
@@ -1473,7 +1722,7 @@ ipcMain.handle('read-full-conversation', async (_, sessionId: string, project: s
             role: entry.message.role,
             content: messageContent,
             timestamp: entry.timestamp || Date.now(),
-            messageId: entry.messageId || undefined,
+            messageId: currentMessageId || undefined,
             subType: entryType
           })
         }
@@ -1518,7 +1767,7 @@ ipcMain.handle('read-full-conversation', async (_, sessionId: string, project: s
             role: entry.response.role,
             content: responseContent,
             timestamp: entry.timestamp || Date.now(),
-            messageId: entry.messageId || undefined,
+            messageId: currentMessageId || undefined,
             subType: entryType,
             model,
             usage,
@@ -1630,6 +1879,12 @@ ipcMain.handle(
         }
       }
 
+      // 删除文件兜底：若快照不存在，尝试从 Git HEAD 读取历史内容
+      const gitFallbackContent = getGitFallbackContent(filePath)
+      if (gitFallbackContent !== null) {
+        return { success: true, content: gitFallbackContent }
+      }
+
       return { success: false, error: '未找到对应的文件快照' }
     } catch (error) {
       console.error('读取文件快照内容失败:', error)
@@ -1710,7 +1965,12 @@ ipcMain.handle(
       }
 
       if (snapshotContent === null) {
-        return { success: false, error: '未找到对应的文件快照内容' }
+        // 删除文件兜底：快照缺失时从 Git HEAD 恢复
+        const gitRestoreResult = restorePathFromGitHead(filePath)
+        if (gitRestoreResult.success) {
+          return { success: true }
+        }
+        return { success: false, error: gitRestoreResult.error || '未找到对应的文件快照内容' }
       }
 
       // 新建文件快照恢复：目标状态为文件不存在，若当前存在则删除

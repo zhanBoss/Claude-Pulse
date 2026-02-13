@@ -111,6 +111,16 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
   const [filePreviewWrap, setFilePreviewWrap] = useState(false)
   const [filePreviewMode, setFilePreviewMode] = useState<'source' | 'preview'>('source')
   const [isNewFileSnapshot, setIsNewFileSnapshot] = useState(false)
+  const [previewChangeType, setPreviewChangeType] = useState<'added' | 'modified' | 'deleted'>('modified')
+  const [fileChangeFilter, setFileChangeFilter] = useState<'all' | 'added' | 'modified' | 'deleted'>('all')
+  const [deletedDetailVisible, setDeletedDetailVisible] = useState(false)
+  const [deletedDetail, setDeletedDetail] = useState<{
+    filePath: string
+    messageId: string
+    previewMessageId: string
+    timestamp: string
+    deletedTargetType: 'file' | 'directory'
+  } | null>(null)
 
   /* 计算主题变量（用于 getCopyablePreviewConfig 和右键菜单样式） */
   const themeVars = getThemeVars(isDark)
@@ -186,8 +196,18 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
     const hasText = msg.content.some(c => c.type === 'text' && c.text && typeof c.text === 'string' && c.text.trim().length > 0)
     const hasImage = msg.content.some(c => c.type === 'image')
     const allToolResults = msg.content.length > 0 && msg.content.every(c => c.type === 'tool_result')
+    const onlyTextContents = msg.content.length > 0 && msg.content.every(c => c.type === 'text')
+    const mergedText = msg.content
+      .filter(c => c.type === 'text' && typeof c.text === 'string')
+      .map(c => (c.text as string).trim())
+      .join('\n')
+      .trim()
+    const isInterruptedPlaceholder =
+      /^\[(request\s+interrupted\s+by\s+user|interrupted)\]$/i.test(mergedText) ||
+      mergedText === '(no content)'
 
     if (allToolResults && !hasText) return false
+    if (onlyTextContents && isInterruptedPlaceholder && !hasImage) return false
 
     /* 至少包含文本或图片才算真实 Prompt */
     return hasText || hasImage
@@ -361,8 +381,12 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
     filePath: string
     messageId: string
     snapshotMessageId?: string
+    previewMessageId: string
     timestamp: string
     isSnapshotUpdate: boolean
+    changeType: 'added' | 'modified' | 'deleted'
+    deletedTargetType?: 'file' | 'directory'
+    hasSnapshot: boolean
   }
 
   const currentRoundChangedFiles = useMemo((): RoundChangedFile[] => {
@@ -378,17 +402,16 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
 
     let matchedEdits = conversation.fileEdits.filter(edit => edit.files.length > 0)
     if (roundMessageIds.size > 0) {
-      const exactMatched = matchedEdits.filter(
+      matchedEdits = matchedEdits.filter(
         edit =>
           roundMessageIds.has(edit.messageId) ||
-          (edit.snapshotMessageId ? roundMessageIds.has(edit.snapshotMessageId) : false)
+          (edit.snapshotMessageId ? roundMessageIds.has(edit.snapshotMessageId) : false) ||
+          (edit.previewMessageId ? roundMessageIds.has(edit.previewMessageId) : false)
       )
-      if (exactMatched.length > 0) {
-        matchedEdits = exactMatched
-      }
     }
 
-    if (roundMessageIds.size === 0 || matchedEdits.length === 0) {
+    // 仅在老数据缺失 messageId 时使用时间窗口兜底，避免把上一轮变更串到当前轮
+    if (roundMessageIds.size === 0) {
       const currentRoundStart = toEpochMs(round.timestamp as unknown as string | number)
       const nextRound = rounds[currentRound + 1]
       const nextRoundStart = nextRound
@@ -408,8 +431,12 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
           filePath,
           messageId: edit.messageId,
           snapshotMessageId: edit.snapshotMessageId,
+          previewMessageId: edit.previewMessageId || edit.messageId,
           timestamp: edit.timestamp,
-          isSnapshotUpdate: !!edit.isSnapshotUpdate
+          isSnapshotUpdate: !!edit.isSnapshotUpdate,
+          changeType: edit.changeType || 'modified',
+          deletedTargetType: edit.deletedTargetType,
+          hasSnapshot: edit.hasSnapshot !== false
         })
       }
     }
@@ -451,9 +478,14 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
     })
   }, [])
 
-  const handleViewFileSnapshot = async (messageId: string, filePath: string) => {
+  const handleViewFileSnapshot = async (
+    messageId: string,
+    filePath: string,
+    changeType: 'added' | 'modified' | 'deleted'
+  ) => {
     setPreviewMessageId(messageId)
     setPreviewFilePath(filePath)
+    setPreviewChangeType(changeType)
     setFilePreviewVisible(true)
     setFilePreviewLoading(true)
     setFilePreviewContent('')
@@ -480,6 +512,11 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
   }
 
   const handleToggleFileDiff = async () => {
+    if (previewChangeType !== 'modified') {
+      message.info('仅“变更”文件支持对比差异')
+      return
+    }
+
     if (isNewFileSnapshot) {
       message.info('该文件为新增快照，无需对比差异')
       return
@@ -518,7 +555,7 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
       title: '确认恢复文件',
       content: (
         <div>
-          <p>将从该 Prompt 的文件快照恢复到原始路径：</p>
+          <p>{previewChangeType === 'deleted' ? '将恢复已删除文件到原始路径：' : '将从该 Prompt 的文件快照恢复到原始路径：'}</p>
           <p style={{ fontFamily: 'monospace', fontSize: 12 }}>{previewFilePath}</p>
           <p style={{ color: themeVars.warning, marginTop: 8 }}>
             注意：当前文件会先自动备份（.backup-时间戳），再写入快照内容。
@@ -544,6 +581,35 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
         }
       }
     })
+  }
+
+  const handleOpenDeletedDetail = (item: RoundChangedFile) => {
+    setDeletedDetail({
+      filePath: item.filePath,
+      messageId: item.messageId,
+      previewMessageId: item.previewMessageId,
+      timestamp: item.timestamp,
+      deletedTargetType: item.deletedTargetType || 'file'
+    })
+    setDeletedDetailVisible(true)
+  }
+
+  const handleRestoreDeletedTarget = async () => {
+    if (!deletedDetail) return
+    try {
+      const result = await window.electronAPI.restoreFileFromSnapshot(
+        sessionId,
+        deletedDetail.previewMessageId || deletedDetail.messageId,
+        deletedDetail.filePath
+      )
+      if (result.success) {
+        message.success(deletedDetail.deletedTargetType === 'directory' ? '目录恢复成功' : '文件恢复成功')
+      } else {
+        message.error(`恢复失败: ${result.error || '未知错误'}`)
+      }
+    } catch (error) {
+      message.error(`恢复失败: ${(error as Error).message}`)
+    }
   }
 
   /* 提取用户 Prompt 的纯文本 */
@@ -1048,16 +1114,45 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
       return <Empty description="当前 Prompt 没有关联的变更文件" style={{ padding: 20 }} />
     }
 
+    const addedCount = currentRoundChangedFiles.filter(item => item.changeType === 'added').length
+    const modifiedCount = currentRoundChangedFiles.filter(item => item.changeType === 'modified').length
+    const deletedCount = currentRoundChangedFiles.filter(item => item.changeType === 'deleted').length
+    const visibleFiles = currentRoundChangedFiles.filter(item => {
+      if (fileChangeFilter === 'all') return true
+      return item.changeType === fileChangeFilter
+    })
+
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
           <Tag icon={<FileTextOutlined />} color="#D97757">{currentRoundChangedFiles.length} 个变更文件</Tag>
           <Text type="secondary" style={{ fontSize: 11 }}>
-            文件来源于当前 Prompt 关联的 file-history-snapshot
+            已展示当前 Prompt 关联的新增、变更、删除文件
           </Text>
         </div>
 
-        {currentRoundChangedFiles.map((item, index) => (
+        <Segmented
+          size="small"
+          value={fileChangeFilter}
+          onChange={value => setFileChangeFilter(value as 'all' | 'added' | 'modified' | 'deleted')}
+          options={[
+            { value: 'all', label: `全部 (${currentRoundChangedFiles.length})` },
+            { value: 'added', label: `新增 (${addedCount})` },
+            { value: 'modified', label: `变更 (${modifiedCount})` },
+            { value: 'deleted', label: `删除 (${deletedCount})` }
+          ]}
+          style={{ width: 'fit-content', marginBottom: 2 }}
+        />
+
+        {visibleFiles.length === 0 && (
+          <Empty description="当前筛选下没有文件" style={{ padding: 16 }} />
+        )}
+
+        {visibleFiles.map((item, index) => (
+          (() => {
+            const isDeletedDirectory =
+              item.changeType === 'deleted' && item.deletedTargetType === 'directory'
+            return (
           <div
             key={`${item.messageId}-${item.filePath}-${index}`}
             style={{
@@ -1082,9 +1177,14 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
                   type="text"
                   size="small"
                   icon={<EyeOutlined />}
-                  onClick={() => handleViewFileSnapshot(item.messageId, item.filePath)}
+                  onClick={() =>
+                    isDeletedDirectory
+                      ? handleOpenDeletedDetail(item)
+                      : handleViewFileSnapshot(item.previewMessageId, item.filePath, item.changeType)
+                  }
+                  disabled={item.changeType !== 'deleted' && !item.hasSnapshot}
                 >
-                  查看快照
+                  {isDeletedDirectory ? '查看详情' : '查看快照'}
                 </Button>
               </Space>
             </div>
@@ -1094,6 +1194,15 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
               {item.snapshotMessageId && item.snapshotMessageId !== item.messageId && (
                 <Tag style={{ fontSize: 10 }}>base:{item.snapshotMessageId.slice(0, 10)}</Tag>
               )}
+              {item.changeType === 'added' && (
+                <Tag color="success" style={{ fontSize: 10 }}>新增</Tag>
+              )}
+              {item.changeType === 'modified' && (
+                <Tag color="processing" style={{ fontSize: 10 }}>变更</Tag>
+              )}
+              {item.changeType === 'deleted' && (
+                <Tag color="error" style={{ fontSize: 10 }}>已删除</Tag>
+              )}
               <Tag style={{ fontSize: 10 }}>
                 {toEpochMs(item.timestamp) > 0
                   ? new Date(toEpochMs(item.timestamp)).toLocaleString('zh-CN')
@@ -1102,6 +1211,8 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
               {item.isSnapshotUpdate && <Tag color="processing" style={{ fontSize: 10 }}>快照更新</Tag>}
             </div>
           </div>
+            )
+          })()
         ))}
       </div>
     )
@@ -1587,6 +1698,61 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
     </Modal>
 
     <Modal
+      title="删除详情"
+      open={deletedDetailVisible}
+      onCancel={() => {
+        setDeletedDetailVisible(false)
+        setDeletedDetail(null)
+      }}
+      footer={[
+        <Button
+          key="restore-deleted"
+          icon={<RollbackOutlined />}
+          onClick={handleRestoreDeletedTarget}
+          disabled={!deletedDetail}
+        >
+          {deletedDetail?.deletedTargetType === 'directory' ? '恢复目录' : '恢复文件'}
+        </Button>,
+        <Button key="close-deleted" type="primary" onClick={() => setDeletedDetailVisible(false)}>
+          关闭
+        </Button>
+      ]}
+    >
+      {deletedDetail && (
+        <Space direction="vertical" size={10} style={{ width: '100%' }}>
+          <Space>
+            <Tag color="error">{deletedDetail.deletedTargetType === 'directory' ? '目录删除' : '文件删除'}</Tag>
+            <Tag style={{ fontSize: 10 }}>
+              {toEpochMs(deletedDetail.timestamp) > 0
+                ? new Date(toEpochMs(deletedDetail.timestamp)).toLocaleString('zh-CN')
+                : '未知时间'}
+            </Tag>
+          </Space>
+          <Text type="secondary">删除目标路径：</Text>
+          <Text
+            code
+            style={{
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-all',
+              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace'
+            }}
+          >
+            {deletedDetail.filePath}
+          </Text>
+          <Alert
+            type="info"
+            showIcon
+            message={
+              deletedDetail.deletedTargetType === 'directory'
+                ? '目录删除不提供单文件快照预览，可直接尝试恢复目录。'
+                : '文件删除可通过“查看快照”预览内容，必要时再恢复。'
+            }
+          />
+        </Space>
+      )}
+    </Modal>
+
+    <Modal
       title={
         <Space>
           <FileTextOutlined style={{ color: themeVars.primary }} />
@@ -1603,10 +1769,11 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
         setFileDiffResult([])
         setFileDiffHasChanges(true)
         setIsNewFileSnapshot(false)
+        setPreviewChangeType('modified')
       }}
       width={900}
       footer={[
-        ...(!isNewFileSnapshot ? [
+        ...(previewChangeType === 'modified' && !isNewFileSnapshot ? [
           <Button
             key="diff"
             icon={<SwapOutlined />}
@@ -1649,6 +1816,12 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
           <Space size={8}>
             {isNewFileSnapshot && (
               <Tag color="success" style={{ marginInlineEnd: 2 }}>新增文件</Tag>
+            )}
+            {previewChangeType === 'deleted' && (
+              <Tag color="error" style={{ marginInlineEnd: 2 }}>已删除文件</Tag>
+            )}
+            {previewChangeType === 'modified' && !isNewFileSnapshot && (
+              <Tag color="processing" style={{ marginInlineEnd: 2 }}>变更文件</Tag>
             )}
             {isMarkdownFile && (
               <Segmented

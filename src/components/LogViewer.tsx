@@ -212,6 +212,8 @@ const LogViewer = (props: LogViewerProps) => {
   const [conversationSessionId, setConversationSessionId] = useState('')
   const [conversationProject, setConversationProject] = useState('')
   const [conversationTimestamp, setConversationTimestamp] = useState<number | undefined>(undefined)
+  const [inlineImagePreviewVisible, setInlineImagePreviewVisible] = useState(false)
+  const [inlineImagePreviewSrc, setInlineImagePreviewSrc] = useState('')
 
   // 搜索相关状态
   const [searchVisible, setSearchVisible] = useState(false)
@@ -336,7 +338,38 @@ const LogViewer = (props: LogViewerProps) => {
   /**
    * 将文本中的 [Image #N] 标记替换为带图标的 Tag
    */
-  const renderTextWithImageTags = (text: string) => {
+  const handleInlineImageTagClick = async (
+    e: React.MouseEvent,
+    record: ClaudeRecord,
+    imageNumber: number
+  ) => {
+    e.stopPropagation()
+
+    const targetPath = record.images?.[imageNumber - 1]
+    if (!targetPath) {
+      message.warning(`未找到图片 #${imageNumber}`)
+      return
+    }
+
+    try {
+      let src = imageCache.get(targetPath)
+      if (!src) {
+        const result = await window.electronAPI.readImage(targetPath)
+        if (!result.success || !result.data) {
+          message.error(`图片加载失败: ${result.error || '未知错误'}`)
+          return
+        }
+        src = result.data
+        handleImageCacheUpdate(targetPath, src)
+      }
+      setInlineImagePreviewSrc(src)
+      setInlineImagePreviewVisible(true)
+    } catch {
+      message.error('图片加载失败')
+    }
+  }
+
+  const renderTextWithImageTags = (text: string, record: ClaudeRecord) => {
     const imagePattern = /\[Image #(\d+)\]/g
     const parts: Array<{ type: 'text' | 'image'; value: string; imageNum?: number }> = []
     let lastIndex = 0
@@ -370,7 +403,8 @@ const LogViewer = (props: LogViewerProps) => {
               key={idx}
               icon={<PictureOutlined />}
               color="#D97757"
-              style={{ fontSize: 11, margin: '0 2px', cursor: 'default' }}
+              style={{ fontSize: 11, margin: '0 2px', cursor: 'pointer' }}
+              onClick={e => void handleInlineImageTagClick(e, record, part.imageNum || 1)}
             >
               {part.value}
             </Tag>
@@ -770,7 +804,7 @@ const LogViewer = (props: LogViewerProps) => {
                               overflow: 'hidden'
                             }}
                           >
-                            {record.display ? renderTextWithImageTags(record.display) : '(空消息)'}
+                            {record.display ? renderTextWithImageTags(record.display, record) : '(空消息)'}
                           </div>
 
                           {/* 底部：AI 回复提示 + 查看完整对话 / 复制 */}
@@ -931,6 +965,24 @@ const LogViewer = (props: LogViewerProps) => {
         initialTimestamp={conversationTimestamp}
         onClose={() => setConversationModalVisible(false)}
       />
+
+      {inlineImagePreviewSrc && (
+        <Image
+          src={inlineImagePreviewSrc}
+          alt="inline-image-preview"
+          style={{ display: 'none' }}
+          preview={{
+            ...getCopyablePreviewConfig(darkMode),
+            visible: inlineImagePreviewVisible,
+            onVisibleChange: visible => {
+              setInlineImagePreviewVisible(visible)
+              if (!visible) {
+                setInlineImagePreviewSrc('')
+              }
+            }
+          }}
+        />
+      )}
 
       {/* 搜索弹窗 */}
       <ElectronModal

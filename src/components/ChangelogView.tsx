@@ -34,7 +34,7 @@ const changelog: VersionData[] = [
       { type: 'feat', description: '新增项目对比、会话对比与 Session Board 会话看板能力' },
       { type: 'feat', description: '新增工具调用流程可视化，支持调用链路与输入输出详情查看' },
       { type: 'feat', description: '新增文件修改追踪、快照查看、Diff 对比与文件还原完整流程' },
-      { type: 'feat', description: '新增“最近编辑”页面并支持快速跳转到关联会话' },
+      { type: 'feat', description: '新增 Prompt 详情内“变更文件”视图，支持按轮次查看新增/变更/删除文件' },
       { type: 'feat', description: '新增 MCP 管理系统，支持服务配置和市场能力扩展' },
       { type: 'feat', description: '新增 Hooks / Skills / Plugins 独立管理模块与配置导入导出' },
       { type: 'feat', description: '历史记录支持按项目筛选，搜索升级为 Prompt 内容搜索并高亮' },
