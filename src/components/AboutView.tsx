@@ -120,13 +120,15 @@ function AboutView({ darkMode }: AboutViewProps) {
               }}
             >
               <Space direction="vertical" size={8}>
-                <Text>• 实时监控 Claude Code 对话历史，支持快捷搜索（Cmd+F）</Text>
-                <Text>• 历史记录搜索和筛选，支持 Prompt 内容搜索</Text>
-                <Text>• AI 驱动的对话摘要功能，支持多个提供商</Text>
-                <Text>• Claude Code 配置管理、备份和可视化编辑</Text>
+                <Text>• 实时监控 Claude Code 对话历史，按轮次展示，支持快捷搜索（Cmd+F）</Text>
+                <Text>• 全局统计面板：Token 使用、API 成本、工具调用频率等核心指标分析</Text>
+                <Text>• 项目对比、会话对比与 Session Board 会话看板，支持多维度数据对比</Text>
+                <Text>• 文件修改追踪：快照查看、Diff 对比、文件还原完整流程</Text>
+                <Text>• 工具调用流程可视化：调用链路、输入输出、耗时、成功率统计</Text>
+                <Text>• MCP / Hooks / Skills / Plugins 独立管理，支持配置导入导出</Text>
+                <Text>• AI 对话与摘要功能，支持多个提供商（DeepSeek、Groq、Gemini）</Text>
                 <Text>• 常用 Prompt 管理，支持拖拽排序和快速复制</Text>
-                <Text>• 支持明暗主题切换和响应式设计</Text>
-                <Text>• 跨平台支持（macOS、Windows、Linux）</Text>
+                <Text>• 支持明暗主题切换和响应式设计，跨平台支持（macOS、Windows、Linux）</Text>
               </Space>
             </Card>
 
@@ -189,7 +191,7 @@ function AboutView({ darkMode }: AboutViewProps) {
                 <Text type="secondary">• Ant Design 6.x - 企业级 UI 设计语言</Text>
                 <Text type="secondary">• Monaco Editor - VS Code 同款代码编辑器</Text>
                 <Text type="secondary">• Vite 5 - 下一代前端构建工具</Text>
-                <Text type="secondary">• TypeScript 5.3 - 类型安全的 JavaScript 超集</Text>
+                <Text type="secondary">• Recharts - React 图表库</Text>
               </Space>
             </Card>
 
