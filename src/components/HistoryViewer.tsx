@@ -70,6 +70,24 @@ interface GroupedRecord {
 
 type DateRange = 'all' | '1d' | '7d' | '30d' | 'custom'
 
+const normalizeDisplayText = (display: unknown): string => {
+  return typeof display === 'string' ? display.trim() : ''
+}
+
+const isInternalPlaceholderDisplay = (display: string): boolean => {
+  return (
+    /^\[request\s+interrupted\s+by\s+user\]$/i.test(display) ||
+    /^\[interrupted\]$/i.test(display) ||
+    /^\(no content\)$/i.test(display)
+  )
+}
+
+const shouldIncludeConversationDisplay = (display: unknown): boolean => {
+  const normalized = normalizeDisplayText(display)
+  if (!normalized) return false
+  return !isInternalPlaceholderDisplay(normalized)
+}
+
 const HistoryViewer = (props: HistoryViewerProps) => {
   const { onOpenSettings, darkMode } = props
 
@@ -158,7 +176,7 @@ const HistoryViewer = (props: HistoryViewerProps) => {
     try {
       const result = await window.electronAPI.readHistory()
       if (result.success && result.records) {
-        setAllRecords(result.records)
+        setAllRecords(result.records.filter(record => shouldIncludeConversationDisplay(record.display)))
         setRecordsLoaded(true)
       }
     } catch { /* 静默失败 */ }

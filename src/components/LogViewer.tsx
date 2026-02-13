@@ -195,6 +195,24 @@ interface GroupedRecord {
   latestTimestamp: number
 }
 
+const normalizeDisplayText = (display: unknown): string => {
+  return typeof display === 'string' ? display.trim() : ''
+}
+
+const isInternalPlaceholderDisplay = (display: string): boolean => {
+  return (
+    /^\[request\s+interrupted\s+by\s+user\]$/i.test(display) ||
+    /^\[interrupted\]$/i.test(display) ||
+    /^\(no content\)$/i.test(display)
+  )
+}
+
+const shouldIncludeConversationDisplay = (display: unknown): boolean => {
+  const normalized = normalizeDisplayText(display)
+  if (!normalized) return false
+  return !isInternalPlaceholderDisplay(normalized)
+}
+
 const LogViewer = (props: LogViewerProps) => {
   const { records, onClear, onOpenSettings, darkMode } = props
   const themeVars = getThemeVars(darkMode)
@@ -269,11 +287,15 @@ const LogViewer = (props: LogViewerProps) => {
     setExpandedSessions(newExpanded)
   }
 
+  const filteredRecords = useMemo(() => {
+    return records.filter(record => shouldIncludeConversationDisplay(record.display))
+  }, [records])
+
   // 按 sessionId 分组记录
   const groupedRecords = useMemo(() => {
     const groups = new Map<string, GroupedRecord>()
 
-    records.forEach(record => {
+    filteredRecords.forEach(record => {
       const key = record.sessionId || `single-${record.timestamp}`
 
       if (!groups.has(key)) {
@@ -291,7 +313,7 @@ const LogViewer = (props: LogViewerProps) => {
     })
 
     return Array.from(groups.values()).sort((a, b) => b.latestTimestamp - a.latestTimestamp)
-  }, [records])
+  }, [filteredRecords])
 
   const formatTime = (timestamp: number) => {
     return new Date(timestamp).toLocaleString('zh-CN', {
@@ -425,7 +447,7 @@ const LogViewer = (props: LogViewerProps) => {
       matchText: string
     }> = []
 
-    records.forEach(record => {
+    filteredRecords.forEach(record => {
       const content = record.display?.toLowerCase() || ''
       if (content.includes(keyword)) {
         const index = content.indexOf(keyword)
@@ -445,7 +467,7 @@ const LogViewer = (props: LogViewerProps) => {
     })
 
     return results
-  }, [records, debouncedKeyword])
+  }, [filteredRecords, debouncedKeyword])
 
   /* 点击搜索结果 → 打开完整对话弹窗 */
   const handleViewSearchResult = (result: {
@@ -601,7 +623,7 @@ const LogViewer = (props: LogViewerProps) => {
         }
       >
         <Text type="secondary" style={{ fontSize: 12 }}>
-          共 {groupedRecords.length} 个会话，{records.length} 条记录
+          共 {groupedRecords.length} 个会话，{filteredRecords.length} 条记录
         </Text>
         <Space style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
           <Tooltip title="搜索 Prompt (Cmd+F / Ctrl+F)">
@@ -618,7 +640,7 @@ const LogViewer = (props: LogViewerProps) => {
           <Button
             icon={<ClearOutlined />}
             onClick={onClear}
-            disabled={records.length === 0}
+            disabled={filteredRecords.length === 0}
             size="small"
           >
             清空
@@ -652,9 +674,10 @@ const LogViewer = (props: LogViewerProps) => {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {groupedRecords.map(group => {
               const isExpanded = expandedSessions.has(group.sessionId)
-              const showCollapse = group.records.length > 3
+              const sortedRecords = [...group.records].sort((a, b) => b.timestamp - a.timestamp)
+              const showCollapse = sortedRecords.length > 3
               const displayRecords =
-                isExpanded || !showCollapse ? group.records : group.records.slice(0, 3)
+                isExpanded || !showCollapse ? sortedRecords : sortedRecords.slice(0, 3)
 
               return (
                 <Card
@@ -745,7 +768,7 @@ const LogViewer = (props: LogViewerProps) => {
                             }}
                           >
                             <Tag color="#D97757" style={{ fontSize: 11 }}>
-                              第 {recordIndex + (isExpanded || !showCollapse ? 1 : 1)} 轮
+                              第 {sortedRecords.length - recordIndex} 轮
                             </Tag>
                             <Text type="secondary" style={{ fontSize: 11 }}>
                               <ClockCircleOutlined style={{ marginRight: 4 }} />

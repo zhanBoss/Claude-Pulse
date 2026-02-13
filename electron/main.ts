@@ -261,6 +261,24 @@ const HISTORY_FILE = path.join(CLAUDE_DIR, 'history.jsonl')
 const SETTINGS_FILE = path.join(CLAUDE_DIR, 'settings.json')
 const PROJECTS_DIR = path.join(CLAUDE_DIR, 'projects')
 
+const normalizeDisplayText = (display: unknown): string => {
+  return typeof display === 'string' ? display.trim() : ''
+}
+
+const isInternalPlaceholderDisplay = (display: string): boolean => {
+  return (
+    /^\[request\s+interrupted\s+by\s+user\]$/i.test(display) ||
+    /^\[interrupted\]$/i.test(display) ||
+    /^\(no content\)$/i.test(display)
+  )
+}
+
+const shouldIncludeConversationDisplay = (display: unknown): boolean => {
+  const normalized = normalizeDisplayText(display)
+  if (!normalized) return false
+  return !isInternalPlaceholderDisplay(normalized)
+}
+
 const findGitRoot = (targetPath: string): string | null => {
   let current = path.resolve(targetPath)
   if (!fs.existsSync(current) || !fs.statSync(current).isDirectory()) {
@@ -782,6 +800,10 @@ function readNewLines() {
 // 处理对话记录（不再保存到文件，直接发送到渲染进程）
 async function processRecord(record: any) {
   try {
+    if (!shouldIncludeConversationDisplay(record?.display)) {
+      return
+    }
+
     // 处理粘贴内容：读取实际内容
     const expandedPastedContents: Record<string, any> = {}
     if (record.pastedContents && typeof record.pastedContents === 'object') {
@@ -854,6 +876,9 @@ ipcMain.handle('read-recent-records', async (_, hoursAgo: number = 24) => {
     for (const line of lines) {
       try {
         const record = JSON.parse(line)
+        if (!shouldIncludeConversationDisplay(record?.display)) {
+          continue
+        }
         if (record.timestamp >= cutoffTime) {
           // 展开粘贴内容
           const expandedPastedContents: Record<string, any> = {}
@@ -949,6 +974,8 @@ ipcMain.handle('read-history-metadata', async () => {
         }
 
         if (isNaN(timestamp)) continue
+
+        if (!shouldIncludeConversationDisplay(record.display)) continue
 
         // 使用记录中的 sessionId（UUID 格式），如果缺失则跳过该记录
         const sessionId = record.sessionId
@@ -1359,6 +1386,10 @@ ipcMain.handle('read-session-details', async (_, sessionId: string) => {
         }
 
         if (isNaN(timestamp) || !record.project) {
+          continue
+        }
+
+        if (!shouldIncludeConversationDisplay(record.display)) {
           continue
         }
 
@@ -2033,6 +2064,10 @@ ipcMain.handle('read-history', async () => {
           continue
         }
 
+        if (!shouldIncludeConversationDisplay(record.display)) {
+          continue
+        }
+
         // 展开粘贴内容
         let pastedContents = record.pastedContents || {}
         if (pastedContents && typeof pastedContents === 'object') {
@@ -2096,6 +2131,10 @@ ipcMain.handle('export-records', async (_, options: any) => {
             : new Date(record.timestamp).getTime()
 
         if (isNaN(timestamp) || !record.project) {
+          continue
+        }
+
+        if (!shouldIncludeConversationDisplay(record.display)) {
           continue
         }
 
