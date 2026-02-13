@@ -1,6 +1,6 @@
 {
   "name": "claude-pulse",
-  "version": "1.7.0",
+  "version": "2.0.0",
   "description": "Claude Code 配置管理和对话记录监控工具",
   "main": "dist-electron/main.js",
   "packageManager": "pnpm@10.13.1",

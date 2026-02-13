@@ -27,6 +27,27 @@ interface VersionData {
 
 const changelog: VersionData[] = [
   {
+    version: '2.0.0',
+    date: '2026-02-13',
+    changes: [
+      { type: 'feat', description: '新增全局统计面板，支持 Token/成本/工具调用等核心指标分析' },
+      { type: 'feat', description: '新增项目对比、会话对比与 Session Board 会话看板能力' },
+      { type: 'feat', description: '新增工具调用流程可视化，支持调用链路与输入输出详情查看' },
+      { type: 'feat', description: '新增文件修改追踪、快照查看、Diff 对比与文件还原完整流程' },
+      { type: 'feat', description: '新增“最近编辑”页面并支持快速跳转到关联会话' },
+      { type: 'feat', description: '新增 MCP 管理系统，支持服务配置和市场能力扩展' },
+      { type: 'feat', description: '新增 Hooks / Skills / Plugins 独立管理模块与配置导入导出' },
+      { type: 'feat', description: '历史记录支持按项目筛选，搜索升级为 Prompt 内容搜索并高亮' },
+      { type: 'refactor', description: '重构实时对话与历史记录页面，统一按轮次浏览和详情交互体验' },
+      { type: 'refactor', description: '设置页布局和导航体系重构，优化抽屉与桌面场景标题对齐' },
+      { type: 'refactor', description: '统一项目命名为 ClaudePulse，并同步构建配置与文档描述' },
+      { type: 'refactor', description: '统一主题色系统并清理硬编码颜色，提升全局视觉一致性' },
+      { type: 'fix', description: '修复文件监控不触发、对话详情渲染异常与文件快照读取问题' },
+      { type: 'fix', description: '修复 Prompt 列表内部消息误识别、回复计数与排序异常问题' },
+      { type: 'docs', description: '补充发布流程与主题规范文档，完善版本发布与开发协作指引' }
+    ]
+  },
+  {
     version: '1.7.0',
     date: '2026-02-08',
     changes: [
