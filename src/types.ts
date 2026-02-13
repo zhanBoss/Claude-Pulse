@@ -7,6 +7,80 @@ export interface ClaudeRecord {
   images?: string[]
 }
 
+// Token 使用量统计
+export interface TokenUsage {
+  input_tokens: number
+  output_tokens: number
+  cache_creation_input_tokens?: number
+  cache_read_input_tokens?: number
+}
+
+// 完整对话消息内容
+export interface MessageContent {
+  type: 'text' | 'image' | 'tool_use' | 'tool_result'
+  text?: string
+  // 图片内容
+  source?: {
+    type: 'base64'
+    media_type: string
+    data: string
+  }
+  // 工具调用
+  id?: string
+  name?: string
+  input?: any
+  // 工具结果
+  tool_use_id?: string
+  content?: string | any[]
+  is_error?: boolean
+}
+
+// 消息子类型
+export type MessageSubType =
+  | 'user'
+  | 'assistant'
+  | 'system'
+  | 'summary'
+  | 'file-history-snapshot'
+  | 'queue-operation'
+  | 'hook'
+  | 'microcompaction-boundary'
+  | string
+
+// 完整对话消息
+export interface FullMessage {
+  role: 'user' | 'assistant'
+  content: MessageContent[]
+  timestamp: number
+  // 消息子类型
+  subType?: MessageSubType
+  // Token 和成本信息
+  model?: string
+  usage?: TokenUsage
+  cost_usd?: number
+  duration_ms?: number
+}
+
+// 完整对话数据（从 projects/{sessionId}.jsonl 提取）
+export interface FullConversation {
+  sessionId: string
+  project: string
+  messages: FullMessage[]
+  // 统计信息
+  total_tokens?: number
+  total_cost_usd?: number
+  has_tool_use?: boolean
+  has_errors?: boolean
+  tool_use_count?: number
+  tool_usage?: Record<string, number> // { "Read": 5, "Write": 3, "Bash": 2 }
+  // 文件编辑快照
+  fileEdits?: Array<{
+    messageId: string
+    timestamp: string
+    files: string[] // 文件路径列表
+  }>
+}
+
 // 会话元数据（轻量级）
 export interface SessionMetadata {
   sessionId: string
@@ -14,11 +88,48 @@ export interface SessionMetadata {
   latestTimestamp: number
   firstTimestamp: number
   recordCount: number
+  // 统计信息
+  total_tokens?: number
+  total_cost_usd?: number
+  has_tool_use?: boolean
+  has_errors?: boolean
+  tool_use_count?: number
+  tool_usage?: Record<string, number> // { "Read": 5, "Write": 3, "Bash": 2 }
+  tool_errors?: Record<string, number> // { "Bash": 2, "Write": 1 } 各工具错误次数
+  tool_avg_duration?: Record<string, number> // { "Read": 150, "Bash": 3200 } 各工具平均耗时(ms)
 }
 
-export interface RecordConfig {
-  enabled: boolean
-  savePath: string
+// 项目级别统计数据
+export interface ProjectStatistics {
+  project: string
+  projectName: string
+  sessionCount: number
+  totalRecords: number
+  totalTokens?: number
+  totalCost?: number
+  hasToolUse?: boolean
+  hasErrors?: boolean
+  toolUsage?: Record<string, number>
+  firstTimestamp: number
+  latestTimestamp: number
+}
+
+// 文件编辑快照
+export interface FileEditSnapshot {
+  messageId: string
+  timestamp: string
+  sessionId: string
+  project: string
+  files: FileEditEntry[]
+  isSnapshotUpdate: boolean
+}
+
+// 单个文件编辑记录
+export interface FileEditEntry {
+  filePath: string
+  contentLength: number
+  // 内容预览（前200字符）
+  preview?: string
 }
 
 // 常用命令
@@ -73,6 +184,18 @@ export interface ClaudeConfigBackup {
   updatedAt: number
 }
 
+// Token 价格配置（用户自定义）
+export interface TokenPricingConfig {
+  // 输入 token 价格（USD per Million Tokens）
+  inputPrice: number
+  // 输出 token 价格（USD per Million Tokens）
+  outputPrice: number
+  // 缓存写入价格（USD per Million Tokens）
+  cacheWritePrice: number
+  // 缓存读取价格（USD per Million Tokens）
+  cacheReadPrice: number
+}
+
 // 自动清理缓存配置
 export interface AutoCleanupConfig {
   // 是否启用自动清理
@@ -99,6 +222,8 @@ export interface AppSettings {
   claudeConfigBackups?: ClaudeConfigBackup[]
   // 自动清理缓存配置
   autoCleanup?: AutoCleanupConfig
+  // Token 价格配置（用户自定义）
+  tokenPricing?: TokenPricingConfig
 }
 
 export interface ExportOptions {
@@ -112,18 +237,72 @@ export interface ElectronAPI {
   checkClaudeInstalled: () => Promise<{ installed: boolean; claudeDir?: string; error?: string }>
   getClaudeConfig: () => Promise<{ success: boolean; config?: string; error?: string }>
   saveClaudeConfig: (config: string) => Promise<{ success: boolean; error?: string }>
-  selectSavePath: () => Promise<{ canceled: boolean; path?: string }>
-  getRecordConfig: () => Promise<RecordConfig>
-  saveRecordConfig: (config: RecordConfig) => Promise<{ success: boolean; error?: string }>
   onNewRecord: (callback: (record: ClaudeRecord) => void) => () => void
   copyToClipboard: (text: string) => Promise<{ success: boolean; error?: string }>
   openInFinder: (path: string) => Promise<{ success: boolean; error?: string }>
+  readRecentRecords: (hoursAgo?: number) => Promise<{ success: boolean; records?: ClaudeRecord[]; error?: string }>
   readHistory: () => Promise<{ success: boolean; records?: ClaudeRecord[]; error?: string }>
-  readHistoryMetadata: () => Promise<{ success: boolean; sessions?: SessionMetadata[]; error?: string }>
-  readSessionDetails: (sessionId: string) => Promise<{ success: boolean; records?: ClaudeRecord[]; error?: string }>
+  readHistoryMetadata: () => Promise<{
+    success: boolean
+    sessions?: SessionMetadata[]
+    error?: string
+  }>
+  readSessionDetails: (
+    sessionId: string
+  ) => Promise<{ success: boolean; records?: ClaudeRecord[]; error?: string }>
+  // 读取完整对话（从 projects/{sessionId}.jsonl）
+  readFullConversation: (
+    sessionId: string,
+    project: string
+  ) => Promise<{ success: boolean; conversation?: FullConversation; error?: string }>
+  // 读取会话的 image-cache 图片
+  readSessionImageCache: (
+    sessionId: string
+  ) => Promise<{
+    success: boolean
+    images?: Array<{ filename: string; dataUrl: string }>
+    error?: string
+  }>
+  // 读取会话的 paste-cache 粘贴内容
+  readSessionPasteCache: (
+    sessionId: string
+  ) => Promise<{
+    success: boolean
+    pastes?: Array<{
+      key: string
+      filename: string
+      content: string
+      contentHash?: string
+      timestamp?: number
+    }>
+    error?: string
+  }>
+  // 读取文件编辑快照
+  readFileEdits: () => Promise<{
+    success: boolean
+    edits?: FileEditSnapshot[]
+    error?: string
+  }>
+  // 读取文件快照内容
+  readFileSnapshotContent: (
+    sessionId: string,
+    messageId: string,
+    filePath: string
+  ) => Promise<{ success: boolean; content?: string; error?: string }>
+  // 从快照恢复文件
+  restoreFileFromSnapshot: (
+    sessionId: string,
+    messageId: string,
+    filePath: string
+  ) => Promise<{ success: boolean; error?: string }>
   getAppSettings: () => Promise<AppSettings>
   saveAppSettings: (settings: AppSettings) => Promise<{ success: boolean; error?: string }>
-  exportRecords: (options: ExportOptions) => Promise<{ success: boolean; filePath?: string; error?: string }>
+  // Token 价格配置
+  getTokenPricing: () => Promise<{ success: boolean; tokenPricing?: TokenPricingConfig; error?: string }>
+  saveTokenPricing: (tokenPricing: TokenPricingConfig) => Promise<{ success: boolean; error?: string }>
+  exportRecords: (
+    options: ExportOptions
+  ) => Promise<{ success: boolean; filePath?: string; error?: string }>
   // 新增 AI 相关方法
   summarizeRecords: (request: SummaryRequest) => Promise<SummaryResponse>
   // 流式总结，返回监听器清理函数
@@ -142,24 +321,54 @@ export interface ElectronAPI {
   // 在文件管理器中显示 Claude Code 配置文件
   showClaudeConfigInFolder: () => Promise<void>
   // 删除单条历史记录（包括相关图片）
-  deleteRecord: (sessionId: string, timestamp: number) => Promise<{ success: boolean; error?: string }>
+  deleteRecord: (
+    sessionId: string,
+    timestamp: number
+  ) => Promise<{ success: boolean; error?: string }>
   // 读取应用配置文件内容
   readAppConfigFile: () => Promise<string>
   // 保存应用配置文件内容
   saveAppConfigFile: (content: string) => Promise<void>
   // 卸载应用
   uninstallApp: () => Promise<{ success: boolean; error?: string }>
-  // 清除缓存
+  // 清除应用内部缓存
   clearCache: () => Promise<{ success: boolean; deletedCount?: number; error?: string }>
+  // 清除所有缓存（本项目涉及的所有资源）
+  clearAllCache: () => Promise<{
+    success: boolean
+    result?: {
+      historyCleared: boolean
+      projectsCleared: boolean
+      imageCacheCleared: boolean
+      pasteCacheCleared: boolean
+      appCacheCleared: boolean
+    }
+    error?: string
+  }>
   // 自动清理缓存：按时间范围清理
-  clearCacheByAge: (retainMs: number) => Promise<{ success: boolean; deletedCount?: number; error?: string }>
+  clearCacheByAge: (
+    retainMs: number
+  ) => Promise<{ success: boolean; deletedCount?: number; error?: string }>
   // 获取自动清理倒计时状态
-  getAutoCleanupStatus: () => Promise<{ enabled: boolean; nextCleanupTime: number | null; remainingMs: number | null }>
+  getAutoCleanupStatus: () => Promise<{
+    enabled: boolean
+    nextCleanupTime: number | null
+    remainingMs: number | null
+  }>
   // 手动触发自动清理
-  triggerAutoCleanup: () => Promise<{ success: boolean; deletedCount?: number; nextCleanupTime?: number; error?: string }>
+  triggerAutoCleanup: () => Promise<{
+    success: boolean
+    deletedCount?: number
+    nextCleanupTime?: number
+    error?: string
+  }>
   // 监听自动清理事件
-  onAutoCleanupTick: (callback: (data: { nextCleanupTime: number; remainingMs: number }) => void) => () => void
-  onAutoCleanupExecuted: (callback: (data: { deletedCount: number; nextCleanupTime: number }) => void) => () => void
+  onAutoCleanupTick: (
+    callback: (data: { nextCleanupTime: number; remainingMs: number }) => void
+  ) => () => void
+  onAutoCleanupExecuted: (
+    callback: (data: { deletedCount: number; nextCleanupTime: number }) => void
+  ) => () => void
   onAutoCleanupError: (callback: (data: { error: string }) => void) => () => void
   onAutoCleanupConfigUpdated: (callback: (config: AutoCleanupConfig) => void) => () => void
   // 打开开发者工具
@@ -169,24 +378,43 @@ export interface ElectronAPI {
   // 复制图片到剪贴板（使用原生 nativeImage）
   copyImageToClipboard: (base64Data: string) => Promise<{ success: boolean; error?: string }>
   // 读取文件内容（用于代码编辑器）
-  readFileContent: (filePath: string) => Promise<{ success: boolean; content?: string; error?: string }>
+  readFileContent: (
+    filePath: string
+  ) => Promise<{ success: boolean; content?: string; error?: string }>
   // 保存文件内容（用于代码编辑器）
-  saveFileContent: (filePath: string, content: string) => Promise<{ success: boolean; error?: string }>
+  saveFileContent: (
+    filePath: string,
+    content: string
+  ) => Promise<{ success: boolean; error?: string }>
   // 在系统默认编辑器中打开文件
   openFileInEditor: (filePath: string) => Promise<{ success: boolean; error?: string }>
   // Claude Code 配置备份管理
   listClaudeConfigBackups: () => Promise<ClaudeConfigBackup[]>
-  createClaudeConfigBackup: (name: string) => Promise<{ success: boolean; backup?: ClaudeConfigBackup; error?: string }>
+  createClaudeConfigBackup: (
+    name: string
+  ) => Promise<{ success: boolean; backup?: ClaudeConfigBackup; error?: string }>
   deleteClaudeConfigBackup: (id: number) => Promise<{ success: boolean; error?: string }>
   switchClaudeConfigBackup: (id: number) => Promise<{ success: boolean; error?: string }>
-  updateClaudeConfigBackupName: (id: number, name: string) => Promise<{ success: boolean; error?: string }>
-  getClaudeConfigBackupContent: (id: number) => Promise<{ success: boolean; config?: string; error?: string }>
+  updateClaudeConfigBackupName: (
+    id: number,
+    name: string
+  ) => Promise<{ success: boolean; error?: string }>
+  getClaudeConfigBackupContent: (
+    id: number
+  ) => Promise<{ success: boolean; config?: string; error?: string }>
   // 在外部浏览器中打开链接
   openExternal: (url: string) => Promise<{ success: boolean; error?: string }>
   // 常用命令管理
   getCommonCommands: () => Promise<CommonCommand[]>
-  addCommonCommand: (name: string, content: string) => Promise<{ success: boolean; command?: CommonCommand; error?: string }>
-  updateCommonCommand: (id: string, name: string, content: string) => Promise<{ success: boolean; error?: string }>
+  addCommonCommand: (
+    name: string,
+    content: string
+  ) => Promise<{ success: boolean; command?: CommonCommand; error?: string }>
+  updateCommonCommand: (
+    id: string,
+    name: string,
+    content: string
+  ) => Promise<{ success: boolean; error?: string }>
   deleteCommonCommand: (id: string) => Promise<{ success: boolean; error?: string }>
   togglePinCommand: (id: string) => Promise<{ success: boolean; error?: string }>
   reorderCommands: (commands: CommonCommand[]) => Promise<{ success: boolean; error?: string }> // 新增：更新排序
@@ -199,9 +427,187 @@ export interface ElectronAPI {
     onError: (error: string) => void
   ) => Promise<void>
   // AI 格式化 Prompt
-  formatPrompt: (content: string, contentHash?: string) => Promise<{ success: boolean; formatted?: string; error?: string }>
+  formatPrompt: (
+    content: string,
+    contentHash?: string
+  ) => Promise<{ success: boolean; formatted?: string; error?: string }>
   // 导出 AI 对话
-  exportChatHistory: (messages: ChatMessage[], format: 'pdf' | 'html' | 'markdown' | 'word') => Promise<{ success: boolean; filePath?: string; error?: string }>
+  exportChatHistory: (
+    messages: ChatMessage[],
+    format: 'pdf' | 'html' | 'markdown' | 'word'
+  ) => Promise<{ success: boolean; filePath?: string; error?: string }>
+  // Claude Code 配置管理
+  getClaudeCodeFullConfig: () => Promise<{
+    success: boolean
+    config?: ClaudeCodeConfig
+    error?: string
+  }>
+  // MCP 服务器管理
+  getMCPServers: () => Promise<{ success: boolean; servers?: MCPServer[]; error?: string }>
+  saveMCPServer: (
+    name: string,
+    config: Omit<MCPServer, 'name' | 'source'>
+  ) => Promise<{ success: boolean; error?: string }>
+  deleteMCPServer: (name: string) => Promise<{ success: boolean; error?: string }>
+  // Skills 管理
+  getClaudeSkills: () => Promise<{ success: boolean; skills?: ClaudeSkill[]; error?: string }>
+  deleteClaudeSkill: (name: string) => Promise<{ success: boolean; error?: string }>
+  createClaudeSkill: (
+    name: string,
+    description: string,
+    content?: string
+  ) => Promise<{ success: boolean; skillPath?: string; error?: string }>
+  readClaudeSkillContent: (
+    name: string
+  ) => Promise<{ success: boolean; content?: string; error?: string }>
+  updateClaudeSkill: (
+    name: string,
+    description: string,
+    content: string
+  ) => Promise<{ success: boolean; error?: string }>
+
+  // Plugins 管理
+  getClaudePlugins: () => Promise<{ success: boolean; plugins?: ClaudePlugin[]; error?: string }>
+  toggleClaudePlugin: (
+    name: string,
+    enabled: boolean
+  ) => Promise<{ success: boolean; error?: string }>
+  uninstallClaudePlugin: (name: string) => Promise<{ success: boolean; error?: string }>
+  
+  // Hooks 管理
+  getClaudeHooks: () => Promise<{ success: boolean; hooks?: ClaudeHook[]; error?: string }>
+  saveClaudeHook: (
+    type: string,
+    config: Partial<ClaudeHook>
+  ) => Promise<{ success: boolean; error?: string }>
+  deleteClaudeHook: (type: string) => Promise<{ success: boolean; error?: string }>
+
+  // 配置导出/导入
+  exportClaudeConfig: () => Promise<{ success: boolean; filePath?: string; error?: string }>
+  importClaudeConfig: (
+    filePath: string
+  ) => Promise<{ success: boolean; error?: string }>
+
+  // MCP 市场
+  fetchMCPMarket: (params: {
+    search?: string
+    limit?: number
+    cursor?: string
+  }) => Promise<{ success: boolean; result?: MCPMarketSearchResult; error?: string }>
+  installMCPServer: (
+    name: string,
+    config: MCPInstallConfig,
+    target: 'claude' | 'cursor'
+  ) => Promise<{ success: boolean; error?: string }>
+  uninstallMCPServer: (
+    name: string,
+    source: 'claude' | 'cursor'
+  ) => Promise<{ success: boolean; error?: string }>
+  updateMCPServer: (
+    name: string,
+    config: MCPInstallConfig,
+    source: 'claude' | 'cursor'
+  ) => Promise<{ success: boolean; error?: string }>
+}
+
+// ========== Claude Code 配置类型 ==========
+
+// MCP 服务器配置
+export interface MCPServer {
+  name: string
+  command: string
+  args?: string[]
+  env?: Record<string, string>
+  cwd?: string
+  url?: string
+  source: 'claude' | 'cursor'
+}
+
+// Skill 技能
+export interface ClaudeSkill {
+  name: string
+  path: string
+  description?: string
+  files: string[]
+}
+
+// Plugin 插件
+export interface ClaudePlugin {
+  name: string
+  version?: string
+  enabled: boolean
+  description?: string
+  installPath?: string
+}
+
+// Claude Code Hook 钩子
+export interface ClaudeHook {
+  type: string
+  matcher?: string
+  handlerType?: 'command' | 'prompt' | 'agent'
+  command?: string
+  prompt?: string
+  timeout?: number
+  async?: boolean
+  enabled: boolean
+}
+
+// Claude Code 完整配置
+export interface ClaudeCodeConfig {
+  settings: Record<string, any>
+  mcpServers: MCPServer[]
+  skills: ClaudeSkill[]
+  plugins: ClaudePlugin[]
+  hooks: ClaudeHook[]
+}
+
+// ========== MCP 市场类型 ==========
+
+// MCP 服务器包信息
+export interface MCPPackage {
+  registryType: 'npm' | 'pypi' | 'oci'
+  identifier: string
+  transport?: { type: string }
+  environmentVariables?: Array<{
+    name: string
+    description?: string
+    isSecret?: boolean
+  }>
+}
+
+// MCP 远程服务配置
+export interface MCPRemote {
+  type: 'sse' | 'streamable-http'
+  url: string
+}
+
+// 在线 MCP 服务器信息
+export interface OnlineMCPServer {
+  name: string
+  title?: string
+  description: string
+  version: string
+  repositoryUrl?: string
+  packages?: MCPPackage[]
+  remotes?: MCPRemote[]
+  isOfficial?: boolean
+  publishedAt?: string
+  isInstalled?: boolean
+}
+
+// 市场搜索结果
+export interface MCPMarketSearchResult {
+  servers: OnlineMCPServer[]
+  nextCursor?: string
+  count: number
+}
+
+// MCP 安装配置
+export interface MCPInstallConfig {
+  command?: string
+  args?: string[]
+  env?: Record<string, string>
+  url?: string
 }
 
 // AI 总结请求参数

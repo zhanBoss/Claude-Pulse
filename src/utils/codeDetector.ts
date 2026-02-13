@@ -46,7 +46,7 @@ const CODE_PATTERNS = [
   // 模板字符串
   /`[\s\S]*?\${[\s\S]*?}[\s\S]*?`/,
   // 正则表达式字面量
-  /\/[^/\n]+\/[gimuy]*/,
+  /\/[^/\n]+\/[gimuy]*/
 ]
 
 /**
@@ -87,7 +87,8 @@ const analyzeCodeFeatures = (content: string): CodeFeatures => {
   const hasSpecialChars = (content.match(/[()[\]<>{}=]/g) || []).length
 
   // 运算符数量（避免与自然语言混淆）
-  const hasOperators = (content.match(/[+\-*/%&|^~!]=?|===?|!==?|<=?|>=?|&&|\|\||<<|>>/g) || []).length
+  const hasOperators = (content.match(/[+\-*/%&|^~!]=?|===?|!==?|<=?|>=?|&&|\|\||<<|>>/g) || [])
+    .length
 
   // 引号数量（成对出现）
   const hasQuotes = (content.match(/["'`]/g) || []).length
@@ -306,4 +307,171 @@ export const detectLanguage = (content: string): string => {
 
   // 默认返回纯文本
   return 'plaintext'
+}
+
+/**
+ * 文件扩展名到语法高亮语言的映射
+ */
+const EXTENSION_LANGUAGE_MAP: Record<string, string> = {
+  // JavaScript / TypeScript
+  js: 'javascript',
+  jsx: 'jsx',
+  ts: 'typescript',
+  tsx: 'tsx',
+  mjs: 'javascript',
+  cjs: 'javascript',
+  mts: 'typescript',
+
+  // Web
+  html: 'html',
+  htm: 'html',
+  css: 'css',
+  scss: 'scss',
+  sass: 'sass',
+  less: 'less',
+  vue: 'html',
+  svelte: 'html',
+
+  // Data / Config
+  json: 'json',
+  jsonc: 'json',
+  yaml: 'yaml',
+  yml: 'yaml',
+  toml: 'toml',
+  xml: 'xml',
+  csv: 'csv',
+  env: 'bash',
+
+  // Programming Languages
+  py: 'python',
+  rb: 'ruby',
+  go: 'go',
+  rs: 'rust',
+  java: 'java',
+  kt: 'kotlin',
+  kts: 'kotlin',
+  swift: 'swift',
+  c: 'c',
+  h: 'c',
+  cpp: 'cpp',
+  cc: 'cpp',
+  cxx: 'cpp',
+  hpp: 'cpp',
+  cs: 'csharp',
+  php: 'php',
+  lua: 'lua',
+  r: 'r',
+  dart: 'dart',
+  scala: 'scala',
+  ex: 'elixir',
+  exs: 'elixir',
+  erl: 'erlang',
+  hs: 'haskell',
+  clj: 'clojure',
+
+  // Shell / Script
+  sh: 'bash',
+  bash: 'bash',
+  zsh: 'bash',
+  fish: 'bash',
+  ps1: 'powershell',
+  bat: 'batch',
+  cmd: 'batch',
+
+  // Markup / Doc
+  md: 'markdown',
+  mdx: 'markdown',
+  tex: 'latex',
+  rst: 'text',
+
+  // Database
+  sql: 'sql',
+  graphql: 'graphql',
+  gql: 'graphql',
+
+  // DevOps / Config
+  dockerfile: 'docker',
+  tf: 'hcl',
+  nginx: 'nginx',
+  ini: 'ini',
+  conf: 'ini',
+  properties: 'properties',
+
+  // Other
+  proto: 'protobuf',
+  diff: 'diff',
+  patch: 'diff',
+  log: 'text',
+  txt: 'text'
+}
+
+/**
+ * 根据文件路径检测语法高亮语言
+ *
+ * 优先使用文件扩展名映射，比内容检测更精准
+ * @param filePath 文件路径
+ * @param content 文件内容（可选，扩展名无法识别时用于兜底）
+ * @returns 语言标识符
+ */
+export const getLanguageByFilePath = (filePath: string, content?: string): string => {
+  if (!filePath) return content ? detectLanguage(content) : 'text'
+
+  const fileName = filePath.split('/').pop() || ''
+
+  /* 特殊文件名匹配 */
+  const lowerName = fileName.toLowerCase()
+  if (lowerName === 'dockerfile' || lowerName.startsWith('dockerfile.')) return 'docker'
+  if (lowerName === 'makefile' || lowerName === 'gnumakefile') return 'makefile'
+  if (lowerName === '.gitignore' || lowerName === '.dockerignore') return 'bash'
+  if (lowerName === '.editorconfig') return 'ini'
+  if (lowerName === 'cmakelists.txt') return 'cmake'
+
+  /* 扩展名匹配 */
+  const ext = fileName.includes('.') ? fileName.split('.').pop()?.toLowerCase() || '' : ''
+  const mapped = EXTENSION_LANGUAGE_MAP[ext]
+  if (mapped) return mapped
+
+  /* 兜底：基于内容检测 */
+  if (content) return detectLanguage(content)
+
+  return 'text'
+}
+
+/**
+ * Prism 语言标识 → Monaco Editor 语言标识映射
+ *
+ * Monaco 与 Prism 大部分一致，但有少量差异
+ */
+const MONACO_LANGUAGE_MAP: Record<string, string> = {
+  bash: 'shell',
+  tsx: 'typescript',
+  jsx: 'javascript',
+  text: 'plaintext',
+  docker: 'dockerfile',
+  hcl: 'plaintext',
+  nginx: 'plaintext',
+  cmake: 'plaintext',
+  makefile: 'plaintext',
+  protobuf: 'plaintext',
+  diff: 'plaintext',
+  csv: 'plaintext',
+  batch: 'bat',
+  latex: 'plaintext',
+  elixir: 'plaintext',
+  erlang: 'plaintext',
+  haskell: 'plaintext',
+  clojure: 'plaintext',
+  properties: 'plaintext'
+}
+
+/**
+ * 根据文件路径获取 Monaco Editor 兼容的语言标识
+ *
+ * @param filePath 文件路径
+ * @param content 文件内容（可选，兜底检测）
+ * @returns Monaco Editor 语言标识符
+ */
+export const getMonacoLanguage = (filePath: string, content?: string): string => {
+  const lang = getLanguageByFilePath(filePath, content)
+  return MONACO_LANGUAGE_MAP[lang] || lang
 }

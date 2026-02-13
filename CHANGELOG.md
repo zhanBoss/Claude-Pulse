@@ -2,9 +2,53 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.0] - 2026-02-13
+
+### Added
+
+- 新增全局统计与分析能力
+  - 添加 Statistics 统计页面，覆盖 Token、成本、工具调用频次、成功率、平均耗时
+  - 支持项目级对比、会话对比与 Session Board 看板视图
+  - 新增工具调用流程可视化时间线，支持输入/输出/耗时详情查看
+- 新增文件变更追踪体系
+  - 支持记录并展示会话中的文件修改历史
+  - 支持文件快照查看、修改前后 Diff 对比与一键还原
+  - 新增“最近编辑”页面并支持快速跳转到关联会话
+- 新增 Claude 配置生态管理能力
+  - 新增 MCP 管理系统（服务列表、配置编辑、市场集成）
+  - 新增 Hooks / Skills / Plugins 独立管理模块
+  - 支持配置导入导出与 Skill 自定义内容读写
+
+### Improved
+
+- 重构实时对话与历史记录体验
+  - Prompt 详情按轮次浏览，支持图片/粘贴内容分组展示
+  - 历史记录支持按项目筛选与 Prompt 内容搜索高亮
+  - 搜索结果可直接定位到对应 Prompt 详情
+- 重构设置页架构与交互
+  - 设置页布局与导航体系重构，桌面与抽屉场景标题对齐优化
+  - 统一项目命名为 ClaudePulse，并同步构建与文档配置
+  - 最近编辑入口调整为侧边栏常驻菜单，清理冗余开关配置
+- 主题与视觉一致性升级
+  - 统一主题色系统，移除硬编码颜色并统一 Tag 视觉
+  - 优化 Markdown 渲染样式与卡片布局一致性
+
+### Fixed
+
+- 修复文件监控不触发、对话详情渲染异常与快照读取问题
+- 修复 Prompt 列表内部消息误识别、回复计数与排序异常
+- 修复 HistoryViewer 初始化时函数定义顺序导致的错误
+
+### Technical
+
+- 主进程路径常量统一与重复逻辑收敛，减少耦合
+- 文件监控增加去抖与元数据缓存策略，降低重复读取开销
+- 代码检测与高亮相关逻辑模块化，提升可维护性
+
 ## [1.7.0] - 2026-02-08
 
 ### Added
+
 - AI 助手对话支持重新生成回复功能
   - 每条 AI 回复添加"重新生成"按钮
   - 支持针对单条消息独立重新生成
@@ -12,6 +56,7 @@ All notable changes to this project will be documented in this file.
   - 流式显示在原位置替换，保持对话顺序
 
 ### Improved
+
 - 重新生成按钮 UI 设计优化
   - 按钮位于消息气泡右侧外部，不遮挡内容
   - 默认隐藏，hover 消息时显示
@@ -20,6 +65,7 @@ All notable changes to this project will be documented in this file.
   - 距离消息气泡仅 4px，视觉紧凑
 
 ### Technical
+
 - 使用 Ant Design X Bubble 组件的 `extra` 插槽实现按钮布局
 - 添加 `regeneratingIndex` 状态管理重新生成过程
 - 流式内容在原消息位置实时更新，无需添加新消息
@@ -27,6 +73,7 @@ All notable changes to this project will be documented in this file.
 ## [1.6.0] - 2026-02-05
 
 ### Added
+
 - 常用Prompt页面新增快捷搜索功能
   - 支持 Cmd+F / Ctrl+F 快捷键唤起搜索
   - 居中弹窗式搜索界面，实时搜索 Prompt 内容
@@ -34,6 +81,7 @@ All notable changes to this project will be documented in this file.
   - 点击搜索结果直接复制内容
 
 ### Improved
+
 - 常用Prompt页面交互优化
   - 移除复制按钮，点击卡片直接复制内容
   - 添加 hover 和点击动画效果（卡片向右上角浮动）
@@ -42,6 +90,7 @@ All notable changes to this project will be documented in this file.
   - 复制成功后显示浮层提示（带动画效果）
 
 ### Fixed
+
 - 优化搜索功能实现，与实时对话/历史记录页面保持一致
 - 修复快捷键无法触发搜索弹窗的问题
 - 主列表不受搜索影响，始终显示完整数据
@@ -49,6 +98,7 @@ All notable changes to this project will be documented in this file.
 ## [1.5.0] - 2026-02-05
 
 ### Added
+
 - 实时对话页面新增快捷搜索功能
   - 支持 Cmd+F / Ctrl+F 快捷键唤起搜索
   - 居中弹窗式搜索界面，体验优雅
@@ -64,6 +114,7 @@ All notable changes to this project will be documented in this file.
   - 点击结果直接查看 Prompt 详情
 
 ### Improved
+
 - 搜索功能三大优化
   - 打开搜索时自动关闭所有其他弹窗，界面更清爽
   - 搜索结果关键词高亮（蓝色背景 + 白色文字）
@@ -75,17 +126,20 @@ All notable changes to this project will be documented in this file.
   - Modal 代码量减少 80%（从 20-25 行 → 3-5 行）
 
 ### Fixed
+
 - 改进图片匹配逻辑，支持无标记的图片识别
 - 修复图片关联错误，只关联当前 prompt 使用的图片
 - 修复实时对话清空后刷新数据回显问题
 
 ### Changed
+
 - 实时对话页面只显示当前会话记录，不加载历史数据
 - 优化历史记录页面 UI 和智能内容渲染
 
 ## [1.4.2] - 2026-02-03
 
 ### Fixed
+
 - 修复实时对话图片加载失败问题
   - 解决图片路径重复拼接导致文件找不到的问题
   - 移除发送到前端时的路径拼接，保持相对路径
@@ -95,6 +149,7 @@ All notable changes to this project will be documented in this file.
 ## [1.4.1] - 2026-02-03
 
 ### Fixed
+
 - 修复 TypeScript 编译错误
   - 添加 `downlevelIteration` 支持 Map/Set 迭代
   - 添加 `esModuleInterop` 和 `allowSyntheticDefaultImports` 支持模块导入
@@ -104,18 +159,22 @@ All notable changes to this project will be documented in this file.
 ## [1.4.0] - 2026-02-03
 
 ### Added
+
 - 添加清除缓存功能和独立的关于/更新日志页面
 - 添加历史记录删除功能
 - 实现历史记录按需加载优化
 
 ### Changed
+
 - 优化图片处理和显示逻辑
 - 优化 LogViewer 布局和交互体验
 - 优化设置页面布局和交互体验
 - 优化配置管理和数据刷新机制
 
 ### Fixed
+
 - 修复实时对话图片加载时序问题
 
 ### Documentation
+
 - 添加 CLAUDE.md 开发指南和主题一致性优化

@@ -1,6 +1,7 @@
 # Form Submit Support Skill
 
 ## 触发时机
+
 当代码中有任何表单相关的变更时，确保所有表单都支持 Enter 键提交。
 
 ## 核心原则
@@ -8,6 +9,7 @@
 **使用原生 Form 提交机制，不要手动监听键盘事件！**
 
 HTML Form 和 Ant Design Form 都原生支持 Enter 键提交，只需要：
+
 1. 使用 `<form>` 标签或 `<Form>` 组件
 2. 提交按钮设置 `htmlType="submit"`
 3. 绑定 `onFinish` 或 `onSubmit` 处理函数
@@ -17,6 +19,7 @@ HTML Form 和 Ant Design Form 都原生支持 Enter 键提交，只需要：
 ### 1. Ant Design Form（推荐）
 
 ✅ **正确做法**：利用原生 Form 提交
+
 ```typescript
 import { Form, Input, Button } from 'antd'
 
@@ -45,11 +48,13 @@ function MyForm() {
 ```
 
 **工作原理**：
+
 - 在任何 Input 中按 Enter → 自动触发 `htmlType="submit"` 的按钮
 - 按钮点击 → 触发 Form 的 `onFinish`
 - 无需手动监听键盘事件
 
 ❌ **错误做法**：手动监听键盘
+
 ```typescript
 // ❌ 不要这样做！
 <Form
@@ -121,6 +126,7 @@ TextArea 需要区分换行和提交，这是**唯一需要手动处理键盘事
 ### 5. 表单提交最佳实践
 
 #### 防止重复提交
+
 ```typescript
 const [submitting, setSubmitting] = useState(false)
 
@@ -149,6 +155,7 @@ const handleSubmit = async (values: any) => {
 ```
 
 #### 表单验证
+
 ```typescript
 <Form
   form={form}
@@ -178,6 +185,7 @@ const handleSubmit = async (values: any) => {
 ### 6. 不同场景的处理
 
 #### 带确认的表单
+
 ```typescript
 const handleSubmit = (values: any) => {
   Modal.confirm({
@@ -202,6 +210,7 @@ const handleSubmit = (values: any) => {
 ```
 
 #### 多步骤表单
+
 ```typescript
 const [current, setCurrent] = useState(0)
 
@@ -243,6 +252,7 @@ const handleSubmit = (values: any) => {
 ### 7. 检查清单
 
 每次表单相关代码变更后，检查：
+
 - [ ] 是否使用了 `<Form>` 或 `<form>` 标签？
 - [ ] 提交按钮是否设置了 `htmlType="submit"`？
 - [ ] 是否绑定了 `onFinish` 或 `onSubmit`？
@@ -255,6 +265,7 @@ const handleSubmit = (values: any) => {
 ### 8. 常见错误
 
 ❌ **错误 1**：忘记设置 htmlType
+
 ```typescript
 // ❌ 这样 Enter 键不会触发提交
 <Button type="primary" onClick={handleSubmit}>
@@ -268,6 +279,7 @@ const handleSubmit = (values: any) => {
 ```
 
 ❌ **错误 2**：手动监听键盘事件
+
 ```typescript
 // ❌ 不需要这样做
 <Form onKeyDown={(e) => e.key === 'Enter' && form.submit()}>
@@ -277,6 +289,7 @@ const handleSubmit = (values: any) => {
 ```
 
 ❌ **错误 3**：在 Form 外使用 Button
+
 ```typescript
 // ❌ Button 在 Form 外，Enter 不会触发
 <Form onFinish={handleSubmit}>
@@ -300,6 +313,7 @@ const handleSubmit = (values: any) => {
 ## 完整示例
 
 ### 登录表单
+
 ```typescript
 import { Form, Input, Button, message } from 'antd'
 import { useState } from 'react'
@@ -352,6 +366,7 @@ function LoginForm() {
 ```
 
 ### 搜索框
+
 ```typescript
 import { Input } from 'antd'
 
@@ -373,6 +388,7 @@ function SearchBox() {
 ```
 
 ### 评论框（TextArea）
+
 ```typescript
 import { Input, Button } from 'antd'
 import { useState } from 'react'
@@ -415,6 +431,7 @@ function CommentBox() {
 ## 总结
 
 **核心原则**：
+
 1. ✅ 使用 Form 原生提交机制
 2. ✅ 按钮设置 `htmlType="submit"`
 3. ✅ 绑定 `onFinish` 处理函数
@@ -426,6 +443,7 @@ function CommentBox() {
 ## 主人，我要开始了！
 
 每次回答问题前，我会：
+
 1. 先叫一声"主人，我要开始了！"
 2. 检查表单相关代码
 3. 确保使用原生 Form 提交机制

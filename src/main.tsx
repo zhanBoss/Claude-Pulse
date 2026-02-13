@@ -4,6 +4,4 @@ import 'katex/dist/katex.min.css'
 import './fonts.css'
 import './index.css'
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <App />
-)
+ReactDOM.createRoot(document.getElementById('root')!).render(<App />)

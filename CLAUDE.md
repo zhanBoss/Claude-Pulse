@@ -50,24 +50,28 @@
 ## 开发流程规范
 
 ### Step 1: 理解与调研
+
 1. 仔细阅读用户需求
 2. 搜索项目中是否有类似功能
 3. 查看相关 API 接口定义
 4. 确认技术栈和依赖库
 
 ### Step 2: 设计与规划
+
 1. 确定文件存放位置（遵循项目结构）
 2. 设计组件/函数接口
 3. 确认依赖关系
 4. 规划复用策略
 
 ### Step 3: 编码实现
+
 1. 创建类型定义（types.ts）
 2. 实现核心逻辑
 3. 添加错误处理
 4. 编写必要注释
 
 ### Step 4: 测试与优化
+
 1. 运行 linter 检查
 2. 手动测试功能
 3. 优化代码结构
@@ -76,14 +80,17 @@
 ## 常见问题处理
 
 ### 遇到不确定的情况
+
 - ❌ 不要：随意猜测、假装理解、盲目实现
 - ✅ 应该：明确告知用户不确定的地方，请求澄清
 
 ### 遇到复杂的重构
+
 - ❌ 不要：大刀阔斧修改、破坏现有架构
 - ✅ 应该：小步迭代、保持向后兼容、充分测试
 
 ### 遇到新技术栈
+
 - ❌ 不要：凭经验直接写代码
 - ✅ 应该：先查阅项目文档、示例代码、现有实现
 
@@ -91,7 +98,7 @@
 
 ## 项目概述
 
-CCMonitor 是一个基于 Electron 的桌面应用程序，用于监控和管理 Claude Code 的配置和对话历史。它提供实时监控 Claude Code 的 `history.jsonl` 文件、配置管理和 AI 驱动的对话摘要功能。
+ClaudePulse 是一个基于 Electron 的桌面应用程序，用于监控和管理 Claude Code 的配置和对话历史。它提供实时监控 Claude Code 的 `history.jsonl` 文件、配置管理和 AI 驱动的对话摘要功能。
 
 ## 技术栈
 
@@ -151,6 +158,7 @@ npm run preview
 ### 关键文件位置
 
 应用与 Claude Code 的文件交互位置：
+
 - `~/.claude/settings.json` - Claude Code 配置
 - `~/.claude/history.jsonl` - 对话历史（JSONL 格式）
 
@@ -200,6 +208,7 @@ npm run preview
 ### 文件监控
 
 主进程使用 `fs.FSWatcher` 监控 `history.jsonl`。当文件增长时：
+
 1. 比较当前大小与 `lastFileSize`
 2. 只读取新内容（从 `lastFileSize` 到末尾）
 3. 解析新的 JSONL 行
@@ -208,6 +217,7 @@ npm run preview
 ### JSONL 格式
 
 `history.jsonl` 中的每一行都是一个 JSON 对象：
+
 ```json
 {
   "timestamp": 1234567890000,
@@ -230,12 +240,14 @@ npm run preview
 ### IPC 通信模式
 
 所有渲染进程到主进程的通信遵循此模式：
+
 1. 渲染进程调用 `window.electronAPI.methodName(args)`
 2. Preload 转发到 `ipcRenderer.invoke('handler-name', args)`
 3. 主进程通过 `ipcMain.handle('handler-name', async (_, args) => {...})` 处理
 4. 返回 `{ success: boolean, data?: any, error?: string }`
 
 对于流式传输（AI 摘要），使用基于事件的 IPC：
+
 - 主进程发出：`summary-stream-chunk`、`summary-stream-complete`、`summary-stream-error`
 - 渲染进程监听并逐步更新 UI
 
@@ -251,6 +263,7 @@ npm run preview
 ### 添加新的 IPC 处理器
 
 1. 在 `electron/main.ts` 中添加处理器：
+
    ```typescript
    ipcMain.handle('my-handler', async (_, arg) => {
      try {
@@ -263,14 +276,16 @@ npm run preview
    ```
 
 2. 在 `electron/preload.ts` 中暴露：
+
    ```typescript
-   myMethod: (arg) => ipcRenderer.invoke('my-handler', arg)
+   myMethod: arg => ipcRenderer.invoke('my-handler', arg)
    ```
 
 3. 在 `src/types.ts` 中添加类型：
+
    ```typescript
    export interface ElectronAPI {
-     myMethod: (arg: string) => Promise<{ success: boolean, data?: any, error?: string }>
+     myMethod: (arg: string) => Promise<{ success: boolean; data?: any; error?: string }>
    }
    ```
 
@@ -282,6 +297,7 @@ npm run preview
 ### 读取 Claude Code 文件
 
 读取前始终检查文件是否存在：
+
 ```typescript
 if (!fs.existsSync(SETTINGS_FILE)) {
   throw new Error('配置文件不存在')
@@ -292,6 +308,7 @@ const content = fs.readFileSync(SETTINGS_FILE, 'utf-8')
 ### 验证 JSON 配置
 
 写入 `settings.json` 前进行验证：
+
 ```typescript
 JSON.parse(config) // 无效时抛出异常
 fs.writeFileSync(SETTINGS_FILE, config, 'utf-8')

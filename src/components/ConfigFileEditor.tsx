@@ -1,6 +1,12 @@
 import { useState, useEffect } from 'react'
 import { Button, message, Space } from 'antd'
-import { EditOutlined, SaveOutlined, ReloadOutlined, FormatPainterOutlined, FolderOpenOutlined } from '@ant-design/icons'
+import {
+  EditOutlined,
+  SaveOutlined,
+  ReloadOutlined,
+  FormatPainterOutlined,
+  FolderOpenOutlined
+} from '@ant-design/icons'
 import Editor from '@monaco-editor/react'
 import { getThemeVars } from '../theme'
 import ElectronModal from './ElectronModal'
@@ -101,7 +107,9 @@ function ConfigFileEditor({
             <span>{title}</span>
           </Space>
           {filePath && (
-            <span style={{ fontSize: 12, fontWeight: 'normal', color: themeVars.textTertiary }}>{filePath}</span>
+            <span style={{ fontSize: 12, fontWeight: 'normal', color: themeVars.textTertiary }}>
+              {filePath}
+            </span>
           )}
         </Space>
       }
@@ -150,7 +158,7 @@ function ConfigFileEditor({
           height="100%"
           defaultLanguage="json"
           value={editedConfig}
-          onChange={(value) => setEditedConfig(value || '')}
+          onChange={value => setEditedConfig(value || '')}
           theme={darkMode ? 'vs-dark' : 'light'}
           options={{
             minimap: { enabled: false },

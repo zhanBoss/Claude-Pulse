@@ -1,13 +1,14 @@
 import { useState, useEffect } from 'react'
-import { Typography, Tag, Button, message } from 'antd'
+import { Typography, Tag, Button, message, Space, Switch } from 'antd'
 import { CopyOutlined } from '@ant-design/icons'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
-import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism'
+import { vscDarkPlus, prism } from 'react-syntax-highlighter/dist/esm/styles/prism'
+import Editor from '@monaco-editor/react'
 import ReactMarkdown from 'react-markdown'
 import ElectronModal from './ElectronModal'
 import { getThemeVars } from '../theme'
 import { formatPastedContentsForModal } from '../utils/promptFormatter'
-import { isCode, detectLanguage } from '../utils/codeDetector'
+import { isCode, detectLanguage, getMonacoLanguage } from '../utils/codeDetector'
 import crypto from 'crypto-js'
 
 const { Text } = Typography
@@ -28,15 +29,10 @@ interface CopyTextModalProps {
  * - 自动尝试 AI 格式化（失败时显示原始内容）
  * - 支持多个 Copy Text 的展示
  */
-function CopyTextModal({
-  visible,
-  onClose,
-  content,
-  darkMode,
-  zIndex = 1003
-}: CopyTextModalProps) {
+function CopyTextModal({ visible, onClose, content, darkMode, zIndex = 1003 }: CopyTextModalProps) {
   const themeVars = getThemeVars(darkMode)
 
+  const [codeWrap, setCodeWrap] = useState(false)
   const [formattedContent, setFormattedContent] = useState<Record<string, string>>({})
   const [formatting, setFormatting] = useState(false)
 
@@ -92,37 +88,54 @@ function CopyTextModal({
   }
 
   // 渲染原始内容
-  const renderOriginalContent = (itemContent: string, language: string, isCodeContent: boolean) => {
+  const renderOriginalContent = (itemContent: string, isCodeContent: boolean) => {
     if (isCodeContent) {
+      /* 计算编辑器高度：基于内容行数，最小 150px，最大 400px */
+      const lineCount = itemContent.split('\n').length
+      const editorHeight = Math.min(Math.max(lineCount * 19, 150), 400)
+
       return (
-        <SyntaxHighlighter
-          language={language}
-          style={vscDarkPlus}
-          customStyle={{
-            margin: 0,
-            borderRadius: 8,
+        <Editor
+          height={`${editorHeight}px`}
+          language={getMonacoLanguage('', itemContent)}
+          value={itemContent}
+          theme={darkMode ? 'vs-dark' : 'light'}
+          options={{
+            readOnly: true,
+            minimap: { enabled: false },
             fontSize: 13,
-            lineHeight: 1.6
+            lineNumbers: 'on',
+            scrollBeyondLastLine: false,
+            wordWrap: codeWrap ? 'on' : 'off',
+            wrappingIndent: 'indent',
+            automaticLayout: true,
+            domReadOnly: true,
+            renderLineHighlight: 'none',
+            overviewRulerLanes: 0,
+            hideCursorInOverviewRuler: true,
+            scrollbar: {
+              verticalScrollbarSize: 8,
+              horizontalScrollbarSize: 8
+            }
           }}
-          showLineNumbers
-        >
-          {itemContent}
-        </SyntaxHighlighter>
+        />
       )
     }
 
     return (
-      <div style={{
-        padding: '12px',
-        background: themeVars.bgElevated,
-        borderRadius: 8,
-        whiteSpace: 'pre-wrap',
-        wordBreak: 'break-word',
-        fontSize: 13,
-        lineHeight: 1.6,
-        color: themeVars.text,
-        fontFamily: 'monospace'
-      }}>
+      <div
+        style={{
+          padding: '12px',
+          background: themeVars.bgElevated,
+          borderRadius: 8,
+          whiteSpace: 'pre-wrap',
+          wordBreak: 'break-word',
+          fontSize: 13,
+          lineHeight: 1.6,
+          color: themeVars.text,
+          fontFamily: 'monospace'
+        }}
+      >
         {itemContent}
       </div>
     )
@@ -146,13 +159,14 @@ function CopyTextModal({
             const match = /language-(\w+)/.exec(className || '')
             return !inline && match ? (
               <SyntaxHighlighter
-                style={vscDarkPlus}
+                style={darkMode ? vscDarkPlus : prism}
                 language={match[1]}
                 PreTag="div"
                 customStyle={{
                   margin: '8px 0',
                   borderRadius: 6,
-                  fontSize: 13
+                  fontSize: 13,
+                  background: themeVars.bgCode
                 }}
                 {...props}
               >
@@ -175,12 +189,28 @@ function CopyTextModal({
             )
           },
           h1: ({ children }) => (
-            <h1 style={{ color: themeVars.text, marginTop: 24, marginBottom: 16, borderBottom: `2px solid ${themeVars.border}`, paddingBottom: 8 }}>
+            <h1
+              style={{
+                color: themeVars.text,
+                marginTop: 24,
+                marginBottom: 16,
+                borderBottom: `2px solid ${themeVars.border}`,
+                paddingBottom: 8
+              }}
+            >
               {children}
             </h1>
           ),
           h2: ({ children }) => (
-            <h2 style={{ color: themeVars.text, marginTop: 20, marginBottom: 12, borderBottom: `1px solid ${themeVars.border}`, paddingBottom: 6 }}>
+            <h2
+              style={{
+                color: themeVars.text,
+                marginTop: 20,
+                marginBottom: 12,
+                borderBottom: `1px solid ${themeVars.border}`,
+                paddingBottom: 6
+              }}
+            >
               {children}
             </h2>
           ),
@@ -196,9 +226,7 @@ function CopyTextModal({
           ol: ({ children }) => (
             <ol style={{ color: themeVars.text, marginBottom: 12, paddingLeft: 24 }}>{children}</ol>
           ),
-          li: ({ children }) => (
-            <li style={{ marginBottom: 6 }}>{children}</li>
-          ),
+          li: ({ children }) => <li style={{ marginBottom: 6 }}>{children}</li>,
           a: ({ href, children }) => (
             <a
               href={href}
@@ -257,37 +285,45 @@ function CopyTextModal({
 
           return (
             <div key={key}>
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                marginBottom: 8
-              }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  marginBottom: 8
+                }}
+              >
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <Text strong style={{ fontSize: 14, color: themeVars.textSecondary }}>
                     {key}:
                   </Text>
                   {!shouldRenderFormatted && isCodeContent && (
-                    <Tag color="blue" style={{ fontSize: 11 }}>
+                    <Tag color="#D97757" style={{ fontSize: 11 }}>
                       {language}
                     </Tag>
                   )}
                 </div>
-                <Button
-                  type="text"
-                  size="small"
-                  icon={<CopyOutlined />}
-                  onClick={() => handleCopy(itemContent, formattedItemContent)}
-                >
-                  复制
-                </Button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  {!shouldRenderFormatted && isCodeContent && (
+                    <Space size={4}>
+                      <Text type="secondary" style={{ fontSize: 12 }}>折行</Text>
+                      <Switch size="small" checked={codeWrap} onChange={setCodeWrap} />
+                    </Space>
+                  )}
+                  <Button
+                    type="text"
+                    size="small"
+                    icon={<CopyOutlined />}
+                    onClick={() => handleCopy(itemContent, formattedItemContent)}
+                  >
+                    复制
+                  </Button>
+                </div>
               </div>
 
-              {shouldRenderFormatted ? (
-                renderFormattedContent(formattedItemContent)
-              ) : (
-                renderOriginalContent(itemContent, language, isCodeContent)
-              )}
+              {shouldRenderFormatted
+                ? renderFormattedContent(formattedItemContent)
+                : renderOriginalContent(itemContent, isCodeContent)}
             </div>
           )
         })}

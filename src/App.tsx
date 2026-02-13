@@ -7,6 +7,8 @@ import LogViewer from './components/LogViewer'
 import HistoryViewer from './components/HistoryViewer'
 import CommonPrompts from './components/CommonPrompts'
 import ChatView from './components/ChatView'
+import StatisticsDashboard from './components/StatisticsDashboard'
+import RecentEditsView from './components/RecentEditsView'
 import SettingsView from './components/SettingsView'
 import AboutView from './components/AboutView'
 import ChangelogView from './components/ChangelogView'
@@ -16,7 +18,16 @@ import { ClaudeRecord } from './types'
 import { lightTheme, darkTheme, getThemeVars } from './theme'
 import 'antd/dist/reset.css'
 
-type Route = 'realtime' | 'history' | 'prompts' | 'chat' | 'settings' | 'changelog' | 'about'
+type Route =
+  | 'realtime'
+  | 'history'
+  | 'statistics'
+  | 'recent-edits'
+  | 'prompts'
+  | 'chat'
+  | 'settings'
+  | 'changelog'
+  | 'about'
 
 function App() {
   const [isClaudeInstalled, setIsClaudeInstalled] = useState<boolean>(false)
@@ -69,15 +80,11 @@ function App() {
       setThemeMode(settings.themeMode)
     })
 
-    // 注意：实时对话页面不加载历史记录，只显示当前会话的新记录
-    // 历史记录在 HistoryViewer 组件中按需加载
-
-    // 监听新记录
-    const cleanup = window.electronAPI.onNewRecord((record) => {
-      setRecords(prev => [record, ...prev])
+    // 只展示打开软件后的实时记录，不加载历史数据
+    const cleanup = window.electronAPI.onNewRecord(record => {
+      setRecords(prev => [...prev, record])
     })
 
-    // 清理监听器
     return cleanup
   }, [])
 
@@ -85,25 +92,29 @@ function App() {
   if (isCheckingClaude) {
     const themeVars = getThemeVars(darkMode)
     return (
-      <div style={{
-        height: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexDirection: 'column',
-        gap: '24px',
-        background: themeVars.primaryGradient
-      }}>
+      <div
+        style={{
+          height: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexDirection: 'column',
+          gap: '24px',
+          background: themeVars.primaryGradient
+        }}
+      >
         <Spin
           indicator={<LoadingOutlined style={{ fontSize: 48, color: themeVars.primary }} spin />}
           size="large"
         />
-        <div style={{
-          fontSize: 16,
-          color: themeVars.primary,
-          fontWeight: 500,
-          letterSpacing: '0.5px'
-        }}>
+        <div
+          style={{
+            fontSize: 16,
+            color: themeVars.primary,
+            fontWeight: 500,
+            letterSpacing: '0.5px'
+          }}
+        >
           检测 Claude Code 中...
         </div>
       </div>
@@ -114,13 +125,15 @@ function App() {
   if (!isClaudeInstalled) {
     const themeVars = getThemeVars(darkMode)
     return (
-      <div style={{
-        height: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: themeVars.primaryGradient
-      }}>
+      <div
+        style={{
+          height: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: themeVars.primaryGradient
+        }}
+      >
         <Result
           icon={<WarningOutlined style={{ fontSize: 72, color: themeVars.primary }} />}
           title="未检测到 Claude Code"
@@ -189,6 +202,10 @@ function App() {
             }}
           />
         )
+      case 'statistics':
+        return <StatisticsDashboard darkMode={darkMode} />
+      case 'recent-edits':
+        return <RecentEditsView darkMode={darkMode} />
       case 'prompts':
         return (
           <CommonPrompts
@@ -220,17 +237,9 @@ function App() {
           />
         )
       case 'changelog':
-        return (
-          <ChangelogView
-            darkMode={darkMode}
-          />
-        )
+        return <ChangelogView darkMode={darkMode} />
       case 'about':
-        return (
-          <AboutView
-            darkMode={darkMode}
-          />
-        )
+        return <AboutView darkMode={darkMode} />
       default:
         return null
     }

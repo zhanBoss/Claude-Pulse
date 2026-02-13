@@ -1,4 +1,4 @@
-# CCMonitor
+# ClaudePulse
 
 <div align="center">
 
@@ -7,8 +7,8 @@
 一个功能强大的桌面应用，帮助开发者管理 Claude Code 配置、监控对话历史，并提供智能摘要功能。
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey.svg)](https://github.com/zhanBoss/Claude-Code-Monitor/releases)
-[![Version](https://img.shields.io/badge/version-1.7.0-green.svg)](https://github.com/zhanBoss/Claude-Code-Monitor/releases)
+[![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey.svg)](https://github.com/zhanBoss/Claude-Pulse/releases)
+[![Version](https://img.shields.io/badge/version-2.0.0-green.svg)](https://github.com/zhanBoss/Claude-Pulse/releases)
 
 [English](README.md) | [中文文档](README_zh.md)
 
@@ -16,63 +16,83 @@
 
 ## ✨ 核心功能
 
-### 📊 实时监控
-- **实时对话监控**：自动监控 `~/.claude/history.jsonl`，实时显示对话内容
-- **快捷搜索**：支持 `Cmd+F` / `Ctrl+F` 快速搜索，关键词高亮
-- **智能过滤**：按项目、日期、会话筛选对话记录
-- **图片支持**：自动加载和显示对话中的图片内容
+### 📊 实时监控与历史记录
 
-### 📁 历史记录
-- **完整历史**：自动保存所有对话到本地，支持按需加载
-- **强大搜索**：搜索 Prompt 内容，显示匹配上下文
-- **导出功能**：支持导出为 Markdown 格式
-- **分页浏览**：大数据量场景下的性能优化
+- **实时对话监控**：自动监控 `~/.claude/history.jsonl`，按轮次展示对话内容
+- **快捷搜索**：支持 `Cmd+F` / `Ctrl+F` 快速搜索 Prompt 内容，关键词高亮
+- **智能过滤**：按项目、日期、会话筛选对话记录
+- **轮次浏览**：统一的轮次卡片设计，点击查看完整对话详情
+- **图片支持**：自动加载和显示对话中的图片内容，支持按轮次展示
+- **导出功能**：支持导出为 Markdown 格式，代码块语法高亮
+
+### 📈 全局统计与分析
+
+- **统计面板**：Token 使用量、API 成本、工具调用频率等核心指标分析
+- **项目对比**：多项目雷达图、柱状图对比，直观展示项目差异
+- **会话对比**：多选会话并排对比统计数据和工具使用情况
+- **Session Board**：会话看板热力图，像素视图展示所有会话，支持��指标着色和范围筛选
+- **工具分析**：工具调用流程可视化、成功率统计、平均耗时排行
+
+### 📝 文件修改追踪
+
+- **最近编辑**：独立页面展示文件修改历史，支持快速跳转到关联会话
+- **文件快照**：自动保存文件修改前后的快照内容
+- **Diff 对比**：可视化对比文件修改前后的差异
+- **文件还原**：支持从快照恢复文件到修改前的状态
 
 ### ⚙️ 配置管理
-- **可视化编辑**：基于 Monaco Editor 的配置文件编辑器
-- **配置备份**：支持多个配置版本的备份和恢复
-- **实时预览**：编辑配置时实时语法检查
-- **一键应用**：保存后立即生效，无需重启
+
+- **Claude 配置**：基于 Monaco Editor 的可视化编辑器，支持配置备份和恢复
+- **MCP 管理**：MCP 服务配置管理，支持市场能力扩展
+- **Hooks / Skills / Plugins**：独立管理模块，支持配置导入导出和实时预览
+- **实时预览**：编辑配置时实时语法检查，保存后立即生效
 
 ### 🤖 AI 助手
+
 - **智能摘要**：AI 驱动的对话总结，提取关键信息
+- **AI 对话**：支持 Markdown 渲染、打字机效果、代码块复制、重新生成回复
+- **@ 引用**：支持引用历史对话内容到 AI 助手，实现上下文对话
 - **多提供商支持**：支持 DeepSeek、Groq、Gemini 和自定义提供商
 - **流式输出**：实时显示 AI 生成过程
-- **免费额度**：Groq 和 Gemini 提供免费 API 调用
 
 ### 🎯 常用 Prompt
+
 - **快速复制**：点击卡片直接复制内容
 - **拖拽排序**：自定义 Prompt 顺序
-- **搜索功能**：快速查找所需 Prompt
-- **分类管理**：支持自定义分类和标签
+- **搜索功能**：快速查找所需 Prompt，支持键盘导航
 
 ### 🎨 界面优化
-- **主题切换**：支持浅色/深色/跟随系统三种模式
-- **响应式设计**：适配不同屏幕尺寸
+
+- **主题切换**：支持浅色/深色/跟随系统三种模式，统一主题色系统
+- **响应式设计**：适配不同屏幕尺寸，优化抽屉与桌面场景
 - **优雅动画**：流畅的过渡效果和交互反馈
 - **macOS 原生感**：完美适配 macOS 窗口样式
 
 ## 🛠️ 技术栈
 
 ### 核心框架
+
 - **[Electron 28](https://www.electronjs.org/)** - 跨平台桌面应用框架
 - **[React 18](https://react.dev/)** - 现代化的用户界面库
 - **[TypeScript 5.3](https://www.typescriptlang.org/)** - 类型安全的 JavaScript 超集
 - **[Vite 5](https://vitejs.dev/)** - 下一代前端构建工具
 
 ### UI & 样式
+
 - **[Ant Design 6.x](https://ant.design/)** - 企业级 UI 设计语言和组件库
 - **[@ant-design/x](https://x.ant.design/)** - AI 驱动的组件扩展
 - **[Tailwind CSS 3.3](https://tailwindcss.com/)** - 实用优先的 CSS 框架
 - **[@ant-design/icons](https://ant.design/components/icon/)** - 图标库
 
 ### 编辑器与代码
+
 - **[Monaco Editor](https://microsoft.github.io/monaco-editor/)** - VS Code 同款代码编辑器
 - **[@monaco-editor/react](https://github.com/suren-atoyan/monaco-react)** - Monaco 的 React 封装
 - **[React Syntax Highlighter](https://github.com/react-syntax-highlighter/react-syntax-highlighter)** - 代码语法高亮
 - **[React Markdown](https://github.com/remarkjs/react-markdown)** - Markdown 渲染器
 
 ### Markdown 增强
+
 - **[remark-gfm](https://github.com/remarkjs/remark-gfm)** - GitHub 风格 Markdown 支持
 - **[remark-math](https://github.com/remarkjs/remark-math)** - 数学公式支持
 - **[rehype-katex](https://github.com/remarkjs/remark-math/tree/main/packages/rehype-katex)** - KaTeX 数学渲染
@@ -80,13 +100,17 @@
 - **[rehype-autolink-headings](https://github.com/rehypejs/rehype-autolink-headings)** - 标题自动添加锚点
 
 ### 工具库
+
 - **[electron-store](https://github.com/sindresorhus/electron-store)** - Electron 数据持久化
 - **[dayjs](https://day.js.org/)** - 轻量级日期处理库
 - **[crypto-js](https://github.com/brix/crypto-js)** - 加密库（API Key 加密）
 - **[react-highlight-words](https://github.com/bvaughn/react-highlight-words)** - 关键词高亮
 - **[sortablejs](https://github.com/SortableJS/Sortable)** - 拖拽排序库
+- **[recharts](https://recharts.org/)** - React 图表库（统计面板）
+- **[diff](https://github.com/kpdecker/jsdiff)** - 文件差异对比库
 
 ### 开发工具
+
 - **[electron-builder](https://www.electron.build/)** - Electron 应用打包
 - **[vite-plugin-electron](https://github.com/electron-vite/vite-plugin-electron)** - Vite 的 Electron 插件
 - **[concurrently](https://github.com/open-cli-tools/concurrently)** - 并发运行多个命令
@@ -97,26 +121,26 @@
 
 ### macOS
 
-从 [Releases](https://github.com/zhanBoss/Claude-Code-Monitor/releases) 下载最新版本的 DMG 文件。
+从 [Releases](https://github.com/zhanBoss/Claude-Pulse/releases) 下载最新版本的 DMG 文件。
 
 **重要提示**：由于应用未经过 Apple 公证，首次打开时可能会提示"已损坏"。请按以下步骤操作：
 
 #### 方法 1：使用终端命令（推荐）
 
 ```bash
-# 下载并安装 CCMonitor-x.x.x-arm64.dmg 后，执行：
-xattr -cr /Applications/CCMonitor.app
+# 下载并安装 ClaudePulse-x.x.x-arm64.dmg 后，执行：
+xattr -cr /Applications/ClaudePulse.app
 ```
 
 #### 方法 2：系统设置允许
 
 1. 尝试打开应用，点击"取消"
 2. 打开"系统设置" → "隐私与安全性"
-3. 找到关于 CCMonitor 的提示，点击"仍要打开"
+3. 找到关于 ClaudePulse 的提示，点击"仍要打开"
 
 ### Windows & Linux
 
-从 [Releases](https://github.com/zhanBoss/Claude-Code-Monitor/releases) 下载对应平台的安装包。
+从 [Releases](https://github.com/zhanBoss/Claude-Pulse/releases) 下载对应平台的安装包。
 
 ## 🚀 开发
 
@@ -155,7 +179,7 @@ pnpm run clear:build
 ### 项目结构
 
 ```
-claude-code-monitor/
+claude-pulse/
 ├── electron/              # Electron 主进程和预加载脚本
 │   ├── main.ts           # 主进程入口
 │   └── preload.ts        # 预加载脚本
@@ -178,10 +202,12 @@ claude-code-monitor/
 ### 基础使用
 
 1. **启动应用**：应用会自动检测 Claude Code 安装状态
-2. **配置管理**：左侧侧边栏点击"应用设置"管理 Claude Code 配置
-3. **实时监控**：在"实时对话"页面查看当前对话
-4. **历史浏览**：在"历史记录"页面查看所有保存的对话
-5. **AI 摘要**：配置 AI 提供商后，点击"AI 总结"按钮生成摘要
+2. **实时监控**：在"实时对话"页面查看当前对话，按轮次展示
+3. **历史浏览**：在"历史记录"页面查看所有保存的对话，支持项目筛选和 Prompt 搜索
+4. **统计分析**：在"统计面板"查看 Token 使用、成本、工具调用等数据
+5. **文件追踪**：在"最近编辑"页面查看文件修改历史，支持快照对比和还原
+6. **配置管理**：在"应用设置"管理 Claude Code 配置、MCP、Hooks、Skills、Plugins
+7. **AI 功能**：配置 AI 提供商后，使用 AI 总结和 AI 对话功能
 
 ### AI 总结功能
 
@@ -225,38 +251,36 @@ claude-code-monitor/
 
 查看 [更新日志](src/components/ChangelogView.tsx) 了解详细的版本历史。
 
-### 最新版本 v1.7.0 (2026-02-07)
+### 最新版本 v2.0.0 (2026-02-13)
 
-#### 🎯 AI 对话功能升级
-- ✨ AI 对话支持 Markdown 渲染、打字机效果、代码块复制
-- ✨ 添加 @ 引用输入框，支持引用历史对话到 AI 助手
-- ✨ 支持将对话内容发送到 AI 助手，实现上下文对话
-- 🔧 重构 AI 配置架构：拆分对话与总结功能
+#### 🎯 全局统计与分析系统
 
-#### 🎨 界面与交互优化
-- 🎨 设置页面导航栏优化：默认收起，hover 展开
-- 🎨 导航栏收起时图标居中，激活项右上角高亮点
-- 🎨 统一颜色系统，移除所有硬编码颜色
-- 🎨 优化应用图标符合 macOS 规范
-- 💫 将复制提示改为 toast 样式
+- ✨ 新增全局统计面板，支持 Token/成本/工具调用等核心指标分析
+- ✨ 新增项目对比、会话对比与 Session Board 会话看板能力
+- ✨ 新增工具调用流程可视化，支持调用链路与输入输出详情查看
 
-#### 📋 常用 Prompt 增强
-- ✨ 支持拖拽排序，自定义 Prompt 顺序
-- ✨ MentionPopup 添加完整键盘导航支持
+#### 📝 文件修改追踪系统
 
-#### 🖼️ 图片功能
-- ✨ 添加图片复制到剪贴板功能
-- 🔧 抽取可复用的图片组件
+- ✨ 新增文件修改追踪、快照查看、Diff 对比与文件还原完整流程
+- ✨ 新增"最近编辑"页面并支持快速跳转到关联会话
 
-#### ⚙️ 系统功能
-- ✨ 添加自动清理倒计时悬浮框
-- ⚡ 悬浮球开关即时响应，移除轮询机制
-- 🐛 修复应用启动时未自动启动文件监控
-- 🐛 修复自动清理定时器状态同步问题
+#### ⚙️ 配置管理增强
 
-#### 📚 开发者工具
-- 📝 添加 mention-input 和 keyword-highlight Skill
-- 📝 添加发布工�流程 Skill
+- ✨ 新增 MCP 管理系统，支持服务配置和市场能力扩展
+- ✨ 新增 Hooks / Skills / Plugins 独立管理模块与配置导入导出
+
+#### 🎨 界面与交互重构
+
+- 🔧 重构实时对话与历史记录页面，统一按轮次浏览和详情交互体验
+- 🔧 历史记录支持按项目筛选，搜索升级为 Prompt 内容搜索并高亮
+- 🔧 设置页布局和导航体系重构，优化抽屉与桌面场景标题对齐
+- 🔧 统一项目命名为 ClaudePulse，并同步构建配置与文档描述
+- 🔧 统一主题色系统并清理硬编码颜色，提升全局视觉一致性
+
+#### 🐛 问题修复
+
+- 🐛 修复文件监控不触发、对话详情渲染异常与文件快照读取问题
+- 🐛 修复 Prompt 列表内部���息误识别、�复计数与排序异常问题
 
 ## 🤝 贡献
 
@@ -285,7 +309,7 @@ claude-code-monitor/
 ## 📧 联系方式
 
 - GitHub: [@zhanBoss](https://github.com/zhanBoss)
-- 问题反馈: [GitHub Issues](https://github.com/zhanBoss/Claude-Code-Monitor/issues)
+- 问题反馈: [GitHub Issues](https://github.com/zhanBoss/Claude-Pulse/issues)
 
 ---
 

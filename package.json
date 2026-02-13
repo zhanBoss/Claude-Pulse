@@ -1,6 +1,6 @@
 {
-  "name": "ccmonitor",
-  "version": "1.7.0",
+  "name": "claude-pulse",
+  "version": "2.0.0",
   "description": "Claude Code 配置管理和对话记录监控工具",
   "main": "dist-electron/main.js",
   "packageManager": "pnpm@10.13.1",
@@ -18,7 +18,11 @@
     "clear:build": "rimraf release debug dist dist-electron build/icons build/icons-rounded",
     "preview": "vite preview",
     "electron:dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
-    "electron:build": "vite build && electron-builder"
+    "electron:build": "vite build && electron-builder",
+    "format": "prettier --write \"**/*.{js,jsx,ts,tsx,json,css,scss,md}\"",
+    "format:check": "prettier --check \"**/*.{js,jsx,ts,tsx,json,css,scss,md}\"",
+    "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
+    "lint:fix": "eslint . --ext .js,.jsx,.ts,.tsx --fix"
   },
   "keywords": [
     "claude-code",
@@ -31,20 +35,29 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/mac033/claude-code-monitor.git"
+    "url": "https://github.com/mac033/claude-pulse.git"
   },
   "devDependencies": {
+    "@types/diff": "^8.0.0",
     "@types/node": "^20.10.0",
     "@types/react": "^18.2.43",
     "@types/react-dom": "^18.2.17",
     "@types/react-syntax-highlighter": "^15.5.13",
+    "@typescript-eslint/eslint-plugin": "^8.54.0",
+    "@typescript-eslint/parser": "^8.54.0",
     "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.4.16",
     "concurrently": "^8.2.2",
     "cross-env": "^10.1.0",
     "electron": "^28.0.0",
     "electron-builder": "^24.9.1",
+    "eslint": "^10.0.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.5",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.0.1",
     "postcss": "^8.4.32",
+    "prettier": "^3.8.1",
     "rimraf": "^6.1.2",
     "sharp": "^0.34.5",
     "tailwindcss": "^3.3.6",
@@ -63,6 +76,7 @@
     "antd": "^6.2.2",
     "crypto-js": "^4.2.0",
     "dayjs": "^1.11.19",
+    "diff": "^8.0.3",
     "electron-fetch": "^1.9.1",
     "electron-store": "^8.1.0",
     "katex": "^0.16.28",
@@ -73,6 +87,7 @@
     "react-markdown": "^10.1.0",
     "react-sortablejs": "^6.1.4",
     "react-syntax-highlighter": "^16.1.0",
+    "recharts": "^3.7.0",
     "rehype-autolink-headings": "^7.1.0",
     "rehype-katex": "^7.0.1",
     "rehype-slug": "^6.0.0",
@@ -81,8 +96,8 @@
     "sortablejs": "^1.15.6"
   },
   "build": {
-    "appId": "com.ccmonitor.app",
-    "productName": "CCMonitor",
+    "appId": "com.claudepulse.app",
+    "productName": "ClaudePulse",
     "mac": {
       "category": "public.app-category.developer-tools",
       "target": [
@@ -124,7 +139,7 @@
     "publish": {
       "provider": "github",
       "owner": "zhanBoss",
-      "repo": "Claude-Code-Monitor"
+      "repo": "Claude-Pulse"
     }
   }
 }

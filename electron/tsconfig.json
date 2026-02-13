@@ -14,12 +14,6 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true
   },
-  "include": [
-    "./**/*"
-  ],
-  "exclude": [
-    "../node_modules",
-    "../dist",
-    "../dist-electron"
-  ]
+  "include": ["./**/*"],
+  "exclude": ["../node_modules", "../dist", "../dist-electron"]
 }

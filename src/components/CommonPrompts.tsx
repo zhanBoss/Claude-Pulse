@@ -1,5 +1,17 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
-import { Card, Button, Space, Input, Form, message, Typography, Empty, Popconfirm, Tooltip, Tag } from 'antd'
+import {
+  Card,
+  Button,
+  Space,
+  Input,
+  Form,
+  message,
+  Typography,
+  Empty,
+  Popconfirm,
+  Tooltip,
+  Tag
+} from 'antd'
 import {
   PlusOutlined,
   EditOutlined,
@@ -120,10 +132,7 @@ const CommonPrompts = (props: CommonPromptsProps) => {
           message.error(`更新失败: ${result.error}`)
         }
       } else {
-        const result = await window.electronAPI.addCommonCommand(
-          values.name,
-          values.content
-        )
+        const result = await window.electronAPI.addCommonCommand(values.name, values.content)
 
         if (result.success) {
           message.success('添加成功')
@@ -256,9 +265,10 @@ const CommonPrompts = (props: CommonPromptsProps) => {
     }
 
     const keyword = searchKeyword.toLowerCase()
-    return sortedCommands.filter(command =>
-      command.name.toLowerCase().includes(keyword) ||
-      command.content.toLowerCase().includes(keyword)
+    return sortedCommands.filter(
+      command =>
+        command.name.toLowerCase().includes(keyword) ||
+        command.content.toLowerCase().includes(keyword)
     )
   }, [sortedCommands, searchKeyword])
 
@@ -271,18 +281,14 @@ const CommonPrompts = (props: CommonPromptsProps) => {
         marginBottom: '12px',
         borderRadius: '8px',
         background: darkMode ? 'rgba(255, 255, 255, 0.02)' : 'rgba(0, 0, 0, 0.01)',
-        boxShadow: darkMode
-          ? '0 2px 8px rgba(0, 0, 0, 0.2)'
-          : '0 2px 8px rgba(0, 0, 0, 0.06)',
+        boxShadow: darkMode ? '0 2px 8px rgba(0, 0, 0, 0.2)' : '0 2px 8px rgba(0, 0, 0, 0.06)',
         position: 'relative',
         cursor: isDragging ? 'grabbing' : 'pointer',
         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-        transform: clickingId === command.id
-          ? 'translate(4px, -4px)'
-          : 'translate(0, 0)',
+        transform: clickingId === command.id ? 'translate(4px, -4px)' : 'translate(0, 0)'
       }}
       className="prompt-item"
-      onClick={(e) => {
+      onClick={e => {
         // 如果在拖拽句柄上点击，不触发复制
         const target = e.target as HTMLElement
         if (target.closest('.drag-handle')) {
@@ -290,11 +296,11 @@ const CommonPrompts = (props: CommonPromptsProps) => {
         }
         handleUse(command.content, command.id, e)
       }}
-      onMouseEnter={(e) => {
+      onMouseEnter={e => {
         const item = e.currentTarget as HTMLElement
         item.style.transform = 'translate(4px, -4px)'
       }}
-      onMouseLeave={(e) => {
+      onMouseLeave={e => {
         const item = e.currentTarget as HTMLElement
         if (clickingId !== command.id) {
           item.style.transform = 'translate(0, 0)'
@@ -317,14 +323,14 @@ const CommonPrompts = (props: CommonPromptsProps) => {
           alignItems: 'center',
           justifyContent: 'center',
           width: 20,
-          height: 20,
+          height: 20
         }}
       >
         <HolderOutlined
           style={{
             fontSize: 14,
             color: themeVars.textSecondary,
-            transition: 'color 0.2s ease',
+            transition: 'color 0.2s ease'
           }}
         />
       </div>
@@ -342,7 +348,7 @@ const CommonPrompts = (props: CommonPromptsProps) => {
           gap: 4,
           zIndex: 5
         }}
-        onClick={(e) => e.stopPropagation()}
+        onClick={e => e.stopPropagation()}
       >
         {onSendToChat && (
           <Tooltip title="发送到AI助手">
@@ -358,7 +364,13 @@ const CommonPrompts = (props: CommonPromptsProps) => {
           <Button
             type="text"
             size="small"
-            icon={command.pinned ? <PushpinFilled style={{ color: themeVars.primary }} /> : <PushpinOutlined />}
+            icon={
+              command.pinned ? (
+                <PushpinFilled style={{ color: themeVars.primary }} />
+              ) : (
+                <PushpinOutlined />
+              )
+            }
             onClick={() => handleTogglePin(command.id)}
           />
         </Tooltip>
@@ -377,12 +389,7 @@ const CommonPrompts = (props: CommonPromptsProps) => {
           cancelText="取消"
         >
           <Tooltip title="删除">
-            <Button
-              type="text"
-              size="small"
-              danger
-              icon={<DeleteOutlined />}
-            />
+            <Button type="text" size="small" danger icon={<DeleteOutlined />} />
           </Tooltip>
         </Popconfirm>
       </div>
@@ -430,144 +437,146 @@ const CommonPrompts = (props: CommonPromptsProps) => {
 
   return (
     <>
-      <div style={{
-        display: 'flex',
-        flexDirection: 'column',
-        height: '100%',
-        background: themeVars.bgContainer
-      }}>
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100%',
+          background: themeVars.bgContainer
+        }}
+      >
         {/* 页面标题 */}
-      <div style={{
-        padding: '24px 24px 16px',
-        borderBottom: `1px solid ${themeVars.border}`,
-        background: themeVars.bgContainer,
-        WebkitAppRegion: 'drag'
-      } as React.CSSProperties}>
-        <Space align="center" size="middle">
-          <div style={{
-            width: 48,
-            height: 48,
-            borderRadius: '50%',
-            background: themeVars.primaryGradient,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: `0 4px 12px ${themeVars.primaryShadow}`
-          }}>
-            <StarOutlined style={{ fontSize: 24, color: themeVars.textWhite }} />
-          </div>
-          <div>
-            <Title level={3} style={{ margin: 0, fontSize: 20 }}>
-              常用Prompt
-            </Title>
-            <Text type="secondary" style={{ fontSize: 13 }}>
-              保存常用的对话提示词，一键复制使用
-            </Text>
-          </div>
-        </Space>
-      </div>
-
-      {/* 内容区域 */}
-      <div style={{ flex: 1, padding: '16px 24px', overflow: 'auto' }}>
-        <Card
-          extra={
-            <Space size="small" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-              <Tooltip title="搜索 Prompt (Cmd+F / Ctrl+F)">
-                <Button
-                  icon={<SearchOutlined />}
-                  onClick={() => setSearchVisible(true)}
-                  size="middle"
-                >
-                  搜索
-                </Button>
-              </Tooltip>
-              <Button
-                icon={<FileTextOutlined />}
-                onClick={handleOpenFile}
-                size="middle"
-              >
-                打开配置文件
-              </Button>
-              <Button
-                type="primary"
-                icon={<PlusOutlined />}
-                onClick={handleAdd}
-                size="middle"
-              >
-                新增Prompt
-              </Button>
-            </Space>
+        <div
+          style={
+            {
+              padding: '24px 24px 16px',
+              borderBottom: `1px solid ${themeVars.border}`,
+              background: themeVars.bgContainer,
+              WebkitAppRegion: 'drag'
+            } as React.CSSProperties
           }
-          styles={{
-            header: { WebkitAppRegion: 'drag' } as React.CSSProperties,
-            body: { padding: '16px' }
-          }}
         >
-          {loading ? (
-            <div style={{ textAlign: 'center', padding: 60 }}>
-              <Text type="secondary">加载中...</Text>
-            </div>
-          ) : commands.length === 0 ? (
-            <Empty
-              description="暂无常用Prompt"
-              image={Empty.PRESENTED_IMAGE_SIMPLE}
-              style={{ padding: '60px 0' }}
+          <Space align="center" size="middle">
+            <div
+              style={{
+                width: 48,
+                height: 48,
+                borderRadius: '50%',
+                background: themeVars.primaryGradient,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: `0 4px 12px ${themeVars.primaryShadow}`
+              }}
             >
-              <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-                添加第一个Prompt
-              </Button>
-            </Empty>
-          ) : (
-            <div>
-              {/* 置顶组 */}
-              {pinnedCommands.length > 0 && (
-                <ReactSortable
-                  list={pinnedCommands}
-                  setList={handleReorderPinned}
-                  animation={150}
-                  easing="cubic-bezier(0.4, 0, 0.2, 1)"
-                  handle=".drag-handle"
-                  ghostClass="sortable-ghost"
-                  chosenClass="sortable-chosen"
-                  dragClass="sortable-drag"
-                  forceFallback={false}
-                  fallbackTolerance={3}
-                  delay={0}
-                  delayOnTouchOnly={true}
-                  touchStartThreshold={5}
-                  group="pinned"
-                  style={{ marginBottom: pinnedCommands.length > 0 && unpinnedCommands.length > 0 ? 16 : 0 }}
-                >
-                  {pinnedCommands.map(command => renderPromptCard(command))}
-                </ReactSortable>
-              )}
-
-              {/* 非置顶组 */}
-              {unpinnedCommands.length > 0 && (
-                <ReactSortable
-                  list={unpinnedCommands}
-                  setList={handleReorderUnpinned}
-                  animation={150}
-                  easing="cubic-bezier(0.4, 0, 0.2, 1)"
-                  handle=".drag-handle"
-                  ghostClass="sortable-ghost"
-                  chosenClass="sortable-chosen"
-                  dragClass="sortable-drag"
-                  forceFallback={false}
-                  fallbackTolerance={3}
-                  delay={0}
-                  delayOnTouchOnly={true}
-                  touchStartThreshold={5}
-                  group="unpinned"
-                >
-                  {unpinnedCommands.map(command => renderPromptCard(command))}
-                </ReactSortable>
-              )}
+              <StarOutlined style={{ fontSize: 24, color: themeVars.textWhite }} />
             </div>
-          )}
-        </Card>
+            <div>
+              <Title level={3} style={{ margin: 0, fontSize: 20 }}>
+                常用Prompt
+              </Title>
+              <Text type="secondary" style={{ fontSize: 13 }}>
+                保存常用的对话提示词，一键复制使用
+              </Text>
+            </div>
+          </Space>
+        </div>
+
+        {/* 内容区域 */}
+        <div style={{ flex: 1, padding: '16px 24px', overflow: 'auto' }}>
+          <Card
+            extra={
+              <Space size="small" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+                <Tooltip title="搜索 Prompt (Cmd+F / Ctrl+F)">
+                  <Button
+                    icon={<SearchOutlined />}
+                    onClick={() => setSearchVisible(true)}
+                    size="middle"
+                  >
+                    搜索
+                  </Button>
+                </Tooltip>
+                <Button icon={<FileTextOutlined />} onClick={handleOpenFile} size="middle">
+                  打开配置文件
+                </Button>
+                <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd} size="middle">
+                  新增Prompt
+                </Button>
+              </Space>
+            }
+            styles={{
+              header: { WebkitAppRegion: 'drag' } as React.CSSProperties,
+              body: { padding: '16px' }
+            }}
+          >
+            {loading ? (
+              <div style={{ textAlign: 'center', padding: 60 }}>
+                <Text type="secondary">加载中...</Text>
+              </div>
+            ) : commands.length === 0 ? (
+              <Empty
+                description="暂无常用Prompt"
+                image={Empty.PRESENTED_IMAGE_SIMPLE}
+                style={{ padding: '60px 0' }}
+              >
+                <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+                  添加第一个Prompt
+                </Button>
+              </Empty>
+            ) : (
+              <div>
+                {/* 置顶组 */}
+                {pinnedCommands.length > 0 && (
+                  <ReactSortable
+                    list={pinnedCommands}
+                    setList={handleReorderPinned}
+                    animation={150}
+                    easing="cubic-bezier(0.4, 0, 0.2, 1)"
+                    handle=".drag-handle"
+                    ghostClass="sortable-ghost"
+                    chosenClass="sortable-chosen"
+                    dragClass="sortable-drag"
+                    forceFallback={false}
+                    fallbackTolerance={3}
+                    delay={0}
+                    delayOnTouchOnly={true}
+                    touchStartThreshold={5}
+                    group="pinned"
+                    style={{
+                      marginBottom:
+                        pinnedCommands.length > 0 && unpinnedCommands.length > 0 ? 16 : 0
+                    }}
+                  >
+                    {pinnedCommands.map(command => renderPromptCard(command))}
+                  </ReactSortable>
+                )}
+
+                {/* 非置顶组 */}
+                {unpinnedCommands.length > 0 && (
+                  <ReactSortable
+                    list={unpinnedCommands}
+                    setList={handleReorderUnpinned}
+                    animation={150}
+                    easing="cubic-bezier(0.4, 0, 0.2, 1)"
+                    handle=".drag-handle"
+                    ghostClass="sortable-ghost"
+                    chosenClass="sortable-chosen"
+                    dragClass="sortable-drag"
+                    forceFallback={false}
+                    fallbackTolerance={3}
+                    delay={0}
+                    delayOnTouchOnly={true}
+                    touchStartThreshold={5}
+                    group="unpinned"
+                  >
+                    {unpinnedCommands.map(command => renderPromptCard(command))}
+                  </ReactSortable>
+                )}
+              </div>
+            )}
+          </Card>
+        </div>
       </div>
-    </div>
 
       {/* 新增/编辑弹窗 */}
       <ElectronModal
@@ -579,11 +588,7 @@ const CommonPrompts = (props: CommonPromptsProps) => {
         cancelText="取消"
         width={700}
       >
-        <Form
-          form={form}
-          layout="vertical"
-          autoComplete="off"
-        >
+        <Form form={form} layout="vertical" autoComplete="off">
           <Form.Item
             name="name"
             label="Prompt名称"
@@ -641,19 +646,19 @@ const CommonPrompts = (props: CommonPromptsProps) => {
         open={searchVisible}
         onCancel={() => {
           setSearchVisible(false)
-          setSearchKeyword("")
+          setSearchKeyword('')
         }}
         footer={null}
         closable={false}
         width={640}
-        style={{ top: "15%" }}
+        style={{ top: '15%' }}
         styles={{
           body: {
             padding: 0
           } as React.CSSProperties
         }}
       >
-        <div style={{ padding: "16px 20px" }}>
+        <div style={{ padding: '16px 20px' }}>
           {/* 搜索输入框 */}
           <div style={{ marginBottom: 16 }}>
             <Input
@@ -661,13 +666,13 @@ const CommonPrompts = (props: CommonPromptsProps) => {
               size="large"
               placeholder="搜索 Prompt 名称或内容..."
               value={searchKeyword}
-              onChange={(e) => setSearchKeyword(e.target.value)}
+              onChange={e => setSearchKeyword(e.target.value)}
               prefix={<SearchOutlined style={{ fontSize: 18, color: themeVars.textSecondary }} />}
               suffix={
                 searchKeyword && (
                   <CloseOutlined
-                    style={{ fontSize: 14, color: themeVars.textTertiary, cursor: "pointer" }}
-                    onClick={() => setSearchKeyword("")}
+                    style={{ fontSize: 14, color: themeVars.textTertiary, cursor: 'pointer' }}
+                    onClick={() => setSearchKeyword('')}
                   />
                 )
               }
@@ -679,29 +684,37 @@ const CommonPrompts = (props: CommonPromptsProps) => {
           </div>
 
           {/* 搜索结果列表 */}
-          <div style={{
-            maxHeight: "400px",
-            overflow: "auto"
-          }}>
+          <div
+            style={{
+              maxHeight: '400px',
+              overflow: 'auto'
+            }}
+          >
             {!searchKeyword ? (
-              <div style={{
-                textAlign: "center",
-                padding: "30px 20px",
-                color: themeVars.textTertiary
-              }}>
+              <div
+                style={{
+                  textAlign: 'center',
+                  padding: '30px 20px',
+                  color: themeVars.textTertiary
+                }}
+              >
                 <SearchOutlined style={{ fontSize: 36, marginBottom: 8, opacity: 0.25 }} />
-                <div style={{ fontSize: 13, marginBottom: 4 }}>输入关键词搜索 Prompt 名称或内容</div>
-                <div style={{ fontSize: 12, opacity: 0.7 }}>提示：按 ESC 关闭搜索，Cmd+F/Ctrl+F 快速打开</div>
+                <div style={{ fontSize: 13, marginBottom: 4 }}>
+                  输入关键词搜索 Prompt 名称或内容
+                </div>
+                <div style={{ fontSize: 12, opacity: 0.7 }}>
+                  提示：按 ESC 关闭搜索，Cmd+F/Ctrl+F 快速打开
+                </div>
               </div>
             ) : searchFilteredCommands.length === 0 ? (
               <Empty
                 image={Empty.PRESENTED_IMAGE_SIMPLE}
                 description="未找到匹配的 Prompt"
-                style={{ padding: "30px 0" }}
+                style={{ padding: '30px 0' }}
               />
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {searchFilteredCommands.map((command) => (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {searchFilteredCommands.map(command => (
                   <div
                     key={command.id}
                     onClick={() => {
@@ -709,28 +722,30 @@ const CommonPrompts = (props: CommonPromptsProps) => {
                       handleUse(command.content, command.id)
                     }}
                     style={{
-                      padding: "12px 16px",
+                      padding: '12px 16px',
                       background: themeVars.bgSection,
                       borderRadius: 8,
-                      cursor: "pointer",
+                      cursor: 'pointer',
                       border: `1px solid ${themeVars.borderSecondary}`,
-                      transition: "all 0.2s"
+                      transition: 'all 0.2s'
                     }}
-                    onMouseEnter={(e) => {
+                    onMouseEnter={e => {
                       e.currentTarget.style.background = themeVars.hoverBg
                       e.currentTarget.style.borderColor = themeVars.primary
                     }}
-                    onMouseLeave={(e) => {
+                    onMouseLeave={e => {
                       e.currentTarget.style.background = themeVars.bgSection
                       e.currentTarget.style.borderColor = themeVars.borderSecondary
                     }}
                   >
-                    <div style={{
-                      fontSize: 14,
-                      fontWeight: 500,
-                      marginBottom: 6,
-                      color: themeVars.text
-                    }}>
+                    <div
+                      style={{
+                        fontSize: 14,
+                        fontWeight: 500,
+                        marginBottom: 6,
+                        color: themeVars.text
+                      }}
+                    >
                       <Highlighter
                         searchWords={[searchKeyword]}
                         autoEscape
@@ -738,7 +753,7 @@ const CommonPrompts = (props: CommonPromptsProps) => {
                         highlightStyle={{
                           backgroundColor: themeVars.primary,
                           color: themeVars.highlightText,
-                          padding: "0 2px",
+                          padding: '0 2px',
                           borderRadius: 2
                         }}
                       />
@@ -746,21 +761,23 @@ const CommonPrompts = (props: CommonPromptsProps) => {
                         <Tag
                           icon={<PushpinFilled />}
                           color="gold"
-                          style={{ fontSize: 11, padding: "0 4px", marginLeft: 8 }}
+                          style={{ fontSize: 11, padding: '0 4px', marginLeft: 8 }}
                         >
                           置顶
                         </Tag>
                       )}
                     </div>
-                    <div style={{
-                      fontSize: 12,
-                      color: themeVars.textSecondary,
-                      lineHeight: 1.5,
-                      display: "-webkit-box",
-                      WebkitLineClamp: 2,
-                      WebkitBoxOrient: "vertical",
-                      overflow: "hidden"
-                    }}>
+                    <div
+                      style={{
+                        fontSize: 12,
+                        color: themeVars.textSecondary,
+                        lineHeight: 1.5,
+                        display: '-webkit-box',
+                        WebkitLineClamp: 2,
+                        WebkitBoxOrient: 'vertical',
+                        overflow: 'hidden'
+                      }}
+                    >
                       <Highlighter
                         searchWords={[searchKeyword]}
                         autoEscape
@@ -768,7 +785,7 @@ const CommonPrompts = (props: CommonPromptsProps) => {
                         highlightStyle={{
                           backgroundColor: themeVars.primary,
                           color: themeVars.highlightText,
-                          padding: "0 2px",
+                          padding: '0 2px',
                           borderRadius: 2
                         }}
                       />
@@ -801,9 +818,9 @@ const CommonPrompts = (props: CommonPromptsProps) => {
 
         .prompt-item:hover {
           background: ${darkMode ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.03)'} !important;
-          box-shadow: ${darkMode
-            ? '0 6px 16px rgba(0, 0, 0, 0.4)'
-            : '0 6px 16px rgba(0, 0, 0, 0.12)'} !important;
+          box-shadow: ${
+            darkMode ? '0 6px 16px rgba(0, 0, 0, 0.4)' : '0 6px 16px rgba(0, 0, 0, 0.12)'
+          } !important;
         }
 
         /* 拖拽时的半透明占位符 */
@@ -824,9 +841,9 @@ const CommonPrompts = (props: CommonPromptsProps) => {
         .sortable-drag {
           opacity: 1 !important;
           transform: rotate(2deg) scale(1.02) !important;
-          box-shadow: ${darkMode
-            ? '0 12px 32px rgba(0, 0, 0, 0.6)'
-            : '0 12px 32px rgba(0, 0, 0, 0.25)'} !important;
+          box-shadow: ${
+            darkMode ? '0 12px 32px rgba(0, 0, 0, 0.6)' : '0 12px 32px rgba(0, 0, 0, 0.25)'
+          } !important;
           background: ${darkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)'} !important;
           border: 1px solid ${themeVars.primary}40 !important;
           z-index: 9999 !important;
