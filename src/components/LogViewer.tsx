@@ -840,7 +840,7 @@ const LogViewer = (props: LogViewerProps) => {
                             }}
                           >
                             <Text type="secondary" style={{ fontSize: 11 }}>
-                              1 条 AI 回复
+                              查看该 Prompt 的完整回复链路
                             </Text>
                             <Space size={8}>
                               {isClickable && (

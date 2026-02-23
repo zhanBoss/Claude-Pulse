@@ -80,7 +80,7 @@ export interface FullConversation {
     messageId: string
     snapshotMessageId?: string
     previewMessageId?: string
-    timestamp: string
+    timestamp: string | number
     files: string[] // 文件路径列表
     isSnapshotUpdate?: boolean
     changeType?: 'added' | 'modified' | 'deleted'
@@ -290,13 +290,19 @@ export interface ElectronAPI {
     sessionId: string,
     messageId: string,
     filePath: string
-  ) => Promise<{ success: boolean; content?: string; isNewFileSnapshot?: boolean; error?: string }>
+  ) => Promise<{
+    success: boolean
+    content?: string
+    isNewFileSnapshot?: boolean
+    contentSource?: 'snapshot' | 'git-fallback' | 'new-file-empty'
+    error?: string
+  }>
   // 从快照恢复文件
   restoreFileFromSnapshot: (
     sessionId: string,
     messageId: string,
     filePath: string
-  ) => Promise<{ success: boolean; error?: string }>
+  ) => Promise<{ success: boolean; restoredFrom?: 'snapshot' | 'git-fallback'; error?: string }>
   getAppSettings: () => Promise<AppSettings>
   saveAppSettings: (settings: AppSettings) => Promise<{ success: boolean; error?: string }>
   // Token 价格配置

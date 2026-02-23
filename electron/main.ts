@@ -279,6 +279,22 @@ const shouldIncludeConversationDisplay = (display: unknown): boolean => {
   return !isInternalPlaceholderDisplay(normalized)
 }
 
+const normalizeTimestampMs = (ts: unknown): number => {
+  if (typeof ts === 'number') {
+    return ts < 1e12 ? ts * 1000 : ts
+  }
+  if (typeof ts === 'string') {
+    const trimmed = ts.trim()
+    if (/^\d+$/.test(trimmed)) {
+      const num = Number(trimmed)
+      return num < 1e12 ? num * 1000 : num
+    }
+    const parsed = new Date(trimmed).getTime()
+    if (!Number.isNaN(parsed)) return parsed
+  }
+  return Date.now()
+}
+
 const findGitRoot = (targetPath: string): string | null => {
   let current = path.resolve(targetPath)
   if (!fs.existsSync(current) || !fs.statSync(current).isDirectory()) {
@@ -1498,7 +1514,7 @@ ipcMain.handle('read-full-conversation', async (_, sessionId: string, project: s
       messageId: string
       snapshotMessageId?: string
       previewMessageId?: string
-      timestamp: string
+      timestamp: number
       files: string[]
       isSnapshotUpdate?: boolean
       changeType?: 'added' | 'modified' | 'deleted'
@@ -1520,7 +1536,7 @@ ipcMain.handle('read-full-conversation', async (_, sessionId: string, project: s
       messageId: string
       snapshotMessageId?: string
       previewMessageId?: string
-      timestamp: string
+      timestamp: number
       files: string[]
       isSnapshotUpdate?: boolean
       changeType?: 'added' | 'modified' | 'deleted'
@@ -1603,7 +1619,7 @@ ipcMain.handle('read-full-conversation', async (_, sessionId: string, project: s
       try {
         const entry = JSON.parse(line)
         const currentMessageId = resolveMessageId(entry)
-        const currentTimestamp = String(entry.timestamp || Date.now())
+        const currentTimestamp = normalizeTimestampMs(entry.timestamp)
 
         // 获取消息子类型
         const entryType = entry.type || 'unknown'
@@ -1623,7 +1639,7 @@ ipcMain.handle('read-full-conversation', async (_, sessionId: string, project: s
             typeof snapshot.messageId === 'string' ? snapshot.messageId : undefined
           if (fileEntries.length > 0) {
             // 安全处理 timestamp：确保它是字符串或数字
-            let timestampValue: string | number = ''
+            let timestampValue: unknown = ''
             if (snapshot.timestamp) {
               if (typeof snapshot.timestamp === 'string' || typeof snapshot.timestamp === 'number') {
                 timestampValue = snapshot.timestamp
@@ -1637,6 +1653,10 @@ ipcMain.handle('read-full-conversation', async (_, sessionId: string, project: s
             }
 
             for (const [filePath, fileMetadata] of fileEntries) {
+              const normalizedFilePath = path.normalize(filePath)
+              const absoluteFilePath = path.isAbsolute(filePath)
+                ? normalizedFilePath
+                : path.normalize(path.resolve(project, filePath))
               const changeType =
                 typeof fileMetadata === 'object' &&
                 fileMetadata !== null &&
@@ -1647,15 +1667,16 @@ ipcMain.handle('read-full-conversation', async (_, sessionId: string, project: s
 
               if (snapshotEntryMessageId) {
                 latestSnapshotMessageByFile.set(filePath, snapshotEntryMessageId)
-                latestSnapshotMessageByFile.set(path.normalize(filePath), snapshotEntryMessageId)
+                latestSnapshotMessageByFile.set(normalizedFilePath, snapshotEntryMessageId)
+                latestSnapshotMessageByFile.set(absoluteFilePath, snapshotEntryMessageId)
               }
 
               pushFileEdit({
                 messageId: snapshotEntryMessageId,
                 snapshotMessageId: snapshotBaseMessageId,
                 previewMessageId: snapshotEntryMessageId || undefined,
-                timestamp: String(timestampValue),
-                files: [filePath],
+                timestamp: normalizeTimestampMs(timestampValue),
+                files: [absoluteFilePath],
                 isSnapshotUpdate: entry.isSnapshotUpdate || false,
                 changeType,
                 hasSnapshot: !!snapshotEntryMessageId
@@ -1752,7 +1773,7 @@ ipcMain.handle('read-full-conversation', async (_, sessionId: string, project: s
           messages.push({
             role: entry.message.role,
             content: messageContent,
-            timestamp: entry.timestamp || Date.now(),
+            timestamp: currentTimestamp,
             messageId: currentMessageId || undefined,
             subType: entryType
           })
@@ -1797,7 +1818,7 @@ ipcMain.handle('read-full-conversation', async (_, sessionId: string, project: s
           messages.push({
             role: entry.response.role,
             content: responseContent,
-            timestamp: entry.timestamp || Date.now(),
+            timestamp: currentTimestamp,
             messageId: currentMessageId || undefined,
             subType: entryType,
             model,
@@ -1878,26 +1899,24 @@ ipcMain.handle(
 
                   if (fs.existsSync(backupFilePath)) {
                     const backupContent = fs.readFileSync(backupFilePath, 'utf-8')
-                    return { success: true, content: backupContent }
+                    return { success: true, content: backupContent, contentSource: 'snapshot' }
                   } else {
                     return { success: false, error: '备份文件不存在' }
                   }
                 } else if (typeof fileMetadata === 'string') {
                   // 旧版本可能直接存储字符串内容
-                  return { success: true, content: fileMetadata }
+                  return { success: true, content: fileMetadata, contentSource: 'snapshot' }
                 } else if (
                   typeof fileMetadata === 'object' &&
                   'backupFileName' in fileMetadata &&
                   !fileMetadata.backupFileName
                 ) {
-                  // 新建文件场景：创建前不存在备份，返回当前文件内容用于预览，并标记为新增快照
-                  const currentContent = fs.existsSync(filePath)
-                    ? fs.readFileSync(filePath, 'utf-8')
-                    : ''
+                  // 新建文件场景：创建前不存在备份，快照语义是「该时刻前文件不存在」
                   return {
                     success: true,
-                    content: currentContent,
-                    isNewFileSnapshot: true
+                    content: '',
+                    isNewFileSnapshot: true,
+                    contentSource: 'new-file-empty'
                   }
                 } else {
                   return { success: false, error: '无效的文件快照格式' }
@@ -1913,7 +1932,7 @@ ipcMain.handle(
       // 删除文件兜底：若快照不存在，尝试从 Git HEAD 读取历史内容
       const gitFallbackContent = getGitFallbackContent(filePath)
       if (gitFallbackContent !== null) {
-        return { success: true, content: gitFallbackContent }
+        return { success: true, content: gitFallbackContent, contentSource: 'git-fallback' }
       }
 
       return { success: false, error: '未找到对应的文件快照' }
@@ -1999,7 +2018,7 @@ ipcMain.handle(
         // 删除文件兜底：快照缺失时从 Git HEAD 恢复
         const gitRestoreResult = restorePathFromGitHead(filePath)
         if (gitRestoreResult.success) {
-          return { success: true }
+          return { success: true, restoredFrom: 'git-fallback' }
         }
         return { success: false, error: gitRestoreResult.error || '未找到对应的文件快照内容' }
       }
@@ -2011,7 +2030,7 @@ ipcMain.handle(
           fs.copyFileSync(filePath, backupPath)
           fs.unlinkSync(filePath)
         }
-        return { success: true }
+        return { success: true, restoredFrom: 'snapshot' }
       }
 
       // 检查目标文件所在目录是否存在
@@ -2029,7 +2048,7 @@ ipcMain.handle(
       // 写入快照内容
       fs.writeFileSync(filePath, snapshotContent, 'utf-8')
 
-      return { success: true }
+      return { success: true, restoredFrom: 'snapshot' }
     } catch (error) {
       console.error('恢复文件失败:', error)
       return { success: false, error: (error as Error).message }
@@ -2550,13 +2569,20 @@ ${conversations}`
 // 流式 AI 总结功能
 ipcMain.handle(
   'summarize-records-stream',
-  async (event, request: { records: any[]; type: 'brief' | 'detailed' }) => {
+  async (
+    event,
+    request: { records: any[]; type: 'brief' | 'detailed'; requestId?: string }
+  ) => {
     try {
+      const requestId = request.requestId || `summary-${Date.now()}`
       // 获取 AI 总结设置（使用独立的 aiSummary 配置）
       const aiSummarySettings = store.get('aiSummary') as any
 
       if (!aiSummarySettings || !aiSummarySettings.enabled) {
-        event.sender.send('summary-stream-error', 'AI 总结功能未启用，请先在设置中启用')
+        event.sender.send('summary-stream-error', {
+          requestId,
+          error: 'AI 总结功能未启用，请先在设置中启用'
+        })
         return
       }
 
@@ -2570,15 +2596,15 @@ ipcMain.handle(
           deepseek: 'DeepSeek',
           gemini: 'Google Gemini'
         }
-        event.sender.send(
-          'summary-stream-error',
-          `未配置 ${providerNames[provider as 'groq' | 'deepseek' | 'gemini'] || 'AI'} API Key，请前往设置页面配置`
-        )
+        event.sender.send('summary-stream-error', {
+          requestId,
+          error: `未配置 ${providerNames[provider as 'groq' | 'deepseek' | 'gemini'] || 'AI'} API Key，请前往设置页面配置`
+        })
         return
       }
 
       if (!request.records || request.records.length === 0) {
-        event.sender.send('summary-stream-error', '没有可总结的记录')
+        event.sender.send('summary-stream-error', { requestId, error: '没有可总结的记录' })
         return
       }
 
@@ -2614,7 +2640,10 @@ ${conversations}`
 
       // Gemini 不支持流式
       if (provider === 'gemini') {
-        event.sender.send('summary-stream-error', 'Gemini 暂不支持流式输出，请使用普通总结')
+        event.sender.send('summary-stream-error', {
+          requestId,
+          error: 'Gemini 暂不支持流式输出，请使用普通总结'
+        })
         return
       }
 
@@ -2649,13 +2678,16 @@ ${conversations}`
 
       if (!response.ok) {
         await response.json().catch(() => ({}))
-        event.sender.send('summary-stream-error', `API 错误: ${response.status}`)
+        event.sender.send('summary-stream-error', {
+          requestId,
+          error: `API 错误: ${response.status}`
+        })
         return
       }
 
       // 确保 body 是 Readable stream
       if (!response.body || typeof response.body === 'string') {
-        event.sender.send('summary-stream-error', '响应格式错误')
+        event.sender.send('summary-stream-error', { requestId, error: '响应格式错误' })
         return
       }
 
@@ -2676,7 +2708,7 @@ ${conversations}`
               const data = line.slice(6).trim()
 
               if (data === '[DONE]') {
-                event.sender.send('summary-stream-complete')
+                event.sender.send('summary-stream-complete', { requestId })
                 return
               }
 
@@ -2684,7 +2716,7 @@ ${conversations}`
                 const json = JSON.parse(data)
                 const content = json.choices?.[0]?.delta?.content
                 if (content) {
-                  event.sender.send('summary-stream-chunk', content)
+                  event.sender.send('summary-stream-chunk', { requestId, chunk: content })
                 }
               } catch (e) {
                 // 忽略解析错误
@@ -2693,13 +2725,19 @@ ${conversations}`
           }
         })
         .on('end', () => {
-          event.sender.send('summary-stream-complete')
+          event.sender.send('summary-stream-complete', { requestId })
         })
         .on('error', (error: Error) => {
-          event.sender.send('summary-stream-error', error.message || '流式读取失败')
+          event.sender.send('summary-stream-error', {
+            requestId,
+            error: error.message || '流式读取失败'
+          })
         })
     } catch (error: any) {
-      event.sender.send('summary-stream-error', error.message || '总结失败')
+      event.sender.send('summary-stream-error', {
+        requestId: request?.requestId || `summary-${Date.now()}`,
+        error: error.message || '总结失败'
+      })
     }
   }
 )

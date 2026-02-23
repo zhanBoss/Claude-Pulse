@@ -111,6 +111,7 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
   const [filePreviewWrap, setFilePreviewWrap] = useState(false)
   const [filePreviewMode, setFilePreviewMode] = useState<'source' | 'preview'>('source')
   const [isNewFileSnapshot, setIsNewFileSnapshot] = useState(false)
+  const [filePreviewSource, setFilePreviewSource] = useState<'snapshot' | 'git-fallback' | 'new-file-empty'>('snapshot')
   const [previewChangeType, setPreviewChangeType] = useState<'added' | 'modified' | 'deleted'>('modified')
   const [fileChangeFilter, setFileChangeFilter] = useState<'all' | 'added' | 'modified' | 'deleted'>('all')
   const [deletedDetailVisible, setDeletedDetailVisible] = useState(false)
@@ -118,7 +119,7 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
     filePath: string
     messageId: string
     previewMessageId: string
-    timestamp: string
+    timestamp: string | number
     deletedTargetType: 'file' | 'directory'
   } | null>(null)
 
@@ -273,7 +274,12 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
   const toEpochMs = (ts: string | number | undefined): number => {
     if (!ts) return 0
     if (typeof ts === 'number') return ts < 1e12 ? ts * 1000 : ts
-    const ms = new Date(ts).getTime()
+    const trimmed = ts.trim()
+    if (/^\d+$/.test(trimmed)) {
+      const num = Number(trimmed)
+      return num < 1e12 ? num * 1000 : num
+    }
+    const ms = new Date(trimmed).getTime()
     return isNaN(ms) ? 0 : ms
   }
 
@@ -382,7 +388,7 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
     messageId: string
     snapshotMessageId?: string
     previewMessageId: string
-    timestamp: string
+    timestamp: string | number
     isSnapshotUpdate: boolean
     changeType: 'added' | 'modified' | 'deleted'
     deletedTargetType?: 'file' | 'directory'
@@ -405,8 +411,10 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
       matchedEdits = matchedEdits.filter(
         edit =>
           roundMessageIds.has(edit.messageId) ||
-          (edit.snapshotMessageId ? roundMessageIds.has(edit.snapshotMessageId) : false) ||
-          (edit.previewMessageId ? roundMessageIds.has(edit.previewMessageId) : false)
+          (edit.previewMessageId ? roundMessageIds.has(edit.previewMessageId) : false) ||
+          (!edit.messageId && !edit.previewMessageId && edit.snapshotMessageId
+            ? roundMessageIds.has(edit.snapshotMessageId)
+            : false)
       )
     }
 
@@ -493,19 +501,23 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
     setFileDiffResult([])
     setFileDiffHasChanges(true)
     setIsNewFileSnapshot(false)
+    setFilePreviewSource('snapshot')
     setFilePreviewMode(getLanguageByFilePath(filePath) === 'markdown' ? 'preview' : 'source')
     try {
       const result = await window.electronAPI.readFileSnapshotContent(sessionId, messageId, filePath)
       if (result.success && result.content !== undefined) {
         setFilePreviewContent(result.content)
         setIsNewFileSnapshot(!!result.isNewFileSnapshot)
+        setFilePreviewSource(result.contentSource || 'snapshot')
       } else {
         setFilePreviewContent(`// 加载失败: ${result.error || '未知错误'}`)
         setIsNewFileSnapshot(false)
+        setFilePreviewSource('snapshot')
       }
     } catch (error) {
       setFilePreviewContent(`// 加载失败: ${(error as Error).message}`)
       setIsNewFileSnapshot(false)
+      setFilePreviewSource('snapshot')
     } finally {
       setFilePreviewLoading(false)
     }
@@ -557,6 +569,11 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
         <div>
           <p>{previewChangeType === 'deleted' ? '将恢复已删除文件到原始路径：' : '将从该 Prompt 的文件快照恢复到原始路径：'}</p>
           <p style={{ fontFamily: 'monospace', fontSize: 12 }}>{previewFilePath}</p>
+          {filePreviewSource === 'git-fallback' && (
+            <p style={{ color: themeVars.warning, marginTop: 8 }}>
+              当前无可用快照，将尝试从 Git HEAD 恢复。
+            </p>
+          )}
           <p style={{ color: themeVars.warning, marginTop: 8 }}>
             注意：当前文件会先自动备份（.backup-时间戳），再写入快照内容。
           </p>
@@ -572,7 +589,11 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
             previewFilePath
           )
           if (result.success) {
-            message.success('文件恢复成功')
+            if (result.restoredFrom === 'git-fallback') {
+              message.success('文件已从 Git HEAD 恢复')
+            } else {
+              message.success('文件已按快照恢复')
+            }
           } else {
             message.error(`恢复失败: ${result.error || '未知错误'}`)
           }
@@ -603,7 +624,11 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
         deletedDetail.filePath
       )
       if (result.success) {
-        message.success(deletedDetail.deletedTargetType === 'directory' ? '目录恢复成功' : '文件恢复成功')
+        if (result.restoredFrom === 'git-fallback') {
+          message.success(deletedDetail.deletedTargetType === 'directory' ? '目录已从 Git HEAD 恢复' : '文件已从 Git HEAD 恢复')
+        } else {
+          message.success(deletedDetail.deletedTargetType === 'directory' ? '目录已按快照恢复' : '文件已按快照恢复')
+        }
       } else {
         message.error(`恢复失败: ${result.error || '未知错误'}`)
       }
@@ -1184,7 +1209,7 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
                   }
                   disabled={item.changeType !== 'deleted' && !item.hasSnapshot}
                 >
-                  {isDeletedDirectory ? '查看详情' : '查看快照'}
+                  {isDeletedDirectory ? '查看详情' : (item.changeType === 'deleted' && !item.hasSnapshot ? 'Git 预览' : '查看快照')}
                 </Button>
               </Space>
             </div>
@@ -1202,6 +1227,9 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
               )}
               {item.changeType === 'deleted' && (
                 <Tag color="error" style={{ fontSize: 10 }}>已删除</Tag>
+              )}
+              {item.changeType === 'deleted' && !item.hasSnapshot && (
+                <Tag color="gold" style={{ fontSize: 10 }}>无快照(回退 Git)</Tag>
               )}
               <Tag style={{ fontSize: 10 }}>
                 {toEpochMs(item.timestamp) > 0
@@ -1769,6 +1797,7 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
         setFileDiffResult([])
         setFileDiffHasChanges(true)
         setIsNewFileSnapshot(false)
+        setFilePreviewSource('snapshot')
         setPreviewChangeType('modified')
       }}
       width={900}
@@ -1814,6 +1843,12 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
       {!filePreviewLoading && !fileDiffLoading && (
         <div style={{ marginBottom: 8, display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
           <Space size={8}>
+            {filePreviewSource === 'git-fallback' && (
+              <Tag color="gold" style={{ marginInlineEnd: 2 }}>Git HEAD 回退内容</Tag>
+            )}
+            {filePreviewSource === 'new-file-empty' && (
+              <Tag color="cyan" style={{ marginInlineEnd: 2 }}>该时刻前文件不存在</Tag>
+            )}
             {isNewFileSnapshot && (
               <Tag color="success" style={{ marginInlineEnd: 2 }}>新增文件</Tag>
             )}

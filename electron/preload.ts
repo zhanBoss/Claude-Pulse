@@ -92,23 +92,44 @@ contextBridge.exposeInMainWorld('electronAPI', {
     onComplete: () => void,
     onError: (error: string) => void
   ) => {
+    const requestId = `summary-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`
+    let cleanedUp = false
+    const cleanup = () => {
+      if (cleanedUp) return
+      cleanedUp = true
+      ipcRenderer.removeListener('summary-stream-chunk', chunkListener)
+      ipcRenderer.removeListener('summary-stream-complete', completeListener)
+      ipcRenderer.removeListener('summary-stream-error', errorListener)
+    }
+
     // 注册流式响应监听器
-    const chunkListener = (_: any, chunk: string) => onChunk(chunk)
-    const completeListener = () => onComplete()
-    const errorListener = (_: any, error: string) => onError(error)
+    const chunkListener = (_: any, payload: any) => {
+      if (payload && typeof payload === 'object' && payload.requestId && payload.requestId !== requestId) return
+      const chunk = typeof payload === 'string' ? payload : payload?.chunk
+      if (typeof chunk === 'string') {
+        onChunk(chunk)
+      }
+    }
+    const completeListener = (_: any, payload?: any) => {
+      if (payload && typeof payload === 'object' && payload.requestId && payload.requestId !== requestId) return
+      cleanup()
+      onComplete()
+    }
+    const errorListener = (_: any, payload: any) => {
+      if (payload && typeof payload === 'object' && payload.requestId && payload.requestId !== requestId) return
+      cleanup()
+      const error = typeof payload === 'string' ? payload : payload?.error
+      onError(typeof error === 'string' ? error : '总结失败')
+    }
 
     ipcRenderer.on('summary-stream-chunk', chunkListener)
     ipcRenderer.once('summary-stream-complete', completeListener)
     ipcRenderer.once('summary-stream-error', errorListener)
 
     // 发起请求
-    return ipcRenderer.invoke('summarize-records-stream', request).then(() => {
-      // 清理监听器
-      return () => {
-        ipcRenderer.removeListener('summary-stream-chunk', chunkListener)
-        ipcRenderer.removeListener('summary-stream-complete', completeListener)
-        ipcRenderer.removeListener('summary-stream-error', errorListener)
-      }
+    return ipcRenderer.invoke('summarize-records-stream', { ...request, requestId }).catch(error => {
+      cleanup()
+      throw error
     })
   },
 
