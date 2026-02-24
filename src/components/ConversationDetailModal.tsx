@@ -30,7 +30,8 @@ import {
   LoadingOutlined,
   EyeOutlined,
   SwapOutlined,
-  RollbackOutlined
+  RollbackOutlined,
+  ReloadOutlined
 } from '@ant-design/icons'
 
 const { Text } = Typography
@@ -434,6 +435,10 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
 
     const files: RoundChangedFile[] = []
     for (const edit of matchedEdits) {
+      // 过滤：只统计实际变更（isSnapshotUpdate: true）或删除操作，排除初始快照
+      const isActualChange = edit.isSnapshotUpdate || edit.changeType === 'deleted'
+      if (!isActualChange) continue
+
       for (const filePath of edit.files) {
         files.push({
           filePath,
@@ -1687,6 +1692,19 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
           <span>{pageView === 'list' ? 'Prompt 列表' : 'Prompt 详情'}</span>
           {totalRounds > 0 && (
             <Tag style={{ fontSize: 11 }}>{totalRounds} 轮对话</Tag>
+          )}
+          {pageView === 'detail' && (
+            <Button
+              size="small"
+              icon={loading ? <LoadingOutlined /> : <ReloadOutlined />}
+              onClick={() => {
+                loadConversation()
+                loadSessionResources()
+              }}
+              disabled={loading}
+            >
+              刷新
+            </Button>
           )}
         </Space>
       }

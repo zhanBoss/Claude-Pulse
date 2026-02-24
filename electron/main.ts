@@ -732,25 +732,27 @@ function startHistoryMonitor() {
   stopHistoryMonitor()
 
   if (!fs.existsSync(HISTORY_FILE)) {
-    // 文件不存在时也启动轮询，等待文件创建
+    console.log('[监控] history.jsonl 不存在，启动轮询等待文件创建')
     pollingTimer = setInterval(() => {
       if (fs.existsSync(HISTORY_FILE)) {
-        lastFileSize = 0 // 从头开始读取
+        console.log('[监控] 检测到 history.jsonl 已创建')
+        lastFileSize = 0
         readNewLines()
       }
     }, POLLING_INTERVAL_MS)
     return
   }
 
-  // 获取当前文件大小
   const stats = fs.statSync(HISTORY_FILE)
   lastFileSize = stats.size
+  console.log(`[监控] 启动文件监控，当前文件大小: ${lastFileSize} 字节`)
 
   pollingTimer = setInterval(() => {
     try {
       if (!fs.existsSync(HISTORY_FILE)) return
       const currentStats = fs.statSync(HISTORY_FILE)
       if (currentStats.size > lastFileSize) {
+        console.log(`[监控] 检测到文件变化: ${lastFileSize} -> ${currentStats.size}`)
         readNewLines()
       }
     } catch (error) {
@@ -781,6 +783,8 @@ function readNewLines() {
       return
     }
 
+    console.log(`[读取] 开始读取新行，范围: ${lastFileSize} - ${currentSize}`)
+
     const stream = fs.createReadStream(HISTORY_FILE, {
       start: lastFileSize,
       end: currentSize,
@@ -788,6 +792,7 @@ function readNewLines() {
     })
 
     let buffer = ''
+    let lineCount = 0
     stream.on('data', (chunk: string | Buffer) => {
       buffer += chunk.toString()
       const lines = buffer.split('\n')
@@ -795,30 +800,37 @@ function readNewLines() {
 
       lines.forEach(line => {
         if (line.trim()) {
+          lineCount++
           try {
             const record = JSON.parse(line)
             processRecord(record)
           } catch (e) {
-            console.error('Failed to parse line:', e)
+            console.error('[读取] 解析行失败:', e)
           }
         }
       })
     })
 
     stream.on('end', () => {
+      console.log(`[读取] 完成，共处理 ${lineCount} 行`)
       lastFileSize = currentSize
     })
   } catch (error) {
-    console.error('Error reading new lines:', error)
+    console.error('[读取] 读取新行失败:', error)
   }
 }
 
 // 处理对话记录（不再保存到文件，直接发送到渲染进程）
 async function processRecord(record: any) {
   try {
+    console.log(`[处理] 收到记录，display: ${record?.display?.substring(0, 50)}...`)
+
     if (!shouldIncludeConversationDisplay(record?.display)) {
+      console.log('[处理] 记录被过滤，跳过')
       return
     }
+
+    console.log('[处理] 记录通过过滤，开始处理')
 
     // 处理粘贴内容：读取实际内容
     const expandedPastedContents: Record<string, any> = {}
@@ -869,10 +881,13 @@ async function processRecord(record: any) {
     }
 
     if (mainWindow) {
+      console.log('[IPC] 发送记录到渲染进程')
       mainWindow.webContents.send('new-record', enrichedRecord)
+    } else {
+      console.log('[IPC] mainWindow 不存在，无法发送')
     }
   } catch (error) {
-    console.error('Failed to process record:', error)
+    console.error('[处理] 处理记录失败:', error)
   }
 }
 
