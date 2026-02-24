@@ -396,50 +396,81 @@ const ConversationDetailModal = (props: ConversationDetailModalProps) => {
     hasSnapshot: boolean
   }
 
+  /**
+   * 从轮次消息中收集所有 messageIds
+   */
+  const collectRoundMessageIds = (round: ConversationRound): Set<string> => {
+    const ids = new Set<string>()
+    const messages = [round.userMessage, ...round.assistantMessages]
+    for (const msg of messages) {
+      if (msg.messageId) {
+        ids.add(msg.messageId)
+      }
+    }
+    return ids
+  }
+
+  /**
+   * 使用 ID 精确匹配 fileEdits
+   */
+  const matchEditsByIds = (
+    fileEdits: FullConversation['fileEdits'],
+    messageIds: Set<string>
+  ): NonNullable<FullConversation['fileEdits']> => {
+    if (!fileEdits || messageIds.size === 0) return []
+    
+    return fileEdits.filter(
+      edit =>
+        edit.files.length > 0 &&
+        (messageIds.has(edit.messageId) ||
+          (edit.previewMessageId && messageIds.has(edit.previewMessageId)) ||
+          (edit.snapshotMessageId && messageIds.has(edit.snapshotMessageId)))
+    )
+  }
+
+  /**
+   * 使用时间窗口匹配 fileEdits（兜底策略）
+   */
+  const matchEditsByTimeWindow = (
+    fileEdits: FullConversation['fileEdits'],
+    startTime: number,
+    endTime: number
+  ): NonNullable<FullConversation['fileEdits']> => {
+    if (!fileEdits) return []
+    
+    return fileEdits.filter(edit => {
+      if (edit.files.length === 0) return false
+      const editTime = toEpochMs(edit.timestamp)
+      return editTime >= startTime && editTime < endTime
+    })
+  }
+
   const currentRoundChangedFiles = useMemo((): RoundChangedFile[] => {
     if (!conversation?.fileEdits || !round) return []
 
-    const roundMessageIds = new Set<string>()
-    const roundMessages = [round.userMessage, ...round.assistantMessages]
-    for (const msg of roundMessages) {
-      if (msg.messageId) {
-        roundMessageIds.add(msg.messageId)
-      }
-    }
+    const roundMessageIds = collectRoundMessageIds(round)
+    let matchedEdits = matchEditsByIds(conversation.fileEdits, roundMessageIds)
 
-    let matchedEdits = conversation.fileEdits.filter(edit => edit.files.length > 0)
-    if (roundMessageIds.size > 0) {
-      matchedEdits = matchedEdits.filter(
-        edit =>
-          roundMessageIds.has(edit.messageId) ||
-          (edit.previewMessageId ? roundMessageIds.has(edit.previewMessageId) : false) ||
-          (!edit.messageId && !edit.previewMessageId && edit.snapshotMessageId
-            ? roundMessageIds.has(edit.snapshotMessageId)
-            : false)
-      )
-    }
-
-    // 仅在老数据缺失 messageId 时使用时间窗口兜底，避免把上一轮变更串到当前轮
-    if (roundMessageIds.size === 0) {
+    // 兜底策略：当 ID 精确匹配为空时，退化到时间窗口匹配
+    if (matchedEdits.length === 0) {
       const currentRoundStart = toEpochMs(round.timestamp as unknown as string | number)
       const nextRound = rounds[currentRound + 1]
       const nextRoundStart = nextRound
         ? toEpochMs(nextRound.timestamp as unknown as string | number)
         : Number.MAX_SAFE_INTEGER
 
-      matchedEdits = conversation.fileEdits.filter(edit => {
-        const editTime = toEpochMs(edit.timestamp)
-        return editTime >= currentRoundStart && editTime < nextRoundStart
-      })
+      matchedEdits = matchEditsByTimeWindow(conversation.fileEdits, currentRoundStart, nextRoundStart)
     }
 
     const files: RoundChangedFile[] = []
+    const seenFiles = new Set<string>() // 同一轮次，同一文件只显示最新的一条记录
+    
     for (const edit of matchedEdits) {
-      // 过滤：只统计实际变更（isSnapshotUpdate: true）或删除操作，排除初始快照
-      const isActualChange = edit.isSnapshotUpdate || edit.changeType === 'deleted'
-      if (!isActualChange) continue
-
       for (const filePath of edit.files) {
+        // 去重：同一文件路径在当前轮只显示一次（最新的）
+        if (seenFiles.has(filePath)) continue
+        seenFiles.add(filePath)
+        
         files.push({
           filePath,
           messageId: edit.messageId,

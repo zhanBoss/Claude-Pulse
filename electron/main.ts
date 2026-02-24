@@ -1653,25 +1653,25 @@ ipcMain.handle('read-full-conversation', async (_, sessionId: string, project: s
           const snapshotBaseMessageId =
             typeof snapshot.messageId === 'string' ? snapshot.messageId : undefined
           if (fileEntries.length > 0) {
-            // 安全处理 timestamp：确保它是字符串或数字
-            let timestampValue: unknown = ''
-            if (snapshot.timestamp) {
-              if (typeof snapshot.timestamp === 'string' || typeof snapshot.timestamp === 'number') {
-                timestampValue = snapshot.timestamp
-              } else if (typeof snapshot.timestamp === 'object' && 'timestamp' in snapshot.timestamp) {
-                // 如果是对象且包含 timestamp 字段，提取该字段
-                timestampValue = snapshot.timestamp.timestamp
-              } else {
-                // 其他情况使用 entry.timestamp 或当前时间
-                timestampValue = entry.timestamp || Date.now()
-              }
-            }
-
             for (const [filePath, fileMetadata] of fileEntries) {
               const normalizedFilePath = path.normalize(filePath)
               const absoluteFilePath = path.isAbsolute(filePath)
                 ? normalizedFilePath
                 : path.normalize(path.resolve(project, filePath))
+              const backupTime =
+                typeof fileMetadata === 'object' &&
+                fileMetadata !== null &&
+                'backupTime' in fileMetadata
+                  ? (fileMetadata as { backupTime?: string | number }).backupTime
+                  : undefined
+              const snapshotTimestampValue =
+                typeof snapshot.timestamp === 'string' || typeof snapshot.timestamp === 'number'
+                  ? snapshot.timestamp
+                  : undefined
+              // 记录当前快照事件时间，避免使用历史 base snapshot 时间导致轮次关联失败
+              const fileEditTimestamp = normalizeTimestampMs(
+                backupTime || entry.timestamp || currentTimestamp || snapshotTimestampValue || Date.now()
+              )
               const changeType =
                 typeof fileMetadata === 'object' &&
                 fileMetadata !== null &&
@@ -1690,7 +1690,7 @@ ipcMain.handle('read-full-conversation', async (_, sessionId: string, project: s
                 messageId: snapshotEntryMessageId,
                 snapshotMessageId: snapshotBaseMessageId,
                 previewMessageId: snapshotEntryMessageId || undefined,
-                timestamp: normalizeTimestampMs(timestampValue),
+                timestamp: fileEditTimestamp,
                 files: [absoluteFilePath],
                 isSnapshotUpdate: entry.isSnapshotUpdate || false,
                 changeType,

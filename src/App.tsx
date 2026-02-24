@@ -80,7 +80,6 @@ function App() {
 
     // 只展示打开软件后的实时记录，不加载历史数据
     const cleanup = window.electronAPI.onNewRecord(record => {
-      console.log('[渲染进程] 收到新记录:', record)
       setRecords(prev => [...prev, record])
     })
 
