@@ -2,6 +2,26 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2.0.2] - 2026-02-24
+
+### Fixed
+
+- 修复 Prompt 详情"变更文件"显示数量为 0 的问题
+  - 优化文件编辑记录与轮次的关联匹配策略
+  - 修复 `fileEdits` 时间戳使用历史基线时间的问题，改为使用真实编辑时间
+  - 移除过于严格的 `isSnapshotUpdate` 过滤条件
+  - 新增时间窗口兜底机制，确保老数据和边缘情况都能正确显示
+- 优化变更文件匹配逻辑
+  - 支持 `messageId`、`previewMessageId`、`snapshotMessageId` 三路 ID 匹配
+  - 同一轮次中同一文件去重，只显示最新记录
+  - 提取辅助函数，提升代码可读性和可维护性
+
+### Technical
+
+- 重构 `currentRoundChangedFiles` 计算逻辑，提取独立的匹配函数
+- 增强 TypeScript 类型安全，使用 `NonNullable` 明确返回类型
+- 优化主进程 `fileEditTimestamp` 计算，优先级：`backupTime` > `entry.timestamp` > `snapshot.timestamp`
+
 ## [2.0.1] - 2026-02-13
 
 ### Added
